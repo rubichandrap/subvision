@@ -1,0 +1,57 @@
+# Binaries
+/subvision
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Output folders
+/app/tmp/
+tmp/
+
+# Dependency directories (vendor)
+/vendor/
+
+# Go build cache
+*.test
+*.out
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Environment files (do not commit secrets)
+.env
+.env.*
+!.env.example
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Docker artifacts
+*.pid
+
+# MinIO data (if mapped locally)
+minio-data/
+
+# Node modules (if any JS/TS scripts or hooks are added)
+node_modules/
+
+# Coverage reports
+coverage/
+*.coverprofile
+
+# Build artifacts (if any)
+dist/
+build/
+
+# Hooks output (if your hooks/scripts generate files)
+hooks/*.log
+hooks/*.tmp
