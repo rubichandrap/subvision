@@ -4,8 +4,6 @@ import (
 	"context"
 	"log"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/handler"
 	"github.com/rubichandrap/subvision/server/internal/minio"
@@ -16,7 +14,8 @@ import (
 	awsCfg "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 	"github.com/tus/tusd/v2/pkg/s3store"
 )
@@ -84,7 +83,11 @@ func main() {
 	// Set up Gin
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{env.ClientURL},
+		AllowOrigins:     []string{env.ClientURL},
+		AllowMethods:     []string{"POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "Upload-Length", "Tus-Resumable", "Upload-Metadata", "Upload-Offset"},
+		ExposeHeaders:    []string{"Location", "Upload-Offset", "Upload-Length", "Tus-Resumable"},
+		AllowCredentials: true,
 	}))
 
 	// Register tusd handler

@@ -47,21 +47,16 @@ export function UploadForm() {
     setUploading(true);
     setUploadProgress(0);
 
-    console.log(`Starting upload to ${env.serverUrl}/uploads/`);
+    console.log(`Starting upload to ${env.serverUrl}/files/`);
 
     // Create a new tus upload
     const upload = new tus.Upload(file, {
-      endpoint: `${env.serverUrl}/uploads/`, // Ensure trailing slash
-      chunkSize: 5 * 1024 * 1024, // 5MB chunks
+      endpoint: `${env.serverUrl}/files`,
       retryDelays: [0, 3000, 5000, 10000, 20000],
       metadata: {
         filename: file.name,
         filetype: file.type,
       },
-      headers: {
-        Accept: '*/*', // Accept any content type
-      },
-      overridePatchMethod: true,
       onError: (error) => {
         console.error('Upload failed:', error);
         toast({
@@ -81,12 +76,7 @@ export function UploadForm() {
 
         // Get the upload URL which contains the file ID
         let uploadUrl = upload.url;
-        console.log('Final upload URL:', uploadUrl);
-
-        // Fix the URL if it still contains tusd:8080
-        if (uploadUrl && uploadUrl.includes('tusd:8080')) {
-          uploadUrl = uploadUrl.replace('http://tusd:8080', env.serverUrl);
-        }
+        console.log('Final upload URL:', uploadUrl)
 
         const fileId = uploadUrl ? uploadUrl.split('/').pop() : null;
         const processId =
