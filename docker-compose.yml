@@ -1,6 +1,8 @@
 services:
   server:
-    build: ./server
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     container_name: subvision-server
     ports:
       - "8080:8080"
@@ -12,7 +14,9 @@ services:
       - minio
 
   client:
-    build: ./client
+    build:
+      context: ./client
+      dockerfile: Dockerfile
     container_name: subvision-client
     ports:
       - "3000:3000"

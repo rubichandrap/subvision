@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"log"
+	"path/filepath"
 
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/handler"
 	"github.com/rubichandrap/subvision/server/internal/minio"
 	"github.com/rubichandrap/subvision/server/internal/processor"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
+	"github.com/rubichandrap/subvision/server/internal/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsCfg "github.com/aws/aws-sdk-go-v2/config"
@@ -23,6 +25,14 @@ import (
 func main() {
 	env := config.LoadEnv()
 
+	tmpDir := env.TmpDir
+	videoTmpDir := filepath.Join(tmpDir, "videos")
+	audioTmpDir := filepath.Join(tmpDir, "audios")
+	subtitleTmpDir := filepath.Join(tmpDir, "subtitles")
+	outputsTmpDir := filepath.Join(tmpDir, "outputs")
+
+	utils.EnsureDirs(tmpDir, videoTmpDir, audioTmpDir, subtitleTmpDir, outputsTmpDir)
+
 	// Initialize MinIO client
 	minio.Init(env.MinioEndpoint, env.MinioAccessKey, env.MinioSecretKey)
 
@@ -30,8 +40,9 @@ func main() {
 	conn := rabbitmq.Connect(env.AmqpURL)
 	defer conn.Close()
 
-	publisher := rabbitmq.NewPublisher(conn)
-	rabbitmq.StartConsumer(conn, func(payload rabbitmq.JobPayload) {
+	uploadJobPublisher := rabbitmq.NewUploadJobPublisher(conn)
+	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)
+	uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
 		processor.ProcessUploadedFile(payload.UploadID, payload.Meta)
 	})
 
@@ -48,7 +59,7 @@ func main() {
 		})),
 	)
 	if err != nil {
-		log.Fatalf("❌ Failed to load AWS config for MinIO: %v", err)
+		log.Fatalf("Failed to load AWS config for MinIO: %v", err)
 	}
 
 	s3Client := s3.NewFromConfig(awsCfg)
@@ -59,6 +70,7 @@ func main() {
 	// Compose the store and locker
 	composer := tusd.NewStoreComposer()
 	store.UseIn(composer)
+	store.ObjectPrefix = config.ObjectPrefix
 
 	// Create the tusd handler
 	tusdHandler, err := tusd.NewHandler(tusd.Config{
@@ -76,7 +88,10 @@ func main() {
 			event := <-tusdHandler.CompleteUploads
 			log.Printf("Upload %s finished\n", event.Upload.ID)
 
-			publisher.PublishJob(event.Upload.ID, event.Upload.MetaData)
+			uploadJobPublisher.Publish(rabbitmq.UploadJobPayload{
+				UploadID: event.Upload.ID,
+				Meta:     event.Upload.MetaData,
+			})
 		}
 	}()
 
@@ -89,12 +104,14 @@ func main() {
 		ExposeHeaders:    []string{"Location", "Upload-Offset", "Upload-Length", "Tus-Resumable"},
 		AllowCredentials: true,
 	}))
+	r.Use(gin.Recovery())
+	r.Use(gin.Logger())
 
 	// Register tusd handler
 	handler.RegisterTusd(r, env.ClientURL, tusdHandler)
 
-	log.Println("🚀 Starting Subvision backend on port", env.Port)
+	log.Println("Starting Subvision backend on port", env.Port)
 	if err := r.Run(":" + env.Port); err != nil {
-		log.Fatalf("❌ Failed to start server: %v", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }

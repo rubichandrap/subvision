@@ -1,4 +1,4 @@
-package primitive
+package primitives
 
 import (
 	"net/http"

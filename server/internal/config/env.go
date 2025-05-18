@@ -9,18 +9,20 @@ import (
 )
 
 type Env struct {
-	Port           string
-	ClientURL      string
-	AmqpURL        string
-	MinioEndpoint  string
-	MinioAccessKey string
-	MinioSecretKey string
-	MinioBucket    string
+	Port             string
+	TmpDir           string
+	ClientURL        string
+	AmqpURL          string
+	MinioEndpoint    string
+	MinioAccessKey   string
+	MinioSecretKey   string
+	MinioBucket      string
+	WhisperModelPath string
 }
 
 func LoadEnv() *Env {
 	if err := godotenv.Load(); err != nil {
-		log.Println("⚠️ No .env file found, using environment variables")
+		log.Println("No .env file found, using environment variables")
 	}
 
 	requiredVars := []string{
@@ -28,10 +30,11 @@ func LoadEnv() *Env {
 		"CLIENT_URL",
 		"MINIO_HOST", "MINIO_PORT", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY", "MINIO_BUCKET",
 		"RABBITMQ_HOST", "RABBITMQ_PORT", "RABBITMQ_USER", "RABBITMQ_PASSWORD",
+		"WHISPER_MODEL_PATH",
 	}
 	for _, key := range requiredVars {
 		if os.Getenv(key) == "" {
-			log.Fatalf("❌ Missing required environment variable: %s", key)
+			log.Fatalf("Missing required environment variable: %s", key)
 		}
 	}
 
@@ -46,12 +49,14 @@ func LoadEnv() *Env {
 	minioEndpoint := fmt.Sprintf("%s:%s", minioHost, minioPort)
 
 	return &Env{
-		Port:           os.Getenv("PORT"),
-		ClientURL:      os.Getenv("CLIENT_URL"),
-		AmqpURL:        amqpURL,
-		MinioEndpoint:  minioEndpoint,
-		MinioAccessKey: os.Getenv("MINIO_ACCESS_KEY"),
-		MinioSecretKey: os.Getenv("MINIO_SECRET_KEY"),
-		MinioBucket:    os.Getenv("MINIO_BUCKET"),
+		Port:             os.Getenv("PORT"),
+		TmpDir:           os.Getenv("TMP_DIR"),
+		ClientURL:        os.Getenv("CLIENT_URL"),
+		AmqpURL:          amqpURL,
+		MinioEndpoint:    minioEndpoint,
+		MinioAccessKey:   os.Getenv("MINIO_ACCESS_KEY"),
+		MinioSecretKey:   os.Getenv("MINIO_SECRET_KEY"),
+		MinioBucket:      os.Getenv("MINIO_BUCKET"),
+		WhisperModelPath: os.Getenv("WHISPER_MODEL_PATH"),
 	}
 }

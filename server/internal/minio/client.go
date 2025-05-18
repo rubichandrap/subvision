@@ -15,9 +15,9 @@ func Init(endpoint, accessKey, secretKey string) {
 		Secure: false,
 	})
 	if err != nil {
-		log.Fatalf("❌ Failed to initialize MinIO: %v", err)
+		log.Fatalf("Failed to initialize MinIO: %v", err)
 	}
 
 	Client = client
-	log.Println("✅ MinIO initialized")
+	log.Println("MinIO initialized")
 }
