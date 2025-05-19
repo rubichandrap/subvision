@@ -13,6 +13,7 @@ type UploadJobPublisher struct {
 
 type UploadJobPayload struct {
 	UploadID string            `json:"uploadID"`
+	Storage  map[string]string `json:"storage"`
 	Meta     map[string]string `json:"meta"`
 }
 
@@ -31,6 +32,8 @@ func NewUploadJobPublisher(conn *amqp.Connection) *UploadJobPublisher {
 }
 
 func (p *UploadJobPublisher) Publish(payload UploadJobPayload) error {
+	fmt.Printf("Publishing upload_jobs to message queue")
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err

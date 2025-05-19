@@ -6,49 +6,57 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/minio"
+	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
 	"github.com/rubichandrap/subvision/server/internal/subtitle"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 )
 
-var bucketName = os.Getenv("MINIO_BUCKET")
-var tmpDir = os.Getenv("TMP_DIR")
-var videoTmpDir = filepath.Join(tmpDir, "videos")
-var audioTmpDir = filepath.Join(tmpDir, "audios")
-var subtitleTmpDir = filepath.Join(tmpDir, "subtitles")
+var env = config.LoadEnv()
 
-func ProcessUploadedFile(uploadID string, meta map[string]string) error {
-	log.Printf("[Processor] Start processing uploadID %s with metadata %v\n", uploadID, meta)
+var videoTmpDir = filepath.Join(env.TmpDir, "videos")
+var audioTmpDir = filepath.Join(env.TmpDir, "audios")
+var subtitleTmpDir = filepath.Join(env.TmpDir, "subtitles")
 
-	filename := meta["filename"]
-	if filename == "" {
-		return fmt.Errorf("missing filename in metadata")
+func ProcessUploadedFile(payload rabbitmq.UploadJobPayload) error {
+	uploadID := payload.UploadID
+	storage := payload.Storage
+	meta := payload.Meta
+
+	log.Printf("[Processor] Start processing uploadID %s, with st%v\n, with metadata %v\n", uploadID, storage, meta)
+
+	key := storage["Key"]
+	if key == "" {
+		return fmt.Errorf("missing key in storage")
 	}
 
+	id := strings.Split(key, "/")[1]
+
 	// Download video
-	videoPath := filepath.Join(videoTmpDir, fmt.Sprintf("%s_%s", uploadID, filename))
-	if err := minio.DownloadFile(bucketName, config.ObjectPrefix+uploadID, videoPath); err != nil {
+	videoPath := filepath.Join(videoTmpDir, id)
+	if err := minio.DownloadFile(env.MinioBucket, key, videoPath); err != nil {
 		return fmt.Errorf("failed to download file from MinIO: %w", err)
 	}
 	log.Printf("[Processor] Downloaded video to %s", videoPath)
 
 	// Convert video to wav
-	audioPath := filepath.Join(audioTmpDir, fmt.Sprintf("%s.wav", uploadID))
+	audioPath := filepath.Join(audioTmpDir, fmt.Sprintf("%s.wav", id))
 	if err := convertToWav(videoPath, audioPath); err != nil {
 		return fmt.Errorf("failed to convert to wav: %w", err)
 	}
 	log.Printf("[Processor] Converted to WAV: %s", audioPath)
 
 	// Transcribe using whisper
-	modelPath := os.Getenv("WHISPER_MODEL_PATH")
+	modelPath := env.WhisperModelPath
 	segments, err := transcriber.Transcribe(modelPath, audioPath)
 	if err != nil {
 		return fmt.Errorf("failed to transcribe audio: %w", err)
 	}
 
-	srtPath := filepath.Join(subtitleTmpDir, fmt.Sprintf("%s.srt", uploadID))
+	srtPath := filepath.Join(subtitleTmpDir, fmt.Sprintf("%s.srt", id))
 	srtFile, err := os.Create(srtPath)
 	if err != nil {
 		return fmt.Errorf("failed to create srt file: %w", err)

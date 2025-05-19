@@ -35,7 +35,7 @@ RUN chmod +x ./subvision
 
 COPY --from=builder /app/.env .env
 
-COPY --from=builder /app/third_party/whisper.cpp/bindings/go/models/ third_partywhisper.cpp/bindings/go/models
+COPY --from=builder /app/third_party/whisper.cpp/bindings/go/models/ third_party/whisper.cpp/bindings/go/models
 
 EXPOSE 8080
 

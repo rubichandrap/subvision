@@ -42,9 +42,18 @@ func main() {
 
 	uploadJobPublisher := rabbitmq.NewUploadJobPublisher(conn)
 	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)
-	uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
-		processor.ProcessUploadedFile(payload.UploadID, payload.Meta)
+	err := uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
+		if err := processor.ProcessUploadedFile(rabbitmq.UploadJobPayload{
+			UploadID: payload.UploadID,
+			Storage:  payload.Storage,
+			Meta:     payload.Meta,
+		}); err != nil {
+			log.Printf("[Processor] Error: %v", err)
+		}
 	})
+	if err != nil {
+		log.Fatalf("failed to consume upload job: %s", err)
+	}
 
 	// AWS-style config for MinIO
 	awsCfg, err := awsCfg.LoadDefaultConfig(context.TODO(),
@@ -69,8 +78,8 @@ func main() {
 
 	// Compose the store and locker
 	composer := tusd.NewStoreComposer()
-	store.UseIn(composer)
 	store.ObjectPrefix = config.ObjectPrefix
+	store.UseIn(composer)
 
 	// Create the tusd handler
 	tusdHandler, err := tusd.NewHandler(tusd.Config{
@@ -88,10 +97,16 @@ func main() {
 			event := <-tusdHandler.CompleteUploads
 			log.Printf("Upload %s finished\n", event.Upload.ID)
 
-			uploadJobPublisher.Publish(rabbitmq.UploadJobPayload{
+			log.Printf("[Debug] Expected MinIO key: %s%s", config.ObjectPrefix, event.Upload.Storage["Key"])
+
+			err := uploadJobPublisher.Publish(rabbitmq.UploadJobPayload{
 				UploadID: event.Upload.ID,
 				Meta:     event.Upload.MetaData,
+				Storage:  event.Upload.Storage,
 			})
+			if err != nil {
+				log.Printf("failed to publish upload job: %v", err)
+			}
 		}
 	}()
 

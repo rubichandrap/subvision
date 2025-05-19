@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import { FileVideo } from 'lucide-react';
+import Link from 'next/link';
 
-import { Button } from '@/components/ui/button';
 import { ProcessList } from '@/components/process-list';
+import { Button } from '@/components/ui/button';
 
 export default function ProcessesPage() {
   return (
@@ -36,26 +36,6 @@ export default function ProcessesPage() {
           <p className="text-sm text-gray-500">
             © 2025 Subvision. All rights reserved.
           </p>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/about"
-              className="text-sm text-gray-500 hover:underline"
-            >
-              About
-            </Link>
-            <Link
-              href="/privacy"
-              className="text-sm text-gray-500 hover:underline"
-            >
-              Privacy
-            </Link>
-            <Link
-              href="/terms"
-              className="text-sm text-gray-500 hover:underline"
-            >
-              Terms
-            </Link>
-          </div>
         </div>
       </footer>
     </div>
