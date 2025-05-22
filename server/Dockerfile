@@ -27,7 +27,7 @@ FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk add --no-cache ffmpeg ca-certificates
+RUN apk add --no-cache ffmpeg ca-certificates fontconfig ttf-dejavu
 
 COPY --from=builder /app/subvision .
 

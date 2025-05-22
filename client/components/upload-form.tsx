@@ -74,6 +74,8 @@ export function UploadForm() {
       onSuccess: (payload) => {
         console.log("payload", payload);
         console.log('Upload completed successfully');
+        console.log("upload", upload);
+
 
         // Get the upload URL which contains the file ID
         let uploadUrl = upload.url;

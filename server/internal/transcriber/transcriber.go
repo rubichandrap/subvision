@@ -14,7 +14,7 @@ type Segment struct {
 	Text  string
 }
 
-// Transcribe baca wav, proses dengan whisper, dan return segments
+// Transcribe transcribes the audio file at audioPath using the Whisper model at modelPath
 func Transcribe(modelPath, audioPath string) ([]Segment, error) {
 	model, err := whisper.New(modelPath)
 	if err != nil {
@@ -53,7 +53,7 @@ func Transcribe(modelPath, audioPath string) ([]Segment, error) {
 	return segments, nil
 }
 
-// Helper load wav file jadi float32 slice
+// loadWavToFloat32 loads a WAV file and returns its audio data as a slice of float32
 func loadWavToFloat32(path string) ([]float32, error) {
 	fh, err := os.Open(path)
 	if err != nil {

@@ -83,6 +83,7 @@ func ProcessUploadedFile(payload rabbitmq.UploadJobPayload) error {
 	if err := minio.UploadFile(env.MinioBucket, outputKey, outputPath); err != nil {
 		return fmt.Errorf("failed to upload output video to MinIO: %w", err)
 	}
+	log.Printf("[Processor] Uploaded output video to MinIO: %s", outputKey)
 
 	return nil
 }
@@ -108,7 +109,14 @@ func convertSegments(src []transcriber.Segment) []subtitle.Segment {
 }
 
 func combineVideoAndSubtitle(videoPath, subtitlePath, outputPath string) error {
-	cmd := exec.Command("ffmpeg", "-i", videoPath, "-vf", fmt.Sprintf("subtitles=%s", subtitlePath), "-c:v", "copy", "-c:a", "copy", outputPath)
+	cmd := exec.Command(
+		"ffmpeg",
+		"-i", videoPath,
+		"-vf", fmt.Sprintf("subtitles=%s:force_style='FontName=DejaVuSans,OutlineColour=&H20000000&,BorderStyle=1,Outline=1,Shadow=1'", subtitlePath),
+		"-c:v", "libx264",
+		"-c:a", "aac",
+		outputPath,
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	log.Printf("[ffmpeg] Running combine command: %v", cmd.Args)
