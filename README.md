@@ -59,7 +59,7 @@ docker-compose up --build
 ### 4. Access the app
 
 - **Frontend:** [http://localhost:3000](http://localhost:3000)
-- **Backend API:** [http://localhost:8000](http://localhost:8000)
+- **Backend API:** [http://localhost:8080](http://localhost:8080)
 - **MinIO Console:** [http://localhost:9001](http://localhost:9001) (user: `minio`, pass: `minio123`)
 - **RabbitMQ Console:** [http://localhost:15672](http://localhost:15672) (user: `guest`, pass: `guest`)
 
@@ -114,6 +114,9 @@ RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
 RABBITMQ_USER=guest
 RABBITMQ_PASSWORD=guest
+
+# Default to third_party/whisper.cpp/bindings/go/models/*.bin
+WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
 ```
 
 ### Client (`client/.env.example`)
@@ -121,6 +124,24 @@ RABBITMQ_PASSWORD=guest
 ```env
 NEXT_PUBLIC_SERVER_URL=http://localhost:8000
 ```
+
+---
+
+## TODO
+
+1. Integrate with Remotion for advanced video rendering.
+2. Add parameter requests from client for user subtitle preferences:
+
+- Language
+- Color
+- Outline
+- Border
+- Font name
+- Font size
+- Vertical margin (vmargin)
+
+3. Add functionality to split subtitle segments by max characters or by seconds.
+4. Add configuration for users to resize the video.
 
 ---
 
