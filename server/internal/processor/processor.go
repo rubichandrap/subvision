@@ -73,6 +73,16 @@ func ProcessUploadedFile(payload rabbitmq.UploadJobPayload) error {
 
 	// combine the subtitle with the video using ffmpeg
 	outputPath := filepath.Join(outputTmpDir, fmt.Sprintf("%s.mp4", id))
+	if err := combineVideoAndSubtitle(videoPath, srtPath, outputPath); err != nil {
+		return fmt.Errorf("failed to combine video and subtitle: %w", err)
+	}
+	log.Printf("[Processor] Combined video and subtitle to %s", outputPath)
+
+	// Upload the output video to MinIO
+	outputKey := fmt.Sprintf("outputs/%s.mp4", id)
+	if err := minio.UploadFile(env.MinioBucket, outputKey, outputPath); err != nil {
+		return fmt.Errorf("failed to upload output video to MinIO: %w", err)
+	}
 
 	return nil
 }
