@@ -20,6 +20,7 @@ var env = config.LoadEnv()
 var videoTmpDir = filepath.Join(env.TmpDir, "videos")
 var audioTmpDir = filepath.Join(env.TmpDir, "audios")
 var subtitleTmpDir = filepath.Join(env.TmpDir, "subtitles")
+var outputTmpDir = filepath.Join(env.TmpDir, "outputs")
 
 func ProcessUploadedFile(payload rabbitmq.UploadJobPayload) error {
 	uploadID := payload.UploadID
@@ -70,7 +71,9 @@ func ProcessUploadedFile(payload rabbitmq.UploadJobPayload) error {
 
 	log.Printf("[Processor] Subtitle saved to %s", srtPath)
 
-	log.Printf("[Processor] Finished processing uploadID %s\n", uploadID)
+	// combine the subtitle with the video using ffmpeg
+	outputPath := filepath.Join(outputTmpDir, fmt.Sprintf("%s.mp4", id))
+
 	return nil
 }
 
@@ -92,4 +95,12 @@ func convertSegments(src []transcriber.Segment) []subtitle.Segment {
 		}
 	}
 	return dst
+}
+
+func combineVideoAndSubtitle(videoPath, subtitlePath, outputPath string) error {
+	cmd := exec.Command("ffmpeg", "-i", videoPath, "-vf", fmt.Sprintf("subtitles=%s", subtitlePath), "-c:v", "copy", "-c:a", "copy", outputPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	log.Printf("[ffmpeg] Running combine command: %v", cmd.Args)
+	return cmd.Run()
 }

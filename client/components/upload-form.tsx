@@ -71,7 +71,8 @@ export function UploadForm() {
         setUploadProgress(percentage);
         console.log(`Upload progress: ${Math.round(percentage)}%`);
       },
-      onSuccess: () => {
+      onSuccess: (payload) => {
+        console.log("payload", payload);
         console.log('Upload completed successfully');
 
         // Get the upload URL which contains the file ID
