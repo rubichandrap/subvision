@@ -26,6 +26,41 @@
 
 ---
 
+---
+
+## System Architecture Diagram
+
+```mermaid
+flowchart TD
+    A[Client - Next.js] -- Upload video via tusd --> B[Server - Go, tusd handler]
+    B -- Store video --> C[MinIO]
+    C -- Upload complete event --> D[Server - Publish upload_jobs queue]
+    D -- upload_jobs --> E[Server - ProcessUploadedFile]
+    E -- Download video from MinIO\nConvert to WAV\nTranscribe with whisper.cpp --> F[Transcription Segments]
+    E -- Publish generate_vfx_jobs --> G[VFX Service - Node.js, Remotion]
+    G -- Download video from MinIO\nGenerate frames\nCombine with ffmpeg --> H[Processed Video]
+    G -- Upload processed video --> I[MinIO outputs/id]
+    I -- Ready for download --> A
+
+    style A fill:#e0f7fa,stroke:#0097a7
+    style B fill:#fffde7,stroke:#fbc02d
+    style C fill:#e8f5e9,stroke:#388e3c
+    style D fill:#f3e5f5,stroke:#8e24aa
+    style E fill:#fff3e0,stroke:#f57c00
+    style F fill:#fce4ec,stroke:#d81b60
+    style G fill:#e1f5fe,stroke:#0288d1
+    style H fill:#f9fbe7,stroke:#afb42b
+    style I fill:#e8f5e9,stroke:#388e3c
+```
+
+---
+
+## Reference
+
+- **Speech-to-text** is powered by [whisper.cpp](https://github.com/ggerganov/whisper.cpp), a fast and portable implementation of OpenAI's Whisper model.
+
+---
+
 ## Getting Started
 
 ### Prerequisites
