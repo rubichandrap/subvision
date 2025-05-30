@@ -5,7 +5,7 @@ export class RabbitmqSubscriberService {
   constructor(private readonly channel: Channel) {}
 
   public async subscribeToGenerateVfx(animateService: AnimateService) {
-    const queue = "generate_vfx_queue";
+    const queue = "generate_vfx_jobs";
     await this.channel.assertQueue(queue, { durable: true });
 
     this.channel.prefetch(3); // well, my PC only can afford this around of processing, maybe less sometimes
@@ -23,7 +23,7 @@ export class RabbitmqSubscriberService {
         >;
         console.log(`[Subscriber] Received job:`, payload);
 
-        const { objectKey, segments, animationType } = payload;
+        const { objectKey, segments, animationType = "karaoke" } = payload;
 
         try {
           await animateService.create(objectKey, segments, animationType);

@@ -11,7 +11,6 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/minio"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
-	"github.com/rubichandrap/subvision/server/internal/subtitle"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 )
 
@@ -19,10 +18,11 @@ var env = config.LoadEnv()
 
 var videoTmpDir = filepath.Join(env.TmpDir, "videos")
 var audioTmpDir = filepath.Join(env.TmpDir, "audios")
-var subtitleTmpDir = filepath.Join(env.TmpDir, "subtitles")
-var outputTmpDir = filepath.Join(env.TmpDir, "outputs")
 
-func ProcessUploadedFile(payload rabbitmq.UploadJobPayload) error {
+// var subtitleTmpDir = filepath.Join(env.TmpDir, "subtitles")
+// var outputTmpDir = filepath.Join(env.TmpDir, "outputs")
+
+func ProcessUploadedFile(vfxPublisher *rabbitmq.GenerateVfxJobPublisher, payload rabbitmq.UploadJobPayload) error {
 	uploadID := payload.UploadID
 	storage := payload.Storage
 	meta := payload.Meta
@@ -62,34 +62,37 @@ func ProcessUploadedFile(payload rabbitmq.UploadJobPayload) error {
 	// that will handle the subtitle generation
 	// and the visual effects
 	// also combining the video with the subtitle
+	vfxPublisher.Publish(rabbitmq.GenerateVfxJobPayload{
+		ObjectKey: key,
+		Segments:  segments,
+	})
 
-	srtPath := filepath.Join(subtitleTmpDir, fmt.Sprintf("%s.srt", id))
-	srtFile, err := os.Create(srtPath)
-	if err != nil {
-		return fmt.Errorf("failed to create srt file: %w", err)
-	}
-	defer srtFile.Close()
+	// srtPath := filepath.Join(subtitleTmpDir, fmt.Sprintf("%s.srt", id))
+	// srtFile, err := os.Create(srtPath)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create srt file: %w", err)
+	// }
+	// defer srtFile.Close()
 
-	subs := convertSegments(segments)
-	if err := subtitle.SRTFromSegments(srtFile, subs); err != nil {
-		return fmt.Errorf("failed to write srt file: %w", err)
-	}
+	// if err := subtitle.SRTFromSegments(srtFile, segments); err != nil {
+	// 	return fmt.Errorf("failed to write srt file: %w", err)
+	// }
 
-	log.Printf("[Processor] Subtitle saved to %s", srtPath)
+	// log.Printf("[Processor] Subtitle saved to %s", srtPath)
 
-	// combine the subtitle with the video using ffmpeg
-	outputPath := filepath.Join(outputTmpDir, fmt.Sprintf("%s.mp4", id))
-	if err := combineVideoAndSubtitle(videoPath, srtPath, outputPath); err != nil {
-		return fmt.Errorf("failed to combine video and subtitle: %w", err)
-	}
-	log.Printf("[Processor] Combined video and subtitle to %s", outputPath)
+	// // combine the subtitle with the video using ffmpeg
+	// outputPath := filepath.Join(outputTmpDir, fmt.Sprintf("%s.mp4", id))
+	// if err := combineVideoAndSubtitle(videoPath, srtPath, outputPath); err != nil {
+	// 	return fmt.Errorf("failed to combine video and subtitle: %w", err)
+	// }
+	// log.Printf("[Processor] Combined video and subtitle to %s", outputPath)
 
-	// Upload the output video to MinIO
-	outputKey := fmt.Sprintf("outputs/%s.mp4", id)
-	if err := minio.UploadFile(env.MinioBucket, outputKey, outputPath); err != nil {
-		return fmt.Errorf("failed to upload output video to MinIO: %w", err)
-	}
-	log.Printf("[Processor] Uploaded output video to MinIO: %s", outputKey)
+	// // Upload the output video to MinIO
+	// outputKey := fmt.Sprintf("outputs/%s.mp4", id)
+	// if err := minio.UploadFile(env.MinioBucket, outputKey, outputPath); err != nil {
+	// 	return fmt.Errorf("failed to upload output video to MinIO: %w", err)
+	// }
+	// log.Printf("[Processor] Uploaded output video to MinIO: %s", outputKey)
 
 	return nil
 }
@@ -102,29 +105,17 @@ func convertToWav(inputPath, outputPath string) error {
 	return cmd.Run()
 }
 
-func convertSegments(src []transcriber.Segment) []subtitle.Segment {
-	dst := make([]subtitle.Segment, len(src))
-	for i, s := range src {
-		dst[i] = subtitle.Segment{
-			Start: s.Start,
-			End:   s.End,
-			Text:  s.Text,
-		}
-	}
-	return dst
-}
-
-func combineVideoAndSubtitle(videoPath, subtitlePath, outputPath string) error {
-	cmd := exec.Command(
-		"ffmpeg",
-		"-i", videoPath,
-		"-vf", fmt.Sprintf("subtitles=%s:force_style='FontName=DejaVuSans,OutlineColour=&H20000000&,BorderStyle=1,Outline=1,Shadow=1'", subtitlePath),
-		"-c:v", "libx264",
-		"-c:a", "aac",
-		outputPath,
-	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	log.Printf("[ffmpeg] Running combine command: %v", cmd.Args)
-	return cmd.Run()
-}
+// func combineVideoAndSubtitle(videoPath, subtitlePath, outputPath string) error {
+// 	cmd := exec.Command(
+// 		"ffmpeg",
+// 		"-i", videoPath,
+// 		"-vf", fmt.Sprintf("subtitles=%s:force_style='FontName=DejaVuSans,OutlineColour=&H20000000&,BorderStyle=1,Outline=1,Shadow=1'", subtitlePath),
+// 		"-c:v", "libx264",
+// 		"-c:a", "aac",
+// 		outputPath,
+// 	)
+// 	cmd.Stdout = os.Stdout
+// 	cmd.Stderr = os.Stderr
+// 	log.Printf("[ffmpeg] Running combine command: %v", cmd.Args)
+// 	return cmd.Run()
+// }

@@ -40,10 +40,14 @@ func main() {
 	conn := rabbitmq.Connect(env.AmqpURL)
 	defer conn.Close()
 
+	// publishers
 	uploadJobPublisher := rabbitmq.NewUploadJobPublisher(conn)
+	generateVfxJobPublisher := rabbitmq.NewGenerateVfxJobPublisher(conn)
+
+	// consumers
 	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)
 	err := uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
-		if err := processor.ProcessUploadedFile(rabbitmq.UploadJobPayload{
+		if err := processor.ProcessUploadedFile(generateVfxJobPublisher, rabbitmq.UploadJobPayload{
 			UploadID: payload.UploadID,
 			Storage:  payload.Storage,
 			Meta:     payload.Meta,

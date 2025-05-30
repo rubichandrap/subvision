@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"io"
 	"time"
+
+	"github.com/rubichandrap/subvision/server/internal/transcriber"
 )
 
 type Segment struct {
-	Start float64
-	End   float64
-	Text  string
+	transcriber.Segment
 }
 
 func SRTFromSegments(w io.Writer, segments []Segment) error {
