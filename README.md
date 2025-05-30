@@ -36,9 +36,9 @@ flowchart TD
     B -- Store video --> C[MinIO]
     C -- Upload complete event --> D[Server - Publish upload_jobs queue]
     D -- upload_jobs --> E[Server - ProcessUploadedFile]
-    E -- Download video from MinIO\nConvert to WAV\nTranscribe with whisper.cpp --> F[Transcription Segments]
+    E -- Download video from MinIO<br>Convert to WAV<br>Transcribe with whisper.cpp --> F[Transcription Segments]
     E -- Publish generate_vfx_jobs --> G[VFX Service - Node.js, Remotion]
-    G -- Download video from MinIO\nGenerate frames\nCombine with ffmpeg --> H[Processed Video]
+    G -- Download video from MinIO<br>Generate frames<br>Combine with ffmpeg --> H[Processed Video]
     G -- Upload processed video --> I[MinIO outputs/id]
     I -- Ready for download --> A
 
