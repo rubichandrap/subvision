@@ -81,6 +81,7 @@ Copy the example environment files and edit them as needed:
 ```sh
 cp server/.env.example server/.env
 cp client/.env.example client/.env
+cp vfx/.env.example vfx/.env
 ```
 
 - Edit `server/.env` for backend configuration (see [server/.env.example](server/.env.example))
