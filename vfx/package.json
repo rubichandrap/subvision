@@ -1,0 +1,30 @@
+{
+  "name": "capzap-vfx",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "nodemon",
+    "build": "tsc",
+    "start": "node dist/src/index.js"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.290",
+    "@remotion/cli": "^4.0.290",
+    "@remotion/renderer": "^4.0.290",
+    "@types/amqplib": "^0.10.7",
+    "amqplib": "^0.10.8",
+    "dotenv": "^16.5.0",
+    "minio": "^8.0.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "remotion": "^4.0.290"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.2.2"
+  }
+}

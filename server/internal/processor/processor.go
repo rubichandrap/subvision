@@ -57,6 +57,12 @@ func ProcessUploadedFile(payload rabbitmq.UploadJobPayload) error {
 		return fmt.Errorf("failed to transcribe audio: %w", err)
 	}
 
+	// TODO: rather than creating a srt file
+	// we supposed to send a message queue to another service
+	// that will handle the subtitle generation
+	// and the visual effects
+	// also combining the video with the subtitle
+
 	srtPath := filepath.Join(subtitleTmpDir, fmt.Sprintf("%s.srt", id))
 	srtFile, err := os.Create(srtPath)
 	if err != nil {

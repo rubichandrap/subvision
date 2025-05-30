@@ -100,22 +100,6 @@ export function UploadForm() {
       },
     });
 
-    // Add event listeners for debugging
-    upload.options.onAfterResponse = (req, res) => {
-      const status = res.getStatus();
-      const location = res.getHeader('Location');
-      console.log(`Response: ${status} ${location || ''}`);
-
-      // If we get a Location header with tusd:8080, log it but don't try to modify it directly
-      // Our server should have already rewritten this header
-      if (location && location.includes('tusd:8080')) {
-        console.log(
-          `Warning: Location header contains internal URL: ${location}`
-        );
-        console.log(`This should have been rewritten by the server.`);
-      }
-    };
-
     // Check if there are any previous uploads to continue
     try {
       const previousUploads = await upload.findPreviousUploads();

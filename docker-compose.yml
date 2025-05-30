@@ -10,6 +10,19 @@ services:
       - ./server/.env
     volumes:
       - ./server/third_party/whisper.cpp/bindings/go/models:/app/third_party/whisper.cpp/bindings/go/models
+      - ./server/data:/app/data
+    restart: always
+    depends_on:
+      - rabbitmq
+      - minio
+
+  vfx:
+    build:
+      context: ./vfx
+      dockerfile: Dockerfile
+    container_name: subvision-vfx
+    env_file:
+      - ./vfx/.env
     restart: always
     depends_on:
       - rabbitmq

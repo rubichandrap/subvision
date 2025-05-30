@@ -12,6 +12,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-audio/wav v1.1.0
 	github.com/joho/godotenv v1.5.1
+	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/minio/minio-go/v7 v7.0.91
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/tus/tusd/v2 v2.8.0
