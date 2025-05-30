@@ -120,6 +120,14 @@ go mod tidy
 go run ./cmd/subvision/main.go
 ```
 
+### Vfx
+
+```sh
+cd vfx
+pnpm install
+pnpm dev
+```
+
 ---
 
 ## Folder Structure
@@ -127,6 +135,7 @@ go run ./cmd/subvision/main.go
 ```
 /client   # Next.js frontend
 /server   # Go backend
+/vfx      # Node.js Remotion-based subtitle/effects renderer
 ```
 
 ---
