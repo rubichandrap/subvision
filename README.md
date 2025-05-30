@@ -34,7 +34,7 @@
 ### 1. Clone the repository
 
 ```sh
-git clone https://github.com/yourusername/subvision.git
+git clone --recurse-submodules https://github.com/yourusername/subvision.git
 cd subvision
 ```
 
