@@ -19,6 +19,7 @@
 
 - **Client:** Next.js app ([client/](client))
 - **Server:** Go backend ([server/](server))
+- **Vfx:** Node.js service for subtitle rendering and effects using Remotion ([vfx/](vfx))
 - **MinIO:** S3-compatible object storage for uploads
 - **RabbitMQ:** Job queue for processing
 - **tusd:** Resumable upload server
@@ -49,6 +50,7 @@ cp client/.env.example client/.env
 
 - Edit `server/.env` for backend configuration (see [server/.env.example](server/.env.example))
 - Edit `client/.env` for frontend configuration (see [client/.env.example](client/.env.example))
+- Edit `vfx/.env` for VFX service configuration (see [vfx/.env.example](vfx/.env.example))
 
 ### 3. Start all services
 
@@ -123,6 +125,23 @@ WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
 
 ```env
 NEXT_PUBLIC_SERVER_URL=http://localhost:8000
+```
+
+### Vfx
+
+```env
+TMP_DIR=tmp
+
+MINIO_HOST=minio
+MINIO_PORT=9000
+MINIO_ACCESS_KEY=minio
+MINIO_SECRET_KEY=minio123
+MINIO_BUCKET=subvision
+
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
 ```
 
 ---
