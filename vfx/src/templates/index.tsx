@@ -1,5 +1,6 @@
 import React from "react";
 import { Composition, registerRoot } from "remotion";
+import '../styles/tailwind.css';
 import { Fade } from "./fade";
 import { Karaoke } from "./karaoke";
 import { Slide } from "./slide";

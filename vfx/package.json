@@ -1,11 +1,13 @@
 {
-  "name": "capzap-vfx",
+  "name": "subvision-vfx",
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "concurrently \"nodemon\" \"pnpm dlx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./dist/styles/tailwind.css --watch\"",
+    "build:tailwind": "pnpm dlx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./dist/styles/tailwind.css --minify",
     "build": "tsc",
-    "start": "node dist/src/index.js"
+    "start": "node dist/src/index.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@remotion/bundler": "^4.0.290",
@@ -20,9 +22,12 @@
     "remotion": "^4.0.290"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.8",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
+    "concurrently": "^9.1.2",
     "nodemon": "^3.1.10",
+    "tailwindcss": "^4.1.8",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.2.2"
