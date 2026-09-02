@@ -10,60 +10,90 @@ import (
 	"strings"
 
 	"github.com/rubichandrap/subvision/server/internal/config"
-	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
+	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
 
-var env = config.LoadEnv()
-
-var videoTmpDir = filepath.Join(env.TmpDir, "videos")
-var audioTmpDir = filepath.Join(env.TmpDir, "audios")
+// VfxJobPublisher publishes VFX Jobs; implemented by the rabbitmq publisher
+// and faked in tests.
+type VfxJobPublisher interface {
+	Publish(job vfxjob.Job) error
+}
 
 type ObjectStore interface {
 	Upload(ctx context.Context, key, filePath string) error
 	Download(ctx context.Context, key, destPath string) error
 }
 
-func ProcessUploadedFile(vfxPublisher *rabbitmq.GenerateVfxJobPublisher, store ObjectStore, payload rabbitmq.UploadJobPayload) error {
-	ctx := context.Background()
-	uploadID := payload.UploadID
-	storage := payload.Storage
-	meta := payload.Meta
+// TranscribeFunc converts an audio file into Transcription Segments; the
+// whisper-backed implementation is wired in main.
+type TranscribeFunc func(modelPath, audioPath string) ([]transcriber.Segment, error)
 
-	log.Printf("[Processor] Start processing uploadID %s, with st%v\n, with metadata %v\n", uploadID, storage, meta)
+// ConvertFunc extracts a wav from a video file; the ffmpeg-backed
+// implementation is wired in New.
+type ConvertFunc func(inputPath, outputPath string) error
 
-	key := storage["Key"]
-	if key == "" {
-		return fmt.Errorf("missing key in storage")
+type Processor struct {
+	publisher        VfxJobPublisher
+	store            ObjectStore
+	transcribe       TranscribeFunc
+	convert          ConvertFunc
+	videoTmpDir      string
+	audioTmpDir      string
+	whisperModelPath string
+}
+
+func New(publisher VfxJobPublisher, store ObjectStore, transcribe TranscribeFunc, tmpDir, whisperModelPath string) *Processor {
+	return &Processor{
+		publisher:        publisher,
+		store:            store,
+		transcribe:       transcribe,
+		convert:          convertToWav,
+		videoTmpDir:      filepath.Join(tmpDir, "videos"),
+		audioTmpDir:      filepath.Join(tmpDir, "audios"),
+		whisperModelPath: whisperModelPath,
 	}
+}
 
-	id := strings.Split(key, "/")[1]
+// ProcessUploadedFile runs an upload through the pipeline: download the video,
+// extract and transcribe its audio, then publish a VFX Job carrying the
+// Transcription Segments.
+func (p *Processor) ProcessUploadedFile(uploadID, objectKey string) error {
+	ctx := context.Background()
+	log.Printf("[Processor] Start processing upload %s (object %s)", uploadID, objectKey)
 
-	// Download video
-	videoPath := filepath.Join(videoTmpDir, id)
-	if err := store.Download(ctx, key, videoPath); err != nil {
+	if !strings.HasPrefix(objectKey, config.ObjectPrefix) {
+		return fmt.Errorf("unexpected object key %q: must start with %q", objectKey, config.ObjectPrefix)
+	}
+	id := strings.TrimPrefix(objectKey, config.ObjectPrefix)
+
+	videoPath := filepath.Join(p.videoTmpDir, id)
+	if err := p.store.Download(ctx, objectKey, videoPath); err != nil {
 		return fmt.Errorf("failed to download video from object storage: %w", err)
 	}
 	log.Printf("[Processor] Downloaded video to %s", videoPath)
 
-	// Convert video to wav
-	audioPath := filepath.Join(audioTmpDir, fmt.Sprintf("%s.wav", id))
-	if err := convertToWav(videoPath, audioPath); err != nil {
+	audioPath := filepath.Join(p.audioTmpDir, fmt.Sprintf("%s.wav", id))
+	if err := p.convert(videoPath, audioPath); err != nil {
 		return fmt.Errorf("failed to convert to wav: %w", err)
 	}
 	log.Printf("[Processor] Converted to WAV: %s", audioPath)
 
-	// Transcribe using whisper
-	modelPath := env.WhisperModelPath
-	segments, err := transcriber.Transcribe(modelPath, audioPath)
+	segments, err := p.transcribe(p.whisperModelPath, audioPath)
 	if err != nil {
 		return fmt.Errorf("failed to transcribe audio: %w", err)
 	}
+	log.Printf("[Processor] Transcribed %d segments", len(segments))
 
-	vfxPublisher.Publish(rabbitmq.GenerateVfxJobPayload{
-		ObjectKey: key,
+	job := vfxjob.Job{
+		UploadID:  uploadID,
+		ObjectKey: objectKey,
 		Segments:  segments,
-	})
+	}
+	if err := p.publisher.Publish(job); err != nil {
+		return fmt.Errorf("failed to publish vfx job for upload %s: %w", uploadID, err)
+	}
+	log.Printf("[Processor] Published vfx job for upload %s", uploadID)
 
 	return nil
 }

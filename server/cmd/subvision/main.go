@@ -10,6 +10,7 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/processor"
 	"github.com/rubichandrap/subvision/server/internal/storage"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
+	"github.com/rubichandrap/subvision/server/internal/transcriber"
 	"github.com/rubichandrap/subvision/server/internal/utils"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -58,16 +59,18 @@ func main() {
 
 	// publishers
 	uploadJobPublisher := rabbitmq.NewUploadJobPublisher(conn)
-	generateVfxJobPublisher := rabbitmq.NewGenerateVfxJobPublisher(conn)
+	vfxJobPublisher := rabbitmq.NewVfxJobPublisher(conn)
 
 	// consumers
+	proc := processor.New(vfxJobPublisher, objectStore, transcriber.Transcribe, env.TmpDir, env.WhisperModelPath)
 	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)
 	err = uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
-		if err := processor.ProcessUploadedFile(generateVfxJobPublisher, objectStore, rabbitmq.UploadJobPayload{
-			UploadID: payload.UploadID,
-			Storage:  payload.Storage,
-			Meta:     payload.Meta,
-		}); err != nil {
+		key := payload.Storage["Key"]
+		if key == "" {
+			log.Printf("[UploadJobConsumer] upload job %q carries no object key: %+v", payload.UploadID, payload)
+			return
+		}
+		if err := proc.ProcessUploadedFile(payload.UploadID, key); err != nil {
 			log.Printf("[Processor] Error: %v", err)
 		}
 	})
