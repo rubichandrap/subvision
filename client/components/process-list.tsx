@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle, Clock, FileVideo, Loader2, XCircle } from 'lucide-react';
+import { Clock, FileVideo, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -13,73 +12,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { IN_FLIGHT_STAGES, fetchJobs, type Process, type ProcessStage } from '@/lib/api';
-
-const STAGE_LABEL: Record<ProcessStage, string> = {
-  uploaded: 'Uploaded',
-  transcribing: 'Transcribing',
-  rendering: 'Rendering',
-  done: 'Completed',
-  failed: 'Failed',
-};
-
-function StageBadge({ stage }: { stage: ProcessStage }) {
-  if (stage === 'done') {
-    return (
-      <div className="flex items-center text-green-500 text-sm font-medium">
-        <CheckCircle className="w-4 h-4 mr-1" />
-        Completed
-      </div>
-    );
-  }
-  if (stage === 'failed') {
-    return (
-      <div className="flex items-center text-red-500 text-sm font-medium">
-        <XCircle className="w-4 h-4 mr-1" />
-        Failed
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center text-amber-500 text-sm font-medium">
-      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-      {STAGE_LABEL[stage]}
-    </div>
-  );
-}
+import { StageBadge } from '@/components/process-stage';
+import { useProcessList } from '@/hooks/use-process-polling';
 
 export function ProcessList() {
-  const [processes, setProcesses] = useState<Process[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    // Poll the status API while any process is still in flight, so the list
-    // moves through the real pipeline stages instead of a fake progress bar.
-    const poll = async () => {
-      try {
-        const jobs = await fetchJobs();
-        if (cancelled) return;
-        setProcesses(jobs);
-        setError(null);
-        if (jobs.some((p) => IN_FLIGHT_STAGES.has(p.stage))) {
-          timer = setTimeout(poll, 3000);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to load processes');
-        timer = setTimeout(poll, 5000);
-      }
-    };
-
-    poll();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, []);
+  const { processes, error } = useProcessList();
 
   if (processes === null && !error) {
     return (

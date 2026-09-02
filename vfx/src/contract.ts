@@ -6,6 +6,11 @@ import { ISegment } from "./types";
 
 export const VFX_JOBS_QUEUE = "vfx_jobs";
 
+// The queue a rejected or repeatedly failing VFX Job is dead-lettered into.
+// The vfx_jobs queue carries dead-letter arguments routing here, so every
+// declare of vfx_jobs must pass the same arguments.
+export const VFX_JOBS_DEAD_QUEUE = "vfx_jobs_dead";
+
 export const JOB_COMPLETED_QUEUE = "job_completed";
 
 export const JOB_FAILED_QUEUE = "job_failed";

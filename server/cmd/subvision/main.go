@@ -89,10 +89,14 @@ func main() {
 		key := payload.Storage["Key"]
 		if key == "" {
 			log.Printf("[UploadJobConsumer] upload job %q carries no object key: %+v", payload.UploadID, payload)
+			failJob(jobs, payload.UploadID, "upload job carried no object key")
 			return
 		}
 		if err := proc.ProcessUploadedFile(payload.UploadID, key); err != nil {
 			log.Printf("[Processor] Error: %v", err)
+			// A transcription that fails must surface as a failed process,
+			// not leave the job in-flight forever.
+			failJob(jobs, payload.UploadID, err.Error())
 		}
 	})
 	if err != nil {
@@ -100,7 +104,7 @@ func main() {
 	}
 
 	completedConsumer := rabbitmq.NewJobCompletedConsumer(conn)
-	err = completedConsumer.Start(func(event vfxjob.JobCompleted) error {
+	err = completedConsumer.Start(func(event vfxjob.JobCompleted) (bool, error) {
 		return jobs.MarkDone(event.UploadID, event.OutputKey)
 	})
 	if err != nil {
@@ -108,7 +112,7 @@ func main() {
 	}
 
 	failedConsumer := rabbitmq.NewJobFailedConsumer(conn)
-	err = failedConsumer.Start(func(event vfxjob.JobFailed) error {
+	err = failedConsumer.Start(func(event vfxjob.JobFailed) (bool, error) {
 		return jobs.MarkFailed(event.UploadID, event.Reason)
 	})
 	if err != nil {
@@ -177,5 +181,17 @@ func main() {
 	log.Println("Starting Subvision backend on port", env.Port)
 	if err := r.Run(":" + env.Port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+// failJob records why an upload never made it past the server's own pipeline
+// stages. A job the store doesn't know (or that is already terminal) is
+// logged, not retried.
+func failJob(jobs *job.Store, uploadID, reason string) {
+	recorded, err := jobs.MarkFailed(uploadID, reason)
+	if err != nil {
+		log.Printf("[Job] Failed to mark job %s as failed: %v", uploadID, err)
+	} else if !recorded {
+		log.Printf("[Job] Job %s unknown or terminal, failure reason not recorded: %s", uploadID, reason)
 	}
 }

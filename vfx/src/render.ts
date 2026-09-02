@@ -2,13 +2,8 @@ import { bundle } from "@remotion/bundler";
 import { renderFrames } from "@remotion/renderer";
 import os from "os";
 import path from "path";
+import type { RenderOptions } from "./services/render-module";
 import { ISegment } from "./types";
-
-export interface RenderFrameOptions {
-  fps: number;
-  width: number;
-  height: number;
-}
 
 const getMaxDurationFrames = (segments: ISegment[], fps: number) => {
   return Math.ceil(Math.max(...segments.map((s) => s.end)) * fps);
@@ -18,7 +13,7 @@ export const renderImagesFromTemplate = async (
   segments: ISegment[],
   template: string,
   outputDir: string,
-  options: RenderFrameOptions
+  options: RenderOptions
 ) => {
   const entry = path.join(__dirname, "templates", "index.tsx");
   const bundleLocation = await bundle({

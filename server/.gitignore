@@ -38,8 +38,8 @@ Thumbs.db
 # Docker artifacts
 *.pid
 
-# MinIO data (if mapped locally)
-minio-data/
+# Job state database (SQLite, bind-mounted in compose)
+data/
 
 # Node modules (if any JS/TS scripts or hooks are added)
 node_modules/

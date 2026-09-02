@@ -75,13 +75,13 @@ func TestLifecycleMovesThroughTheStatusAPI(t *testing.T) {
 	}
 	assertStage("uploaded")
 
-	if err := store.MarkTranscribing("u1"); err != nil {
-		t.Fatalf("mark transcribing: %v", err)
+	if recorded, err := store.MarkTranscribing("u1"); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
 	}
 	assertStage("transcribing")
 
-	if err := store.MarkRendering("u1"); err != nil {
-		t.Fatalf("mark rendering: %v", err)
+	if recorded, err := store.MarkRendering("u1"); err != nil || !recorded {
+		t.Fatalf("mark rendering: recorded=%v err=%v", recorded, err)
 	}
 	assertStage("rendering")
 
@@ -90,8 +90,8 @@ func TestLifecycleMovesThroughTheStatusAPI(t *testing.T) {
 		t.Errorf("in-flight job must not offer a downloadUrl: %s", rec.Body)
 	}
 
-	if err := store.MarkDone("u1", "outputs/u1"); err != nil {
-		t.Fatalf("mark done: %v", err)
+	if recorded, err := store.MarkDone("u1", "outputs/u1"); err != nil || !recorded {
+		t.Fatalf("mark done: recorded=%v err=%v", recorded, err)
 	}
 	assertStage("done")
 
@@ -118,8 +118,8 @@ func TestFailedJobSurfacesItsReason(t *testing.T) {
 	if err := store.Create("u2", "broken.mov"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if err := store.MarkFailed("u2", "render exploded"); err != nil {
-		t.Fatalf("mark failed: %v", err)
+	if recorded, err := store.MarkFailed("u2", "render exploded"); err != nil || !recorded {
+		t.Fatalf("mark failed: recorded=%v err=%v", recorded, err)
 	}
 
 	rec := doGet(t, router, "/jobs/u2")

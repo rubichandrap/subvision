@@ -4,7 +4,12 @@ import Link from 'next/link';
 import { ProcessDetails } from '@/components/process-details';
 import { Button } from '@/components/ui/button';
 
-export default function ProcessPage({ params }: { params: { id: string } }) {
+export default async function ProcessPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
   return (
     <div className="flex flex-col min-h-screen">
       <header className="border-b">
@@ -30,7 +35,7 @@ export default function ProcessPage({ params }: { params: { id: string } }) {
               Track the status of your video subtitle generation process.
             </p>
           </div>
-          <ProcessDetails processId={params.id} />
+          <ProcessDetails processId={id} />
         </div>
       </main>
       <footer className="border-t">

@@ -46,10 +46,14 @@ type Process struct {
 	UpdatedAt time.Time
 }
 
-// Tracker records lifecycle transitions as the pipeline crosses them.
+// Tracker records lifecycle transitions as the pipeline crosses them. It
+// reports whether the transition took effect: false means the id is unknown
+// or the job already terminal — callers log that loudly but don't retry;
+// a non-nil error means the store itself failed and the transition should
+// be attempted again.
 type Tracker interface {
-	MarkTranscribing(uploadID string) error
-	MarkRendering(uploadID string) error
+	MarkTranscribing(uploadID string) (bool, error)
+	MarkRendering(uploadID string) (bool, error)
 }
 
 type Store struct {
@@ -89,14 +93,8 @@ func (s *Store) Create(id, filename string) error {
 }
 
 // mark moves a job into stage unless it is already terminal, optionally
-// recording the failure reason or output key in the same statement. It
-// reports whether the transition took effect, so callers can log the ones
-// that didn't instead of dropping them silently.
-func (s *Store) mark(id string, stage Stage) (bool, error) {
-	return s.update(id, stage, "", "")
-}
-
-func (s *Store) update(id string, stage Stage, reason, outputKey string) (bool, error) {
+// recording the failure reason or output key in the same statement.
+func (s *Store) mark(id string, stage Stage, reason, outputKey string) (bool, error) {
 	if !stage.valid() {
 		return false, fmt.Errorf("invalid stage %q", stage)
 	}
@@ -117,51 +115,23 @@ func (s *Store) update(id string, stage Stage, reason, outputKey string) (bool, 
 }
 
 // MarkTranscribing records that the pipeline started working on the upload.
-func (s *Store) MarkTranscribing(uploadID string) error {
-	updated, err := s.mark(uploadID, StageTranscribing)
-	if err != nil {
-		return err
-	}
-	if !updated {
-		return fmt.Errorf("job %s not found or already terminal, not marking %s", uploadID, StageTranscribing)
-	}
-	return nil
+func (s *Store) MarkTranscribing(uploadID string) (bool, error) {
+	return s.mark(uploadID, StageTranscribing, "", "")
 }
 
 // MarkRendering records that the VFX Job was handed to the vfx service.
-func (s *Store) MarkRendering(uploadID string) error {
-	updated, err := s.mark(uploadID, StageRendering)
-	if err != nil {
-		return err
-	}
-	if !updated {
-		return fmt.Errorf("job %s not found or already terminal, not marking %s", uploadID, StageRendering)
-	}
-	return nil
+func (s *Store) MarkRendering(uploadID string) (bool, error) {
+	return s.mark(uploadID, StageRendering, "", "")
 }
 
 // MarkDone records the completed Output of a rendered job.
-func (s *Store) MarkDone(uploadID, outputKey string) error {
-	updated, err := s.update(uploadID, StageDone, "", outputKey)
-	if err != nil {
-		return err
-	}
-	if !updated {
-		return fmt.Errorf("job %s not found or already terminal, not marking %s", uploadID, StageDone)
-	}
-	return nil
+func (s *Store) MarkDone(uploadID, outputKey string) (bool, error) {
+	return s.mark(uploadID, StageDone, "", outputKey)
 }
 
 // MarkFailed records why a job never produced an Output.
-func (s *Store) MarkFailed(uploadID, reason string) error {
-	updated, err := s.update(uploadID, StageFailed, reason, "")
-	if err != nil {
-		return err
-	}
-	if !updated {
-		return fmt.Errorf("job %s not found or already terminal, not marking %s", uploadID, StageFailed)
-	}
-	return nil
+func (s *Store) MarkFailed(uploadID, reason string) (bool, error) {
+	return s.mark(uploadID, StageFailed, reason, "")
 }
 
 // Get returns the process with the requested id, or ErrNotFound.
