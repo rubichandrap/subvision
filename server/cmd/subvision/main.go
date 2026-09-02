@@ -123,7 +123,7 @@ func main() {
 	r.Use(gin.Logger())
 
 	// Register tusd handler
-	handler.RegisterTusd(r, env.ClientURL, tusdHandler)
+	handler.RegisterTusd(r, tusdHandler)
 
 	log.Println("Starting Subvision backend on port", env.Port)
 	if err := r.Run(":" + env.Port); err != nil {

@@ -7,7 +7,7 @@ import (
 	tusd "github.com/tus/tusd/v2/pkg/handler"
 )
 
-func RegisterTusd(r *gin.Engine, clientURL string, handler *tusd.Handler) {
+func RegisterTusd(r *gin.Engine, handler *tusd.Handler) {
 	filesHanler := http.StripPrefix("/files/", handler)
 	filesRootHandler := http.StripPrefix("/files", handler)
 
