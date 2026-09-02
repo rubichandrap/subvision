@@ -1,41 +1,51 @@
 import { Channel, ConsumeMessage } from "amqplib";
-import { AnimateService } from "../animate-service";
+import { VFX_JOBS_QUEUE, VfxJobPayload, parseVfxJob } from "../../contract";
 
 export class RabbitmqSubscriberService {
   constructor(private readonly channel: Channel) {}
 
-  public async subscribeToGenerateVfx(animateService: AnimateService) {
-    const queue = "generate_vfx_jobs";
-    await this.channel.assertQueue(queue, { durable: true });
+  // subscribeToVfxJobs consumes VFX Jobs from the contract's queue and hands
+  // each parsed job to the handler. A malformed payload fails loudly and is
+  // discarded — it can never succeed, so requeueing it would only wedge the
+  // consumer.
+  public async subscribeToVfxJobs(
+    handler: (job: VfxJobPayload) => Promise<void>
+  ) {
+    await this.channel.assertQueue(VFX_JOBS_QUEUE, { durable: true });
 
     this.channel.prefetch(3); // well, my PC only can afford this around of processing, maybe less sometimes
 
-    console.log(`[Subscriber] Waiting for messages in queue "${queue}"`);
+    console.log(`[Subscriber] Waiting for messages in queue "${VFX_JOBS_QUEUE}"`);
 
     this.channel.consume(
-      queue,
+      VFX_JOBS_QUEUE,
       async (msg: ConsumeMessage | null) => {
         if (!msg) return;
 
-        const payload = JSON.parse(msg.content.toString()) as Record<
-          string,
-          any
-        >;
-        console.log(`[Subscriber] Received job:`, payload);
+        let job: VfxJobPayload;
+        try {
+          job = parseVfxJob(JSON.parse(msg.content.toString()));
+        } catch (error) {
+          console.error(
+            `[Subscriber] Malformed VFX Job on "${VFX_JOBS_QUEUE}", discarding it`,
+            { error, body: msg.content.toString() }
+          );
+          this.channel.nack(msg, false, false);
+          return;
+        }
 
-        const { objectKey, segments, animationType = "karaoke" } = payload;
+        console.log(`[Subscriber] Received job:`, job);
 
         try {
-          await animateService.create(objectKey, segments, animationType);
-
-          // TODO: maybe we should send some publish event after the process done(?)
-          // for now it's not necessary, but I think it will be a very good idea
-          // if we can notify another service or even the user that the process has been done
-
+          await handler(job);
           this.channel.ack(msg);
-          console.log(`[Subscriber] Job processed and acked:`, payload);
+          console.log(`[Subscriber] Job processed and acked:`, job);
         } catch (error) {
           console.error(`[Subscriber] Error processing job:`, error);
+          // Failure policy (requeue / dead-letter) lands with the render
+          // module; for now the job fails loudly rather than wedging the
+          // consumer on an unacked message.
+          this.channel.nack(msg, false, false);
         }
       },
       { noAck: false }

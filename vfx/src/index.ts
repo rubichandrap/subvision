@@ -24,7 +24,9 @@ async function main() {
   const rabbitmqSubscriberService = new RabbitmqSubscriberService(channel);
 
   // subscribe
-  await rabbitmqSubscriberService.subscribeToGenerateVfx(animateService);
+  await rabbitmqSubscriberService.subscribeToVfxJobs(async (job) => {
+    await animateService.create(job.objectKey, job.segments, job.animationType ?? "karaoke");
+  });
 
   // graceful shutdown
   process.once("SIGINT", async () => {

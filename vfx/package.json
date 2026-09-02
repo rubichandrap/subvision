@@ -7,6 +7,7 @@
     "build:tailwind": "pnpm dlx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./dist/styles/tailwind.css --minify",
     "build": "tsc",
     "start": "node dist/src/index.js",
+    "test": "tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "tailwindcss": "^4.1.8",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.23.13",
     "typescript": "^5.2.2"
   }
 }
