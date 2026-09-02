@@ -1,3 +1,4 @@
+import { spawn } from "child_process";
 import path from "path";
 
 import { outputKey, uploadKey } from "../config/storage";
@@ -96,4 +97,55 @@ export function jobIdFromObjectKey(objectKey: string): string {
     throw new Error(`object key ${JSON.stringify(objectKey)} carries no id`);
   }
   return id;
+}
+
+// combineFramesWithFFmpeg is the module's default FrameCombiner: it overlays
+// the rendered frames onto the video and encodes the Output with ffmpeg.
+export async function combineFramesWithFFmpeg(
+  videoPath: string,
+  framesDir: string,
+  outputPath: string,
+  fps: number
+): Promise<void> {
+  const ffmpeg = spawn("ffmpeg", [
+    "-framerate",
+    String(fps),
+    "-i",
+    `${framesDir}/element-%03d.png`, // overlay
+    "-i",
+    videoPath, // background
+    "-filter_complex",
+    "[1:v][0:v]overlay=0:0", // overlay on top
+    "-c:v",
+    "libx264",
+    "-crf",
+    "23",
+    "-preset",
+    "fast",
+    "-c:a",
+    "aac",
+    "-shortest",
+    outputPath,
+  ]);
+
+  // Log FFmpeg output for debugging
+  ffmpeg.stdout.on("data", (data) => {
+    console.log(`FFmpeg Output: ${data}`);
+  });
+
+  ffmpeg.stderr.on("data", (data) => {
+    console.error(`FFmpeg Error: ${data}`);
+  });
+
+  // Handle FFmpeg process completion
+  return new Promise((resolve, reject) => {
+    ffmpeg.on("close", (code) => {
+      if (code === 0) {
+        console.log(`Video created successfully: ${outputPath}`);
+        resolve();
+      } else {
+        reject(new Error(`FFmpeg process failed with code ${code}`));
+      }
+    });
+  });
 }

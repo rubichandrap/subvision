@@ -66,3 +66,17 @@ func TestEventQueueNamesMatchContract(t *testing.T) {
 		t.Errorf("FailedQueueName = %q, want %q (keep in sync with vfx/src/contract.ts)", FailedQueueName, "job_failed")
 	}
 }
+
+// QueueArgs must stay equivalent to the vfx service's assertQueue options
+// (deadLetterExchange/deadLetterRoutingKey in the subscriber), or RabbitMQ
+// rejects the second declare with 406 PRECONDITION_FAILED and whichever
+// service boots second crashes.
+func TestQueueArgsMatchContract(t *testing.T) {
+	args := QueueArgs()
+	if args["x-dead-letter-exchange"] != "" {
+		t.Errorf("x-dead-letter-exchange = %v, want \"\"", args["x-dead-letter-exchange"])
+	}
+	if args["x-dead-letter-routing-key"] != DeadQueueName {
+		t.Errorf("x-dead-letter-routing-key = %v, want %q", args["x-dead-letter-routing-key"], DeadQueueName)
+	}
+}

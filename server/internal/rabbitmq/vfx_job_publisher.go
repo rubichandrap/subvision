@@ -19,7 +19,10 @@ func NewVfxJobPublisher(conn *amqp.Connection) *VfxJobPublisher {
 		panic(err)
 	}
 
-	_, err = ch.QueueDeclare(vfxjob.QueueName, true, false, false, false, nil)
+	// The arguments must match the vfx service's declare of the same queue
+	// byte for byte, or RabbitMQ rejects the second one (406) and the
+	// handoff breaks. Both sides derive them from the contract.
+	_, err = ch.QueueDeclare(vfxjob.QueueName, true, false, false, false, vfxjob.QueueArgs())
 	if err != nil {
 		panic(err)
 	}

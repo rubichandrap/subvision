@@ -22,7 +22,6 @@ type VfxJobPublisher interface {
 }
 
 type ObjectStore interface {
-	Upload(ctx context.Context, key, filePath string) error
 	Download(ctx context.Context, key, destPath string) error
 }
 
@@ -74,8 +73,11 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string) error {
 	ctx := context.Background()
 	log.Printf("[Processor] Start processing upload %s (object %s)", uploadID, objectKey)
 	if p.lifecycle != nil {
-		if err := p.lifecycle.MarkTranscribing(uploadID); err != nil {
+		recorded, err := p.lifecycle.MarkTranscribing(uploadID)
+		if err != nil {
 			log.Printf("[Processor] %v", err)
+		} else if !recorded {
+			log.Printf("[Processor] lifecycle: job %s unknown or terminal, not marking %s", uploadID, "transcribing")
 		}
 	}
 
@@ -112,8 +114,11 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string) error {
 	}
 	log.Printf("[Processor] Published vfx job for upload %s", uploadID)
 	if p.lifecycle != nil {
-		if err := p.lifecycle.MarkRendering(uploadID); err != nil {
+		recorded, err := p.lifecycle.MarkRendering(uploadID)
+		if err != nil {
 			log.Printf("[Processor] %v", err)
+		} else if !recorded {
+			log.Printf("[Processor] lifecycle: job %s unknown or terminal, not marking %s", uploadID, "rendering")
 		}
 	}
 

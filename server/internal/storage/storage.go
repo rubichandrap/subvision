@@ -10,7 +10,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// Client stores and retrieves objects in the configured S3 bucket.
+// Client retrieves objects from the configured S3 bucket. Uploads arrive via
+// tusd's s3store; the server only reads them back.
 type Client struct {
 	s3     *s3.Client
 	bucket string
@@ -18,31 +19,6 @@ type Client struct {
 
 func New(s3Client *s3.Client, bucket string) *Client {
 	return &Client{s3: s3Client, bucket: bucket}
-}
-
-func (c *Client) Upload(ctx context.Context, key, filePath string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	info, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to stat file: %w", err)
-	}
-
-	_, err = c.s3.PutObject(ctx, &s3.PutObjectInput{
-		Bucket:        aws.String(c.bucket),
-		Key:           aws.String(key),
-		Body:          file,
-		ContentLength: aws.Int64(info.Size()),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to upload object: %w", err)
-	}
-
-	return nil
 }
 
 // Open streams the object at key; the caller closes the reader.

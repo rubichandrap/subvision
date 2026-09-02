@@ -2,13 +2,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { Channel, ConsumeMessage } from "amqplib";
 
-import {
-  RabbitmqSubscriberService,
-  VFX_JOBS_DEAD_QUEUE,
-} from "./rabbitmq-subscriber-service";
+import { RabbitmqSubscriberService } from "./rabbitmq-subscriber-service";
 import {
   JobCompletedEvent,
   JobFailedEvent,
+  VFX_JOBS_DEAD_QUEUE,
   VFX_JOBS_QUEUE,
   VfxJobPayload,
 } from "../../contract";
@@ -26,11 +24,14 @@ class FakeChannel {
     content: Buffer;
     headers?: Record<string, unknown>;
   }> = [];
+  asserted: Array<{ queue: string; options?: Record<string, unknown> }> = [];
   acked: ConsumeMessage[] = [];
   nacked: Array<{ requeue: boolean }> = [];
   consumer?: (msg: ConsumeMessage | null) => Promise<void>;
 
-  async assertQueue(): Promise<void> {}
+  async assertQueue(queue: string, options?: Record<string, unknown>): Promise<void> {
+    this.asserted.push({ queue, options });
+  }
   prefetch(): void {}
   async consume(
     _queue: string,
@@ -95,6 +96,26 @@ async function subscribe(
 }
 
 describe("vfx job consumer", () => {
+  it("declares vfx_jobs with the same dead-letter arguments the Go publisher uses", async () => {
+    const channel = new FakeChannel();
+    const events = new FakeEvents();
+    await subscribe(channel, async (job) => ({ uploadId: job.uploadId, outputKey: "outputs/u1" }), events);
+
+    const main = channel.asserted.find((a) => a.queue === VFX_JOBS_QUEUE);
+    assert.ok(main, "vfx_jobs was not declared");
+    // Must stay equivalent to vfxjob.QueueArgs() in server/internal/vfxjob,
+    // or RabbitMQ rejects the second declare with 406 PRECONDITION_FAILED.
+    assert.deepEqual(main.options, {
+      durable: true,
+      deadLetterExchange: "",
+      deadLetterRoutingKey: VFX_JOBS_DEAD_QUEUE,
+    });
+    assert.ok(
+      channel.asserted.some((a) => a.queue === VFX_JOBS_DEAD_QUEUE),
+      "the dead-letter queue was not declared"
+    );
+  });
+
   it("a successful render publishes JobCompleted and acks", async () => {
     const channel = new FakeChannel();
     const events = new FakeEvents();

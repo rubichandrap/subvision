@@ -17,10 +17,6 @@ type fakeStore struct {
 	downloadErr error
 }
 
-func (f *fakeStore) Upload(ctx context.Context, key, filePath string) error {
-	return nil
-}
-
 func (f *fakeStore) Download(ctx context.Context, key, destPath string) error {
 	if f.downloadErr != nil {
 		return f.downloadErr

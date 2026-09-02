@@ -14,12 +14,15 @@ the Next.js client uploads videos with tus.
   rendering.
 - **VFX Job** — the message that tells the vfx service to render a video: the
   upload's object key plus its Transcription Segments. Published by the server
-  to the vfx queue; consumed by the vfx service.
+  to the vfx queue; consumed by the vfx service. The contract — queue names
+  and payload shapes — is defined once per runtime:
+  `server/internal/vfxjob` and `vfx/src/contract.ts` mirror each other.
 - **Output** — the rendered video with burned-in subtitles, stored under
   `outputs/<id>` with the same `<id>` as the Upload.
-- **Process** — the client-facing lifecycle of a job (uploaded → transcribing →
-  rendering → done). Not yet backed by a status API; the client UI currently
-  simulates it.
+- **Process** — the client-facing lifecycle of a job (uploaded →
+  transcribing → rendering → done/failed). Real server-side state, owned by
+  the server's job module, exposed read-only by the status API
+  (`GET /jobs`, `GET /jobs/:id`); the client polls it and never invents state.
 
 ## Invariants
 

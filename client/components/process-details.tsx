@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -11,6 +10,7 @@ import {
   XCircle,
 } from 'lucide-react';
 
+import { StageBadge, STAGE_LABEL } from '@/components/process-stage';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -20,14 +20,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  IN_FLIGHT_STAGES,
-  ProcessNotFoundError,
-  downloadUrl,
-  fetchJob,
-  type Process,
-  type ProcessStage,
-} from '@/lib/api';
+import { useProcess } from '@/hooks/use-process-polling';
+import { IN_FLIGHT_STAGES, downloadUrl, type ProcessStage } from '@/lib/api';
 
 // The pipeline stages, in the order the server moves a job through them.
 const PIPELINE_STAGES: ProcessStage[] = [
@@ -37,58 +31,8 @@ const PIPELINE_STAGES: ProcessStage[] = [
   'done',
 ];
 
-const STAGE_LABEL: Record<ProcessStage, string> = {
-  uploaded: 'Video Uploaded',
-  transcribing: 'Transcribing Speech',
-  rendering: 'Rendering Subtitles',
-  done: 'Done',
-  failed: 'Failed',
-};
-
 export function ProcessDetails({ processId }: { processId: string }) {
-  const [process, setProcess] = useState<Process | null>(null);
-  const [notFound, setNotFound] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let unknownAttempts = 0;
-
-    // Poll the status API while the job is in flight. A 404 right after the
-    // upload may simply mean the server hasn't recorded the process yet, so
-    // keep trying briefly before showing the not-found page.
-    const poll = async () => {
-      try {
-        const job = await fetchJob(processId);
-        if (cancelled) return;
-        setProcess(job);
-        setError(null);
-        if (IN_FLIGHT_STAGES.has(job.stage)) {
-          timer = setTimeout(poll, 2000);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        if (err instanceof ProcessNotFoundError) {
-          unknownAttempts += 1;
-          if (unknownAttempts >= 15) {
-            setNotFound(true);
-            return;
-          }
-          timer = setTimeout(poll, 2000);
-          return;
-        }
-        setError(err instanceof Error ? err.message : 'Failed to load process');
-        timer = setTimeout(poll, 5000);
-      }
-    };
-
-    poll();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-    };
-  }, [processId]);
+  const { process, notFound, error } = useProcess(processId);
 
   const handleDownload = () => {
     if (!process?.downloadUrl) return;
@@ -151,24 +95,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
               <CardTitle>{process.filename || process.id}</CardTitle>
               <CardDescription>Process ID: {process.id}</CardDescription>
             </div>
-            {process.stage === 'done' && (
-              <div className="flex items-center text-green-500 text-sm font-medium">
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Completed
-              </div>
-            )}
-            {process.stage === 'failed' && (
-              <div className="flex items-center text-red-500 text-sm font-medium">
-                <XCircle className="w-4 h-4 mr-1" />
-                Failed
-              </div>
-            )}
-            {inFlight && (
-              <div className="flex items-center text-amber-500 text-sm font-medium">
-                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                {STAGE_LABEL[process.stage]}
-              </div>
-            )}
+            <StageBadge stage={process.stage} />
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -182,20 +109,20 @@ export function ProcessDetails({ processId }: { processId: string }) {
             <h3 className="text-sm font-medium mb-4">Pipeline Stages</h3>
             <div className="space-y-4">
               {PIPELINE_STAGES.map((stage) => {
-                const currentIndex = PIPELINE_STAGES.indexOf(process.stage);
-                const stageIndex = PIPELINE_STAGES.indexOf(stage);
-                const reached = stageIndex <= currentIndex;
+                const reached =
+                  PIPELINE_STAGES.indexOf(stage) <=
+                  PIPELINE_STAGES.indexOf(process.stage);
                 const isCurrent = stage === process.stage;
                 return (
                   <div key={stage} className="flex items-center">
-                    {reached && !isCurrent && (
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                    )}
                     {isCurrent && inFlight && (
                       <Loader2 className="w-4 h-4 text-amber-500 animate-spin mr-2" />
                     )}
                     {isCurrent && process.stage === 'failed' && (
                       <XCircle className="w-4 h-4 text-red-500 mr-2" />
+                    )}
+                    {reached && !isCurrent && (
+                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
                     )}
                     {!reached && !isCurrent && (
                       <CheckCircle className="w-4 h-4 text-gray-300 mr-2" />

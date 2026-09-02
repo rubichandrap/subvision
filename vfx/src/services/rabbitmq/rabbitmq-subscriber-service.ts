@@ -2,18 +2,14 @@ import { Channel, ConsumeMessage } from "amqplib";
 import {
   JobCompletedEvent,
   JobFailedEvent,
+  VFX_JOBS_DEAD_QUEUE,
   VFX_JOBS_QUEUE,
   VfxJobPayload,
   extractUploadId,
   parseVfxJob,
 } from "../../contract";
-import { RenderOutcome } from "../render-module";
+import type { RenderOutcome } from "../render-module";
 import { JobEventPublisher } from "./job-event-publisher";
-
-// Queues a dead-lettered VFX Job lands in: the main queue routes rejected
-// messages here through its dead-letter exchange, so a repeatedly failing job
-// is parked for inspection instead of looping forever.
-export const VFX_JOBS_DEAD_QUEUE = "vfx_jobs_dead";
 
 const RETRY_COUNT_HEADER = "x-retry-count";
 
