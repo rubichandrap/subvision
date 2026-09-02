@@ -32,25 +32,22 @@
 
 ```mermaid
 flowchart TD
-    A[Client - Next.js] -- Upload video via tusd --> B[Server - Go, tusd handler]
+    A[Client - Next.js] -- Upload video via tus --> B[Server - Go, tusd handler]
     B -- Store video --> C[RustFS]
-    C -- Upload complete event --> D[Server - Publish upload_jobs queue]
-    D -- upload_jobs --> E[Server - ProcessUploadedFile]
-    E -- Download video from RustFS<br>Convert to WAV<br>Transcribe with whisper.cpp --> F[Transcription Segments]
-    E -- Publish generate_vfx_jobs --> G[VFX Service - Node.js, Remotion]
-    G -- Download video from RustFS<br>Generate frames<br>Combine with ffmpeg --> H[Processed Video]
-    G -- Upload processed video --> I[RustFS outputs/id]
-    I -- Ready for download --> A
+    B -- Record Process + publish upload_jobs --> D[Server - Processor]
+    D -- Download video<br>Convert to WAV<br>Transcribe with whisper.cpp --> F[Transcription Segments]
+    D -- Publish vfx_jobs (VFX Job) --> G[VFX Service - Node.js, Remotion]
+    G -- Download video<br>Render frames<br>Combine with ffmpeg --> H[Output at outputs/id in RustFS]
+    G -- job_completed / job_failed --> B
+    A -- GET /jobs, GET /jobs/:id/download --> B
 
     style A fill:#e0f7fa,stroke:#0097a7
     style B fill:#fffde7,stroke:#fbc02d
     style C fill:#e8f5e9,stroke:#388e3c
     style D fill:#f3e5f5,stroke:#8e24aa
-    style E fill:#fff3e0,stroke:#f57c00
     style F fill:#fce4ec,stroke:#d81b60
     style G fill:#e1f5fe,stroke:#0288d1
-    style H fill:#f9fbe7,stroke:#afb42b
-    style I fill:#e8f5e9,stroke:#388e3c
+    style H fill:#e8f5e9,stroke:#388e3c
 ```
 
 ---
@@ -143,49 +140,80 @@ pnpm dev
 
 ## Environment Variables
 
-### Server (`server/.env.example`)
+One contract for the whole stack — copy it from this page and the matching
+`.env.example` files. **Bold** variables are required: each runtime's loader
+fails loudly at boot when one is missing, naming the variable. Everything
+else has a documented default. No variable ever falls back to a silent
+default credential or URL.
+
+| Variable | Service(s) | Required | Default | Description |
+| --- | --- | :---: | --- | --- |
+| `PORT` | server | **yes** | — | Port the Gin server listens on. |
+| `TMP_DIR` | server, vfx | **yes** | — | Scratch directory for videos, audio, frames, rendered outputs. |
+| `CLIENT_URL` | server | **yes** | — | Origin of the Next.js client, allowed by the server's CORS. |
+| `WHISPER_MODEL_PATH` | server | **yes** | — | Path to the whisper.cpp ggml model. |
+| `S3_ENDPOINT` | server, vfx | **yes** | — | Full URL of the S3-compatible store (RustFS in compose). |
+| `S3_ACCESS_KEY` | server, vfx | **yes** | — | S3 access key. |
+| `S3_SECRET_KEY` | server, vfx | **yes** | — | S3 secret key. |
+| `S3_BUCKET` | server, vfx | **yes** | — | One shared bucket for `uploads/` and `outputs/`. |
+| `RABBITMQ_HOST` | server, vfx | **yes** | — | RabbitMQ host. |
+| `RABBITMQ_PORT` | server, vfx | **yes** | — | RabbitMQ AMQP port. |
+| `RABBITMQ_USER` | server, vfx | **yes** | — | RabbitMQ user. |
+| `RABBITMQ_PASSWORD` | server, vfx | **yes** | — | RabbitMQ password. |
+| `RABBITMQ_PREFETCH` | vfx | no | `1` | How many VFX Jobs the consumer processes concurrently. |
+| `RABBITMQ_MAX_ATTEMPTS` | vfx | no | `3` | Attempts before a failing VFX Job dead-letters. |
+| `RENDER_FPS` | vfx | no | `30` | Frame rate used for rendering. |
+| `RENDER_WIDTH` | vfx | no | `1920` | Render width in pixels. |
+| `RENDER_HEIGHT` | vfx | no | `1080` | Render height in pixels. |
+| `RENDER_TEMPLATE` | vfx | no | `karaoke` | Composition id of the subtitle template (`fade`, `slide`, `karaoke`). |
+| `NEXT_PUBLIC_SERVER_URL` | client | **yes** | — | Base URL the browser uses to reach the server (status API + tus uploads). |
+
+### Example files
 
 ```env
+# server/.env
 PORT=8080
 TMP_DIR=/tmp
-
 CLIENT_URL=http://localhost:3000
-
+WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
 S3_ENDPOINT=http://rustfs:9000
 S3_ACCESS_KEY=rustfs
 S3_SECRET_KEY=rustfs123
 S3_BUCKET=subvision
-
 RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
 RABBITMQ_USER=guest
 RABBITMQ_PASSWORD=guest
-
-# Default to third_party/whisper.cpp/bindings/go/models/*.bin
-WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
 ```
 
-### Client (`client/.env.example`)
+```env
+# vfx/.env
+TMP_DIR=tmp
+S3_ENDPOINT=http://rustfs:9000
+S3_ACCESS_KEY=rustfs
+S3_SECRET_KEY=rustfs123
+S3_BUCKET=subvision
+RABBITMQ_HOST=rabbitmq
+RABBITMQ_PORT=5672
+RABBITMQ_USER=guest
+RABBITMQ_PASSWORD=guest
+RABBITMQ_PREFETCH=1
+RABBITMQ_MAX_ATTEMPTS=3
+RENDER_FPS=30
+RENDER_WIDTH=1920
+RENDER_HEIGHT=1080
+RENDER_TEMPLATE=karaoke
+```
 
 ```env
+# client/.env
 NEXT_PUBLIC_SERVER_URL=http://localhost:8080
 ```
 
-### Vfx
-
-```env
-TMP_DIR=tmp
-
-S3_ENDPOINT=http://rustfs:9000
-S3_ACCESS_KEY=rustfs
-S3_SECRET_KEY=rustfs123
-S3_BUCKET=subvision
-
-RABBITMQ_HOST=rabbitmq
-RABBITMQ_PORT=5672
-RABBITMQ_USER=guest
-RABBITMQ_PASSWORD=guest
-```
+The compose stack also sets `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` /
+`RUSTFS_ADDRESS` / `RUSTFS_CONSOLE_*` on the RustFS container itself and the
+bucket's access policy in the `createbuckets` sidecar — those configure the
+storage adapter, not the three services, and match the values above.
 
 ---
 
