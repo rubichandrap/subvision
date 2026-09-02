@@ -1,26 +1,28 @@
 # Subvision
 
-**Subvision** is an AI-powered subtitle generator. Upload your video, and Subvision will automatically generate subtitles using AI, track your process, and let you download the result when it's ready.
+Subvision transcribes the audio of uploaded videos with whisper.cpp and burns
+styled subtitles onto them with Remotion and ffmpeg. A browser editor trims
+and reframes the video and styles the captions; the edit travels with the
+upload as metadata and is applied server-side in a single render pass.
 
 ---
 
 ## Features
 
-- **In-browser editor** — after picking a video, trim the duration, reframe it
-  for any platform (9:16, 4:5, 1:1, 16:9, or a freely dragged ratio), and
-  zoom/pan the crop, all with a live preview
-- **Subtitle styling** — font, size, color, outline, vertical position,
-  background plate, ALL-CAPS, and the karaoke/pop highlight color, previewed
-  before rendering (see the Edit Spec in `CONTEXT.md` and ADR-0003)
-- **Caption animations** — fade, slide, karaoke swipe, or shorts-style word
-  pops; pick one or roll the dice
-- Video upload with resumable uploads (tus protocol) — the edit travels as
-  upload metadata and is applied server-side during the single render pass
-- Automatic subtitle generation using AI
-- **Gallery** of every captioned video with hover previews and live status
-- Download processed videos with subtitles
-- Modern web UI (Next.js, Tailwind CSS v4, shadcn/ui, dark-first studio theme)
-- Backend with Gin, RabbitMQ, tusd, RustFS
+- **Editor** — trim the duration, reframe to 9:16, 4:5, 1:1, 16:9, or any
+  ratio dragged by hand, and zoom/pan the crop, with a live preview
+- **Caption styling** — font, size, color, outline, vertical position,
+  background plate, ALL-CAPS, and highlight color, previewed before
+  rendering (the Edit Spec: `CONTEXT.md`, ADR-0003)
+- **Caption animations** — fade, slide, karaoke swipe, or word-by-word pop,
+  picked directly or resolved randomly on submit
+- Resumable uploads over tus; the edit rides as upload metadata
+- Automatic transcription with whisper.cpp
+- **Gallery** of processed videos with hover previews and live pipeline
+  status
+- Download of the rendered MP4
+- Next.js client on Tailwind CSS v4 and shadcn/ui, dark theme by default
+- Go server with Gin, RabbitMQ, tusd, RustFS
 
 ---
 
@@ -28,12 +30,10 @@
 
 - **Client:** Next.js app ([client/](client))
 - **Server:** Go backend ([server/](server))
-- **Vfx:** Node.js service for subtitle rendering and effects using Remotion ([vfx/](vfx))
+- **Vfx:** Node.js service that renders the subtitle overlay with Remotion and composites it onto the video with ffmpeg ([vfx/](vfx))
 - **RustFS:** S3-compatible object storage for uploads and outputs
 - **RabbitMQ:** Job queue for processing
 - **tusd:** Resumable upload server
-
----
 
 ---
 
@@ -41,12 +41,12 @@
 
 ```mermaid
 flowchart TD
-    A[Client - Next.js] -- Upload video via tus --> B[Server - Go, tusd handler]
+    A[Client - Next.js] -- Upload video via tus<br>with the Edit Spec as metadata --> B[Server - Go, tusd handler]
     B -- Store video --> C[RustFS]
     B -- Record Process + publish upload_jobs --> D[Server - Processor]
     D -- Download video<br>Convert to WAV<br>Transcribe with whisper.cpp --> F[Transcription Segments]
-    D -- Publish vfx_jobs (VFX Job) --> G[VFX Service - Node.js, Remotion]
-    G -- Download video<br>Render frames<br>Combine with ffmpeg --> H[Output at outputs/id in RustFS]
+    D -- Publish vfx_jobs (Edit Spec + segments) --> G[VFX Service - Node.js, Remotion]
+    G -- Download video<br>Trim, crop-to-fill, render overlay<br>Composite with ffmpeg --> H[Output at outputs/id in RustFS]
     G -- job_completed / job_failed --> B
     A -- GET /jobs, GET /jobs/:id/download --> B
 
@@ -76,7 +76,7 @@ flowchart TD
 ### 1. Clone the repository
 
 ```sh
-git clone --recurse-submodules https://github.com/yourusername/subvision.git
+git clone --recurse-submodules https://github.com/rubichandrap/subvision.git
 cd subvision
 ```
 
@@ -174,7 +174,7 @@ default credential or URL.
 | `RENDER_FPS` | vfx | no | `30` | Frame rate used for rendering. |
 | `RENDER_WIDTH` | vfx | no | `1920` | Render width in pixels. |
 | `RENDER_HEIGHT` | vfx | no | `1080` | Render height in pixels. |
-| `RENDER_TEMPLATE` | vfx | no | `karaoke` | Composition id of the subtitle template (`fade`, `slide`, `karaoke`). |
+| `RENDER_TEMPLATE` | vfx | no | `karaoke` | Fallback subtitle template for jobs without an Edit Spec (`fade`, `slide`, `karaoke`, `pop`). |
 | `NEXT_PUBLIC_SERVER_URL` | client | **yes** | — | Base URL the browser uses to reach the server (status API + tus uploads). |
 
 ### Example files
@@ -228,19 +228,13 @@ storage adapter, not the three services, and match the values above.
 
 ## TODO
 
-1. Integrate with Remotion for advanced video rendering.
-2. Add parameter requests from client for user subtitle preferences:
-
-- Language
-- Color
-- Outline
-- Border
-- Font name
-- Font size
-- Vertical margin (vmargin)
-
-3. Add functionality to split subtitle segments by max characters or by seconds.
-4. Add configuration for users to resize the video.
+1. Language selection and translation for subtitles.
+2. Word-level timestamps from whisper for exact pop/karaoke word timing
+   (currently derived from segment durations weighted by word length).
+3. Split subtitle segments by max characters or duration during
+   transcription.
+4. Saved caption style presets in the editor.
+5. Frame thumbnails on the trim timeline.
 
 ---
 
@@ -248,6 +242,3 @@ storage adapter, not the three services, and match the values above.
 
 MIT
 
----
-
-**Made with ❤️ for creators.**
