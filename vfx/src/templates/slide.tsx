@@ -1,45 +1,51 @@
-import { ISegment } from "@/types";
-import { interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-const fps = 30;
+import { SubtitleStyle } from "../contract";
+import { ISegment } from "../types";
+import {
+  activeSegment,
+  StyledCaption,
+  TransparentRoot,
+} from "./shared";
+
+// Slide captions: the active segment's text slides in from the left and
+// settles, then leaves with the segment.
+
+const SLIDE_IN_SECONDS = 0.35;
 
 export const Slide: React.FC<{
   segments: ISegment[];
-}> = ({ segments }) => {
+  style: SubtitleStyle;
+}> = ({ segments, style }) => {
   const frame = useCurrentFrame();
-  const frameTime = frame / fps;
+  const { fps } = useVideoConfig();
+  const time = frame / fps;
 
-  const activeSegment = segments.find(
-    (s) => frameTime >= s.start && frameTime <= s.end
-  );
+  const segment = activeSegment(segments, time);
+  if (!segment) return null;
 
-  if (!activeSegment) return null;
-
-  const progress = interpolate(
-    frameTime,
-    [activeSegment.start, activeSegment.end],
+  const slideIn = interpolate(
+    time,
+    [segment.start, segment.start + SLIDE_IN_SECONDS],
     [0, 1],
-    {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-    }
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
-
-  const translateX = interpolate(progress, [0, 1], [-400, 0]);
+  const eased = 1 - Math.pow(1 - slideIn, 3);
 
   return (
-    <div
-      style={{
-        flex: 1,
-        color: "white",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <h1 style={{ transform: `translateX(${translateX}px)`, fontSize: 48 }}>
-        {activeSegment.text}
-      </h1>
-    </div>
+    <TransparentRoot>
+      <StyledCaption style={style}>
+        <span
+          style={{
+            display: "inline-block",
+            opacity: eased,
+            transform: `translateX(${(eased - 1) * 0.6}em)`,
+          }}
+        >
+          {segment.text}
+        </span>
+      </StyledCaption>
+    </TransparentRoot>
   );
 };

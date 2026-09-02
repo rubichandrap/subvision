@@ -1,45 +1,48 @@
-import { ISegment } from "@/types";
-import { interpolate, useCurrentFrame } from "remotion";
+import React from "react";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-const fps = 30;
+import { SubtitleStyle } from "../contract";
+import { ISegment } from "../types";
+import {
+  activeSegment,
+  StyledCaption,
+  TransparentRoot,
+} from "./shared";
+
+// Fade captions: the active segment's text eases in, holds, and eases out.
+
+const FADE_SECONDS = 0.4;
 
 export const Fade: React.FC<{
   segments: ISegment[];
-}> = ({ segments }) => {
+  style: SubtitleStyle;
+}> = ({ segments, style }) => {
   const frame = useCurrentFrame();
-  const frameTime = frame / fps;
+  const { fps } = useVideoConfig();
+  const time = frame / fps;
 
-  const activeSegment = segments.find(
-    (s) => frameTime >= s.start && frameTime <= s.end
-  );
-
-  if (!activeSegment) return null;
+  const segment = activeSegment(segments, time);
+  if (!segment) return null;
 
   const fadeIn = interpolate(
-    frameTime,
-    [activeSegment.start, activeSegment.start + 0.5],
+    time,
+    [segment.start, segment.start + FADE_SECONDS],
     [0, 1],
-    { extrapolateRight: "clamp" }
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
   const fadeOut = interpolate(
-    frameTime,
-    [activeSegment.end - 0.5, activeSegment.end],
+    time,
+    [segment.end - FADE_SECONDS, segment.end],
     [1, 0],
-    { extrapolateLeft: "clamp" }
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
   const opacity = Math.min(fadeIn, fadeOut);
 
   return (
-    <div
-      style={{
-        flex: 1,
-        color: "white",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <h1 style={{ fontSize: 50, opacity }}>{activeSegment.text}</h1>
-    </div>
+    <TransparentRoot>
+      <StyledCaption style={style}>
+        <span style={{ opacity }}>{segment.text}</span>
+      </StyledCaption>
+    </TransparentRoot>
   );
 };

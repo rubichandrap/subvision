@@ -2,13 +2,15 @@ import { spawn } from "child_process";
 import path from "path";
 
 import { outputKey, uploadKey } from "../config/storage";
-import { VfxJobPayload } from "../contract";
+import { DEFAULT_STYLE, EditSpec, Frame, SubtitleStyle, VfxJobPayload } from "../contract";
+import { ISegment } from "../types";
 import { ensureDirs } from "../utils/ensure-dirs";
 
 // The render module owns everything render-related: the id derived from the
 // object key, every temporary path (including file extensions), the render
-// options, the ffmpeg invocation, and the Output upload. Callers pass a job
-// and receive an outcome; they make no path or option decisions.
+// options, the Edit Spec application (trim, crop-to-fill, animation, style),
+// the ffmpeg invocation, and the Output upload. Callers pass a job and
+// receive an outcome; they make no path or option decisions.
 
 export interface RenderOptions {
   fps: number;
@@ -21,21 +23,62 @@ export interface ObjectStorage {
   uploadFile(bucketName: string, objectKey: string, filePath: string): Promise<void>;
 }
 
-// Renders the subtitle frames for the segments into framesDir as
+// What the subtitle overlay renderer receives for one job: the segments
+// already shifted into the trim window, the frame's pixel dimensions, the
+// animation template to render, and the Subtitle Style to style it with.
+export interface OverlayRenderRequest {
+  segments: ISegment[];
+  framesDir: string;
+  width: number;
+  height: number;
+  fps: number;
+  template: string;
+  style: SubtitleStyle;
+}
+
+// Renders the subtitle frames for the request into framesDir as
 // element-%03d.png; the Remotion-backed implementation is wired in index.ts.
 export interface FrameRenderer {
-  (segments: VfxJobPayload["segments"], framesDir: string): Promise<void>;
+  (request: OverlayRenderRequest): Promise<void>;
+}
+
+// How the FrameCombiner cuts and reframes the video before the overlay lands
+// on it, derived from the Edit Spec.
+export interface CombinePlan {
+  /** ffmpeg filters applied to the video input (scale, crop) before the overlay. */
+  videoFilters: string[];
+  /** Where the rendered window starts in the source video, seconds. */
+  seekStart: number;
+  /** Window length, seconds; null renders to the end of the video. */
+  seekDuration: number | null;
+  /** Seconds into the output after which the subtitle overlay is disabled. */
+  overlayUntil: number | null;
 }
 
 // Overlays the rendered frames onto the video and writes outputPath.
 export interface FrameCombiner {
-  (videoPath: string, framesDir: string, outputPath: string, fps: number): Promise<void>;
+  (videoPath: string, framesDir: string, outputPath: string, fps: number, plan: CombinePlan): Promise<void>;
+}
+
+export interface VideoProbe {
+  width: number;
+  height: number;
+  duration: number | null;
+}
+
+// Reads the video's dimensions; the ffprobe-backed implementation is wired
+// in New (via probeVideoFile). Injectable so tests can fake it.
+export interface VideoProber {
+  (videoPath: string): Promise<VideoProbe>;
 }
 
 export interface RenderModuleConfig {
   tmpDir: string;
   bucket: string;
   options: RenderOptions;
+  // The composition id of the fallback subtitle template for jobs that carry
+  // no Edit Spec (RENDER_TEMPLATE).
+  template: string;
 }
 
 export interface RenderOutcome {
@@ -48,7 +91,8 @@ export class RenderModule {
     private readonly storage: ObjectStorage,
     private readonly renderFrames: FrameRenderer,
     private readonly combineFrames: FrameCombiner,
-    private readonly config: RenderModuleConfig
+    private readonly config: RenderModuleConfig,
+    private readonly probe: VideoProber = probeVideoFile
   ) {}
 
   // run renders one VFX Job: it throws if any stage fails and resolves with
@@ -67,11 +111,55 @@ export class RenderModule {
 
     await this.storage.downloadFile(this.config.bucket, uploadKey(id), videoPath);
 
-    await this.renderFrames(job.segments, framesDir);
-    await this.combineFrames(videoPath, framesDir, outputPath, this.config.options.fps);
+    if (!job.editSpec) {
+      // No Edit Spec: render the whole video at the configured dimensions
+      // with the fallback template and the default style, exactly as the
+      // pipeline did before the editor existed.
+      await this.renderFrames({
+        segments: job.segments,
+        framesDir,
+        width: this.config.options.width,
+        height: this.config.options.height,
+        fps: this.config.options.fps,
+        template: this.config.template,
+        style: DEFAULT_STYLE,
+      });
+      await this.combineFrames(videoPath, framesDir, outputPath, this.config.options.fps, {
+        videoFilters: [],
+        seekStart: 0,
+        seekDuration: null,
+        overlayUntil: maxSegmentEnd(job.segments),
+      });
+      await this.storage.uploadFile(this.config.bucket, outputKey(id), outputPath);
+      return { uploadId: job.uploadId, outputKey: outputKey(id) };
+    }
+
+    // With an Edit Spec the source video is probed, reframed to the target
+    // Frame (crop-to-fill), and cut to the trim window in the same pass; the
+    // subtitle overlay is rendered at the frame's dimensions for the shifted
+    // segments. The Output is the first and only encode.
+    const probe = await this.probe(videoPath);
+    const framePlan = planFrame(job.editSpec.frame, probe.width, probe.height);
+    const segments = shiftSegments(job.segments, job.editSpec.trim);
+
+    await this.renderFrames({
+      segments,
+      framesDir,
+      width: framePlan.width,
+      height: framePlan.height,
+      fps: this.config.options.fps,
+      template: job.editSpec.animation,
+      style: job.editSpec.style,
+    });
+    await this.combineFrames(videoPath, framesDir, outputPath, this.config.options.fps, {
+      videoFilters: framePlan.filters,
+      seekStart: job.editSpec.trim.start,
+      seekDuration:
+        job.editSpec.trim.end > 0 ? job.editSpec.trim.end - job.editSpec.trim.start : null,
+      overlayUntil: maxSegmentEnd(segments),
+    });
 
     await this.storage.uploadFile(this.config.bucket, outputKey(id), outputPath);
-
     return { uploadId: job.uploadId, outputKey: outputKey(id) };
   }
 
@@ -99,23 +187,185 @@ export function jobIdFromObjectKey(objectKey: string): string {
   return id;
 }
 
-// combineFramesWithFFmpeg is the module's default FrameCombiner: it overlays
-// the rendered frames onto the video and encodes the Output with ffmpeg.
+// maxSegmentEnd is how long the subtitle overlay must stay enabled: until the
+// last segment ends. null when there is nothing to show at all.
+export function maxSegmentEnd(segments: ISegment[]): number | null {
+  if (segments.length === 0) return null;
+  return Math.max(...segments.map((segment) => segment.end));
+}
+
+// shiftSegments translates absolute Transcription Segment times into the
+// trim window's local times and drops segments outside it. Segments ending
+// exactly at the window start (or starting exactly at a finite window end)
+// contribute nothing.
+export function shiftSegments(
+  segments: ISegment[],
+  trim: EditSpec["trim"]
+): ISegment[] {
+  const windowEnd = trim.end > 0 ? trim.end : Infinity;
+  return segments
+    .filter((segment) => segment.end > trim.start && segment.start < windowEnd)
+    .map((segment) => ({
+      ...segment,
+      start: Math.max(0, segment.start - trim.start),
+      end: Math.min(segment.end, windowEnd) - trim.start,
+    }));
+}
+
+// evenDown rounds a dimension down to the nearest even number: h264 demands
+// even sizes.
+function evenDown(value: number): number {
+  return Math.max(2, Math.floor(value / 2) * 2);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+// planFrame reframes the source video into the Edit Spec's Frame: the target
+// dimensions and the ffmpeg scale→crop filters implementing crop-to-fill with
+// the requested zoom and pan. The target's long side aims at 1920 but the
+// source is never upscaled past what covering it requires at zoom 1; pan is
+// normalized (-1..1) across the overflow: -1 pins the crop window to the
+// left/top edge, 1 to the right/bottom.
+export function planFrame(
+  frame: Frame,
+  sourceWidth: number,
+  sourceHeight: number
+): { width: number; height: number; filters: string[] } {
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    throw new Error(`probed video carries invalid dimensions ${sourceWidth}x${sourceHeight}`);
+  }
+
+  const desiredLongSide = 1920;
+  let targetWidth =
+    frame.ratio >= 1 ? desiredLongSide : desiredLongSide * frame.ratio;
+  let targetHeight =
+    frame.ratio >= 1 ? desiredLongSide / frame.ratio : desiredLongSide;
+  const coverBase = Math.max(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  if (coverBase > 1) {
+    // Upscaling would soften the source; shrink the frame to the source instead.
+    targetWidth /= coverBase;
+    targetHeight /= coverBase;
+  }
+  const width = evenDown(targetWidth);
+  const height = evenDown(width / frame.ratio); // keep the ratio exact through rounding
+
+  const coverScale = Math.max(width / sourceWidth, height / sourceHeight) * frame.zoom;
+  const scaledWidth = Math.round(sourceWidth * coverScale);
+  const scaledHeight = Math.round(sourceHeight * coverScale);
+
+  const maxX = Math.max(0, scaledWidth - width);
+  const maxY = Math.max(0, scaledHeight - height);
+  const x = clamp(Math.round(((scaledWidth - width) / 2) * (1 + frame.panX)), 0, maxX);
+  const y = clamp(Math.round(((scaledHeight - height) / 2) * (1 + frame.panY)), 0, maxY);
+
+  return {
+    width,
+    height,
+    filters: [
+      `scale=${scaledWidth}:${scaledHeight}`,
+      `crop=${width}:${height}:${x}:${y}`,
+    ],
+  };
+}
+
+// probeVideoFile reads the video's dimensions and duration with ffprobe.
+export async function probeVideoFile(videoPath: string): Promise<VideoProbe> {
+  const ffprobe = spawn("ffprobe", [
+    "-v",
+    "error",
+    "-select_streams",
+    "v:0",
+    "-show_entries",
+    "stream=width,height:format=duration",
+    "-of",
+    "json",
+    videoPath,
+  ]);
+
+  let stdout = "";
+  let stderr = "";
+  ffprobe.stdout.on("data", (data) => {
+    stdout += data;
+  });
+  ffprobe.stderr.on("data", (data) => {
+    stderr += data;
+  });
+
+  const code = await new Promise<number>((resolve, reject) => {
+    ffprobe.on("error", reject);
+    ffprobe.on("close", resolve);
+  });
+  if (code !== 0) {
+    throw new Error(`ffprobe failed for ${videoPath} with code ${code}: ${stderr.trim()}`);
+  }
+
+  let parsed: {
+    streams?: Array<{ width?: number; height?: number }>;
+    format?: { duration?: string };
+  };
+  try {
+    parsed = JSON.parse(stdout);
+  } catch (error) {
+    throw new Error(`ffprobe produced unparseable output for ${videoPath}: ${error}`);
+  }
+  const stream = parsed.streams?.[0];
+  if (!stream || typeof stream.width !== "number" || typeof stream.height !== "number") {
+    throw new Error(`ffprobe found no video stream with dimensions in ${videoPath}`);
+  }
+  const duration = parsed.format?.duration ? Number(parsed.format.duration) : null;
+  return {
+    width: stream.width,
+    height: stream.height,
+    duration: duration !== null && Number.isFinite(duration) ? duration : null,
+  };
+}
+
+// combineFramesWithFFmpeg is the module's default FrameCombiner: it cuts the
+// trim window, applies the plan's video filters, overlays the rendered
+// frames, and encodes the Output with ffmpeg. The overlay is disabled once
+// the plan's overlay window has passed, so the video plays to its (trimmed)
+// end with no frozen caption; the frames input itself only reaches that far.
 export async function combineFramesWithFFmpeg(
   videoPath: string,
   framesDir: string,
   outputPath: string,
-  fps: number
+  fps: number,
+  plan: CombinePlan
 ): Promise<void> {
-  const ffmpeg = spawn("ffmpeg", [
+  const overlay = `[0:v]overlay=0:0${
+    plan.overlayUntil !== null
+      ? `:enable='lte(t,${Number(plan.overlayUntil.toFixed(3))})'`
+      : ""
+  }[v]`;
+  // With filters the video lands on an intermediate label the overlay reads
+  // from; without them the two inputs feed the overlay directly.
+  const filterGraph =
+    plan.videoFilters.length > 0
+      ? `[1:v]${plan.videoFilters.join(",")}[bg];[bg]${overlay}`
+      : `[1:v]${overlay}`;
+
+  const args = [
     "-framerate",
     String(fps),
     "-i",
     `${framesDir}/element-%03d.png`, // overlay
+    "-ss",
+    String(plan.seekStart),
     "-i",
     videoPath, // background
+  ];
+  if (plan.seekDuration !== null) {
+    args.push("-t", String(plan.seekDuration));
+  }
+  args.push(
     "-filter_complex",
-    "[1:v][0:v]overlay=0:0", // overlay on top
+    filterGraph,
+    "-map",
+    "[v]",
+    "-map",
+    "1:a?",
     "-c:v",
     "libx264",
     "-crf",
@@ -124,9 +374,10 @@ export async function combineFramesWithFFmpeg(
     "fast",
     "-c:a",
     "aac",
-    "-shortest",
-    outputPath,
-  ]);
+    outputPath
+  );
+
+  const ffmpeg = spawn("ffmpeg", args);
 
   // Log FFmpeg output for debugging
   ffmpeg.stdout.on("data", (data) => {
