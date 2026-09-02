@@ -76,16 +76,20 @@ export function UploadForm() {
         console.log('Upload completed successfully');
         console.log("upload", upload);
 
+        // The upload URL the server assigned carries the real process id.
+        const fileId = upload.url ? upload.url.split('/').pop() : null;
 
-        // Get the upload URL which contains the file ID
-        let uploadUrl = upload.url;
-        console.log('Final upload URL:', uploadUrl)
+        if (!fileId) {
+          toast({
+            title: 'Upload finished, but tracking is unavailable',
+            description: 'The server did not return a process id for this upload.',
+            variant: 'destructive',
+          });
+          setUploading(false);
+          return;
+        }
 
-        const fileId = uploadUrl ? uploadUrl.split('/').pop() : null;
-        const processId =
-          fileId || `process_${Math.random().toString(36).substring(2, 10)}`;
-
-        setProcessId(processId);
+        setProcessId(fileId);
 
         toast({
           title: 'Upload complete',
@@ -95,7 +99,7 @@ export function UploadForm() {
 
         // Redirect to the process tracking page
         setTimeout(() => {
-          router.push(`/processes/${processId}`);
+          router.push(`/processes/${fileId}`);
         }, 1500);
       },
     });
