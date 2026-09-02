@@ -6,6 +6,10 @@ import { ISegment } from "./types";
 
 export const VFX_JOBS_QUEUE = "vfx_jobs";
 
+export const JOB_COMPLETED_QUEUE = "job_completed";
+
+export const JOB_FAILED_QUEUE = "job_failed";
+
 export interface VfxJobPayload {
   uploadId: string;
   objectKey: string;
@@ -14,6 +18,16 @@ export interface VfxJobPayload {
    * Reserved by the contract; consumers must not act on it.
    */
   animationType?: string;
+}
+
+export interface JobCompletedEvent {
+  uploadId: string;
+  outputKey: string;
+}
+
+export interface JobFailedEvent {
+  uploadId: string;
+  reason: string;
 }
 
 export class ContractError extends Error {
@@ -76,4 +90,14 @@ export function parseVfxJob(raw: unknown): VfxJobPayload {
     payload.animationType = raw["animationType"];
   }
   return payload;
+}
+
+// extractUploadId recovers the upload id from an unparsable payload when one
+// is present, so a malformed job can still be reported as failed instead of
+// leaving its process hanging in-flight forever.
+export function extractUploadId(raw: unknown): string | undefined {
+  if (isObject(raw) && typeof raw["uploadId"] === "string") {
+    return raw["uploadId"];
+  }
+  return undefined;
 }
