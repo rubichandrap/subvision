@@ -3,13 +3,26 @@ import { describe, it } from "node:test";
 
 import { VFX_JOBS_QUEUE, ContractError, parseVfxJob } from "./contract";
 
+const style = {
+  fontFamily: "Montserrat",
+  fontSizeScale: 1.2,
+  color: "#FFFFFF",
+  outlineWidth: 8,
+  outlineColor: "#000000",
+  bottomMargin: 0.1,
+  background: "box",
+  backgroundOpacity: 0.5,
+  uppercase: true,
+  highlightColor: "#FACC15",
+};
+
 describe("vfx job contract", () => {
   it("consumes the queue the server publishes to", () => {
     // The server declares QueueName = "vfx_jobs" in server/internal/vfxjob.
     assert.equal(VFX_JOBS_QUEUE, "vfx_jobs");
   });
 
-  it("parses a well-formed job, keeping every segment unchanged", () => {
+  it("parses a well-formed job without an Edit Spec, keeping every segment unchanged", () => {
     const raw = {
       uploadId: "u1",
       objectKey: "uploads/u1",
@@ -17,12 +30,118 @@ describe("vfx job contract", () => {
         { start: 0, end: 1.5, text: "hello" },
         { start: 1.5, end: 3, text: "world" },
       ],
-      animationType: "karaoke",
     };
 
     const job = parseVfxJob(raw);
 
     assert.deepEqual(job, raw);
+  });
+
+  it("parses a job carrying an Edit Spec unchanged", () => {
+    const raw = {
+      uploadId: "u1",
+      objectKey: "uploads/u1",
+      segments: [{ start: 0, end: 1.5, text: "hello" }],
+      editSpec: {
+        trim: { start: 2, end: 9 },
+        frame: { preset: "9:16", ratio: 0.5625, zoom: 1.5, panX: -0.5, panY: 0 },
+        animation: "pop",
+        style,
+      },
+    };
+
+    const job = parseVfxJob(raw);
+
+    assert.deepEqual(job, raw);
+  });
+
+  it("accepts a free frame preset with a custom ratio", () => {
+    const job = parseVfxJob({
+      uploadId: "u1",
+      objectKey: "uploads/u1",
+      segments: [],
+      editSpec: {
+        trim: { start: 0, end: 0 },
+        frame: { preset: "free", ratio: 1.37, zoom: 1, panX: 0, panY: 0 },
+        animation: "fade",
+        style,
+      },
+    });
+
+    assert.equal(job.editSpec!.frame.preset, "free");
+    assert.equal(job.editSpec!.trim.end, 0);
+  });
+
+  it("rejects a ratio contradicting the frame preset", () => {
+    assert.throws(
+      () =>
+        parseVfxJob({
+          uploadId: "u1",
+          objectKey: "uploads/u1",
+          segments: [],
+          editSpec: {
+            trim: { start: 0, end: 0 },
+            frame: { preset: "9:16", ratio: 1.7777, zoom: 1, panX: 0, panY: 0 },
+            animation: "fade",
+            style,
+          },
+        }),
+      /does not match preset/
+    );
+  });
+
+  it("rejects an unknown animation", () => {
+    assert.throws(
+      () =>
+        parseVfxJob({
+          uploadId: "u1",
+          objectKey: "uploads/u1",
+          segments: [],
+          editSpec: {
+            trim: { start: 0, end: 0 },
+            frame: { preset: "1:1", ratio: 1, zoom: 1, panX: 0, panY: 0 },
+            animation: "random",
+            style,
+          },
+        }),
+      /animation/
+    );
+  });
+
+  it("rejects an edit spec with a style field out of range", () => {
+    assert.throws(
+      () =>
+        parseVfxJob({
+          uploadId: "u1",
+          objectKey: "uploads/u1",
+          segments: [],
+          editSpec: {
+            trim: { start: 0, end: 0 },
+            frame: { preset: "1:1", ratio: 1, zoom: 1, panX: 0, panY: 0 },
+            animation: "fade",
+            style: { ...style, outlineWidth: 64 },
+          },
+        }),
+      /outlineWidth/
+    );
+  });
+
+  it("rejects a trim window that ends before it starts", () => {
+    assert.throws(
+      () =>
+        parseVfxJob({
+          uploadId: "u1",
+          objectKey: "uploads/u1",
+          segments: [],
+          editSpec: {
+            trim: { start: 5, end: 4 },
+            frame: { preset: "1:1", ratio: 1, zoom: 1, panX: 0, panY: 0 },
+            animation: "fade",
+            style,
+          },
+        }),
+      /trim\.end/
+    );
   });
 
   it("rejects a payload with a missing uploadId", () => {

@@ -4,7 +4,10 @@
 // mirrors it in vfx/src/contract.ts — a change here must be made there too.
 package vfxjob
 
-import "github.com/rubichandrap/subvision/server/internal/transcriber"
+import (
+	"github.com/rubichandrap/subvision/server/internal/editspec"
+	"github.com/rubichandrap/subvision/server/internal/transcriber"
+)
 
 // QueueName is the queue the server publishes VFX Jobs to and the vfx service
 // consumes them from.
@@ -35,13 +38,14 @@ const CompletedQueueName = "job_completed"
 // and the server consumes them from.
 const FailedQueueName = "job_failed"
 
-// Job is the message that tells the vfx service to render a video.
+// Job is the message that tells the vfx service to render a video. EditSpec
+// is nil when the upload carried no Edit Spec: the vfx service then renders
+// with its own defaults.
 type Job struct {
 	UploadID  string                `json:"uploadId"`
 	ObjectKey string                `json:"objectKey"`
 	Segments  []transcriber.Segment `json:"segments"`
-	// AnimationType is reserved by the contract; consumers must not act on it.
-	AnimationType string `json:"animationType,omitempty"`
+	EditSpec  *editspec.Spec        `json:"editSpec,omitempty"`
 }
 
 // JobCompleted reports a rendered Output.

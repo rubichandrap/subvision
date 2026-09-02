@@ -7,6 +7,7 @@ import (
 
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/db"
+	"github.com/rubichandrap/subvision/server/internal/editspec"
 	"github.com/rubichandrap/subvision/server/internal/handler"
 	"github.com/rubichandrap/subvision/server/internal/job"
 	"github.com/rubichandrap/subvision/server/internal/processor"
@@ -92,7 +93,17 @@ func main() {
 			failJob(jobs, payload.UploadID, "upload job carried no object key")
 			return
 		}
-		if err := proc.ProcessUploadedFile(payload.UploadID, key); err != nil {
+		// The Edit Spec rides as the "editSpec" tus metadata key (tusd has
+		// already base64-decoded the value). A malformed spec fails the
+		// process loudly; an absent one means the vfx service renders with
+		// its defaults.
+		spec, err := editspec.Parse(payload.Meta["editSpec"])
+		if err != nil {
+			log.Printf("[UploadJobConsumer] upload %s carries an invalid edit spec: %v", payload.UploadID, err)
+			failJob(jobs, payload.UploadID, err.Error())
+			return
+		}
+		if err := proc.ProcessUploadedFile(payload.UploadID, key, spec); err != nil {
 			log.Printf("[Processor] Error: %v", err)
 			// A transcription that fails must surface as a failed process,
 			// not leave the job in-flight forever.

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/rubichandrap/subvision/server/internal/editspec"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 )
 
@@ -25,6 +26,47 @@ func TestJobWireShape(t *testing.T) {
 	want := `{"uploadId":"u1","objectKey":"uploads/u1","segments":[{"start":0,"end":1.5,"text":"hello"}]}`
 	if string(body) != want {
 		t.Errorf("wire shape changed:\n got: %s\nwant: %s", body, want)
+	}
+}
+
+// A job carrying an Edit Spec publishes it under the editSpec key, exactly as
+// vfx/src/contract.ts parses it. The old reserved animationType field is gone.
+func TestJobEditSpecWireShape(t *testing.T) {
+	body, err := json.Marshal(Job{
+		UploadID:  "u1",
+		ObjectKey: "uploads/u1",
+		Segments: []transcriber.Segment{
+			{Start: 0, End: 1.5, Text: "hello"},
+		},
+		EditSpec: &editspec.Spec{
+			Trim:      editspec.Trim{Start: 2, End: 9},
+			Frame:     editspec.Frame{Preset: "9:16", Ratio: 0.5625, Zoom: 1.5, PanX: -0.5, PanY: 0},
+			Animation: "pop",
+			Style: &editspec.Style{
+				FontFamily:        "Montserrat",
+				FontSizeScale:     1.2,
+				Color:             "#FFFFFF",
+				OutlineWidth:      8,
+				OutlineColor:      "#000000",
+				BottomMargin:      0.1,
+				Background:        "box",
+				BackgroundOpacity: 0.5,
+				Uppercase:         true,
+				HighlightColor:    "#FACC15",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"uploadId":"u1","objectKey":"uploads/u1","segments":[{"start":0,"end":1.5,"text":"hello"}],` +
+		`"editSpec":{"trim":{"start":2,"end":9},` +
+		`"frame":{"preset":"9:16","ratio":0.5625,"zoom":1.5,"panX":-0.5,"panY":0},` +
+		`"animation":"pop",` +
+		`"style":{"fontFamily":"Montserrat","fontSizeScale":1.2,"color":"#FFFFFF","outlineWidth":8,"outlineColor":"#000000","bottomMargin":0.1,"background":"box","backgroundOpacity":0.5,"uppercase":true,"highlightColor":"#FACC15"}}}`
+	if string(body) != want {
+		t.Errorf("editSpec wire shape changed:\n got: %s\nwant: %s", body, want)
 	}
 }
 

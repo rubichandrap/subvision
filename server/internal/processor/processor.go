@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/rubichandrap/subvision/server/internal/config"
+	"github.com/rubichandrap/subvision/server/internal/editspec"
 	"github.com/rubichandrap/subvision/server/internal/job"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
@@ -68,8 +69,9 @@ func New(opts Options) *Processor {
 
 // ProcessUploadedFile runs an upload through the pipeline: download the video,
 // extract and transcribe its audio, then publish a VFX Job carrying the
-// Transcription Segments.
-func (p *Processor) ProcessUploadedFile(uploadID, objectKey string) error {
+// Transcription Segments and the upload's Edit Spec (nil when the upload had
+// none).
+func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editspec.Spec) error {
 	ctx := context.Background()
 	log.Printf("[Processor] Start processing upload %s (object %s)", uploadID, objectKey)
 	if p.lifecycle != nil {
@@ -108,6 +110,7 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string) error {
 		UploadID:  uploadID,
 		ObjectKey: objectKey,
 		Segments:  segments,
+		EditSpec:  spec,
 	}
 	if err := p.publisher.Publish(job); err != nil {
 		return fmt.Errorf("failed to publish vfx job for upload %s: %w", uploadID, err)
