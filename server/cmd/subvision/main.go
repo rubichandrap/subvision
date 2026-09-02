@@ -7,8 +7,8 @@ import (
 
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/handler"
-	"github.com/rubichandrap/subvision/server/internal/minio"
 	"github.com/rubichandrap/subvision/server/internal/processor"
+	"github.com/rubichandrap/subvision/server/internal/storage"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
 	"github.com/rubichandrap/subvision/server/internal/utils"
 
@@ -33,8 +33,24 @@ func main() {
 
 	utils.EnsureDirs(tmpDir, videoTmpDir, audioTmpDir, subtitleTmpDir, outputsTmpDir)
 
-	// Initialize MinIO client
-	minio.Init(env.MinioEndpoint, env.MinioAccessKey, env.MinioSecretKey)
+	// S3 config (RustFS or any S3-compatible store)
+	awsCfg, err := awsCfg.LoadDefaultConfig(context.TODO(),
+		awsCfg.WithRegion("us-east-1"),
+		awsCfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(env.S3AccessKey, env.S3SecretKey, "")),
+		awsCfg.WithEndpointResolver(aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
+			return aws.Endpoint{
+				URL:               env.S3Endpoint, // use https if the store is secured
+				SigningRegion:     "us-east-1",    // static region for signing
+				HostnameImmutable: true,
+			}, nil
+		})),
+	)
+	if err != nil {
+		log.Fatalf("Failed to load AWS config for S3: %v", err)
+	}
+
+	s3Client := s3.NewFromConfig(awsCfg)
+	objectStore := storage.New(s3Client, env.S3Bucket)
 
 	// Init RabbitMQ connection, publisher, and consumer
 	conn := rabbitmq.Connect(env.AmqpURL)
@@ -46,8 +62,8 @@ func main() {
 
 	// consumers
 	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)
-	err := uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
-		if err := processor.ProcessUploadedFile(generateVfxJobPublisher, rabbitmq.UploadJobPayload{
+	err = uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
+		if err := processor.ProcessUploadedFile(generateVfxJobPublisher, objectStore, rabbitmq.UploadJobPayload{
 			UploadID: payload.UploadID,
 			Storage:  payload.Storage,
 			Meta:     payload.Meta,
@@ -59,26 +75,8 @@ func main() {
 		log.Fatalf("failed to consume upload job: %s", err)
 	}
 
-	// AWS-style config for MinIO
-	awsCfg, err := awsCfg.LoadDefaultConfig(context.TODO(),
-		awsCfg.WithRegion("us-east-1"),
-		awsCfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(env.MinioAccessKey, env.MinioSecretKey, "")),
-		awsCfg.WithEndpointResolver(aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:               "http://" + env.MinioEndpoint, // use https if MinIO is secured
-				SigningRegion:     "us-east-1",                   // static region for signing
-				HostnameImmutable: true,                          // required for MinIO
-			}, nil
-		})),
-	)
-	if err != nil {
-		log.Fatalf("Failed to load AWS config for MinIO: %v", err)
-	}
-
-	s3Client := s3.NewFromConfig(awsCfg)
-
 	// Set up s3store
-	store := s3store.New(env.MinioBucket, s3Client)
+	store := s3store.New(env.S3Bucket, s3Client)
 
 	// Compose the store and locker
 	composer := tusd.NewStoreComposer()
@@ -100,8 +98,6 @@ func main() {
 		for {
 			event := <-tusdHandler.CompleteUploads
 			log.Printf("Upload %s finished\n", event.Upload.ID)
-
-			log.Printf("[Debug] Expected MinIO key: %s%s", config.ObjectPrefix, event.Upload.Storage["Key"])
 
 			err := uploadJobPublisher.Publish(rabbitmq.UploadJobPayload{
 				UploadID: event.Upload.ID,

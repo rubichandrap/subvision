@@ -1,6 +1,6 @@
 import { env } from "./config/env";
 import { AnimateService } from "./services/animate-service";
-import { minioService } from "./services/minio/minio-service";
+import { s3Service } from "./services/storage/s3-service";
 import { rabbitmqService } from "./services/rabbitmq/rabbitmq-service";
 import { RabbitmqSubscriberService } from "./services/rabbitmq/rabbitmq-subscriber-service";
 import { ensureDirs } from "./utils/ensure-dirs";
@@ -14,7 +14,7 @@ async function main() {
   ensureDirs(tmpDir, videoTmpDir, framesTmpDir, outputTmpDir);
 
   // init all the 3rd services
-  await minioService.connect();
+  await s3Service.connect();
   const channel = await rabbitmqService.connect();
 
   // services

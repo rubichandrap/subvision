@@ -10,13 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.700.0",
     "@remotion/bundler": "^4.0.290",
     "@remotion/cli": "^4.0.290",
     "@remotion/renderer": "^4.0.290",
     "@types/amqplib": "^0.10.7",
     "amqplib": "^0.10.8",
     "dotenv": "^16.5.0",
-    "minio": "^8.0.5",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "remotion": "^4.0.290"

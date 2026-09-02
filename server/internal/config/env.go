@@ -13,10 +13,10 @@ type Env struct {
 	TmpDir           string
 	ClientURL        string
 	AmqpURL          string
-	MinioEndpoint    string
-	MinioAccessKey   string
-	MinioSecretKey   string
-	MinioBucket      string
+	S3Endpoint       string
+	S3AccessKey      string
+	S3SecretKey      string
+	S3Bucket         string
 	WhisperModelPath string
 }
 
@@ -28,7 +28,7 @@ func LoadEnv() *Env {
 	requiredVars := []string{
 		"PORT", "TMP_DIR",
 		"CLIENT_URL",
-		"MINIO_HOST", "MINIO_PORT", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY", "MINIO_BUCKET",
+		"S3_ENDPOINT", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_BUCKET",
 		"RABBITMQ_HOST", "RABBITMQ_PORT", "RABBITMQ_USER", "RABBITMQ_PASSWORD",
 		"WHISPER_MODEL_PATH",
 	}
@@ -44,19 +44,15 @@ func LoadEnv() *Env {
 	rabbitPort := os.Getenv("RABBITMQ_PORT")
 	amqpURL := fmt.Sprintf("amqp://%s:%s@%s:%s/", rabbitUser, rabbitPass, rabbitHost, rabbitPort)
 
-	minioHost := os.Getenv("MINIO_HOST")
-	minioPort := os.Getenv("MINIO_PORT")
-	minioEndpoint := fmt.Sprintf("%s:%s", minioHost, minioPort)
-
 	return &Env{
 		Port:             os.Getenv("PORT"),
 		TmpDir:           os.Getenv("TMP_DIR"),
 		ClientURL:        os.Getenv("CLIENT_URL"),
 		AmqpURL:          amqpURL,
-		MinioEndpoint:    minioEndpoint,
-		MinioAccessKey:   os.Getenv("MINIO_ACCESS_KEY"),
-		MinioSecretKey:   os.Getenv("MINIO_SECRET_KEY"),
-		MinioBucket:      os.Getenv("MINIO_BUCKET"),
+		S3Endpoint:       os.Getenv("S3_ENDPOINT"),
+		S3AccessKey:      os.Getenv("S3_ACCESS_KEY"),
+		S3SecretKey:      os.Getenv("S3_SECRET_KEY"),
+		S3Bucket:         os.Getenv("S3_BUCKET"),
 		WhisperModelPath: os.Getenv("WHISPER_MODEL_PATH"),
 	}
 }

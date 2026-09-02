@@ -1,6 +1,7 @@
 package processor
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/rubichandrap/subvision/server/internal/config"
-	"github.com/rubichandrap/subvision/server/internal/minio"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 )
@@ -22,7 +22,13 @@ var audioTmpDir = filepath.Join(env.TmpDir, "audios")
 // var subtitleTmpDir = filepath.Join(env.TmpDir, "subtitles")
 // var outputTmpDir = filepath.Join(env.TmpDir, "outputs")
 
-func ProcessUploadedFile(vfxPublisher *rabbitmq.GenerateVfxJobPublisher, payload rabbitmq.UploadJobPayload) error {
+type ObjectStore interface {
+	Upload(ctx context.Context, key, filePath string) error
+	Download(ctx context.Context, key, destPath string) error
+}
+
+func ProcessUploadedFile(vfxPublisher *rabbitmq.GenerateVfxJobPublisher, store ObjectStore, payload rabbitmq.UploadJobPayload) error {
+	ctx := context.Background()
 	uploadID := payload.UploadID
 	storage := payload.Storage
 	meta := payload.Meta
@@ -38,8 +44,8 @@ func ProcessUploadedFile(vfxPublisher *rabbitmq.GenerateVfxJobPublisher, payload
 
 	// Download video
 	videoPath := filepath.Join(videoTmpDir, id)
-	if err := minio.DownloadFile(env.MinioBucket, key, videoPath); err != nil {
-		return fmt.Errorf("failed to download file from MinIO: %w", err)
+	if err := store.Download(ctx, key, videoPath); err != nil {
+		return fmt.Errorf("failed to download video from object storage: %w", err)
 	}
 	log.Printf("[Processor] Downloaded video to %s", videoPath)
 
@@ -87,12 +93,12 @@ func ProcessUploadedFile(vfxPublisher *rabbitmq.GenerateVfxJobPublisher, payload
 	// }
 	// log.Printf("[Processor] Combined video and subtitle to %s", outputPath)
 
-	// // Upload the output video to MinIO
+	// // Upload the output video to object storage
 	// outputKey := fmt.Sprintf("outputs/%s.mp4", id)
-	// if err := minio.UploadFile(env.MinioBucket, outputKey, outputPath); err != nil {
-	// 	return fmt.Errorf("failed to upload output video to MinIO: %w", err)
+	// if err := store.Upload(ctx, outputKey, outputPath); err != nil {
+	// 	return fmt.Errorf("failed to upload output video: %w", err)
 	// }
-	// log.Printf("[Processor] Uploaded output video to MinIO: %s", outputKey)
+	// log.Printf("[Processor] Uploaded output video: %s", outputKey)
 
 	return nil
 }

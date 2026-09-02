@@ -11,7 +11,7 @@
 - Track processing status
 - Download processed videos with subtitles
 - Modern web UI (Next.js, Tailwind CSS)
-- Backend with Gin, MinIO, RabbitMQ, tusd
+- Backend with Gin, RabbitMQ, tusd, RustFS
 
 ---
 
@@ -20,7 +20,7 @@
 - **Client:** Next.js app ([client/](client))
 - **Server:** Go backend ([server/](server))
 - **Vfx:** Node.js service for subtitle rendering and effects using Remotion ([vfx/](vfx))
-- **MinIO:** S3-compatible object storage for uploads
+- **RustFS:** S3-compatible object storage for uploads and outputs
 - **RabbitMQ:** Job queue for processing
 - **tusd:** Resumable upload server
 
@@ -33,13 +33,13 @@
 ```mermaid
 flowchart TD
     A[Client - Next.js] -- Upload video via tusd --> B[Server - Go, tusd handler]
-    B -- Store video --> C[MinIO]
+    B -- Store video --> C[RustFS]
     C -- Upload complete event --> D[Server - Publish upload_jobs queue]
     D -- upload_jobs --> E[Server - ProcessUploadedFile]
-    E -- Download video from MinIO<br>Convert to WAV<br>Transcribe with whisper.cpp --> F[Transcription Segments]
+    E -- Download video from RustFS<br>Convert to WAV<br>Transcribe with whisper.cpp --> F[Transcription Segments]
     E -- Publish generate_vfx_jobs --> G[VFX Service - Node.js, Remotion]
-    G -- Download video from MinIO<br>Generate frames<br>Combine with ffmpeg --> H[Processed Video]
-    G -- Upload processed video --> I[MinIO outputs/id]
+    G -- Download video from RustFS<br>Generate frames<br>Combine with ffmpeg --> H[Processed Video]
+    G -- Upload processed video --> I[RustFS outputs/id]
     I -- Ready for download --> A
 
     style A fill:#e0f7fa,stroke:#0097a7
@@ -98,7 +98,7 @@ docker-compose up --build
 
 - **Frontend:** [http://localhost:3000](http://localhost:3000)
 - **Backend API:** [http://localhost:8080](http://localhost:8080)
-- **MinIO Console:** [http://localhost:9001](http://localhost:9001) (user: `minio`, pass: `minio123`)
+- **RustFS Console:** [http://localhost:9001](http://localhost:9001) (user: `rustfs`, pass: `rustfs123`)
 - **RabbitMQ Console:** [http://localhost:15672](http://localhost:15672) (user: `guest`, pass: `guest`)
 
 ---
@@ -146,16 +146,15 @@ pnpm dev
 ### Server (`server/.env.example`)
 
 ```env
-PORT=8000
+PORT=8080
 TMP_DIR=/tmp
 
 CLIENT_URL=http://localhost:3000
 
-MINIO_HOST=minio
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=minio
-MINIO_SECRET_KEY=minio123
-MINIO_BUCKET=subvision
+S3_ENDPOINT=http://rustfs:9000
+S3_ACCESS_KEY=rustfs
+S3_SECRET_KEY=rustfs123
+S3_BUCKET=subvision
 
 RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
@@ -169,7 +168,7 @@ WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
 ### Client (`client/.env.example`)
 
 ```env
-NEXT_PUBLIC_SERVER_URL=http://localhost:8000
+NEXT_PUBLIC_SERVER_URL=http://localhost:8080
 ```
 
 ### Vfx
@@ -177,11 +176,10 @@ NEXT_PUBLIC_SERVER_URL=http://localhost:8000
 ```env
 TMP_DIR=tmp
 
-MINIO_HOST=minio
-MINIO_PORT=9000
-MINIO_ACCESS_KEY=minio
-MINIO_SECRET_KEY=minio123
-MINIO_BUCKET=subvision
+S3_ENDPOINT=http://rustfs:9000
+S3_ACCESS_KEY=rustfs
+S3_SECRET_KEY=rustfs123
+S3_BUCKET=subvision
 
 RABBITMQ_HOST=rabbitmq
 RABBITMQ_PORT=5672
