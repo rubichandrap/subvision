@@ -2,18 +2,20 @@ import { bundle } from "@remotion/bundler";
 import { renderFrames } from "@remotion/renderer";
 import os from "os";
 import path from "path";
-import type { RenderOptions } from "./services/render-module";
-import { ISegment } from "./types";
 
-const getMaxDurationFrames = (segments: ISegment[], fps: number) => {
-  return Math.ceil(Math.max(...segments.map((s) => s.end)) * fps);
+import type { OverlayRenderRequest } from "./services/render-module";
+
+// Renders one job's subtitle overlay frames: bundles the templates and asks
+// Remotion for the request's template at the request's frame dimensions with
+// the request's (already shifted) segments and Subtitle Style. The frames are
+// transparent PNGs the FrameCombiner composites over the video.
+
+const getMaxDurationFrames = (segments: OverlayRenderRequest["segments"], fps: number) => {
+  return Math.max(1, Math.ceil(Math.max(...segments.map((s) => s.end)) * fps));
 };
 
-export const renderImagesFromTemplate = async (
-  segments: ISegment[],
-  template: string,
-  outputDir: string,
-  options: RenderOptions
+export const renderOverlayFrames = async (
+  request: OverlayRenderRequest
 ) => {
   const entry = path.join(__dirname, "templates", "index.tsx");
   const bundleLocation = await bundle({
@@ -22,24 +24,31 @@ export const renderImagesFromTemplate = async (
     webpackOverride: (config) => config,
   });
 
-  const durationInFrames = getMaxDurationFrames(segments, options.fps);
+  const durationInFrames = getMaxDurationFrames(request.segments, request.fps);
   await renderFrames({
     serveUrl: bundleLocation,
     composition: {
       defaultCodec: "h264",
-      id: template,
-      width: options.width,
-      height: options.height,
-      fps: options.fps,
-      defaultOutName: outputDir,
+      id: request.template,
+      width: request.width,
+      height: request.height,
+      fps: request.fps,
+      defaultOutName: request.framesDir,
       defaultProps: {
-        segments,
+        segments: [],
+        style: request.style,
       },
-      props: { segments },
+      props: {
+        segments: request.segments,
+        style: request.style,
+      },
       durationInFrames,
     },
-    inputProps: { segments },
-    outputDir,
+    inputProps: {
+      segments: request.segments,
+      style: request.style,
+    },
+    outputDir: request.framesDir,
     imageFormat: "png",
     frameRange: [0, durationInFrames - 1],
     onFrameUpdate(framesRendered, _, timeToRenderInMilliseconds) {

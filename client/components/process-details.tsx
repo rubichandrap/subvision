@@ -1,29 +1,27 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
+import { formatDistanceToNow } from 'date-fns';
 import {
   ArrowLeft,
   CheckCircle,
   Download,
-  FileVideo,
+  FileVideo2,
   Loader2,
   XCircle,
 } from 'lucide-react';
 
-import { StageBadge, STAGE_LABEL } from '@/components/process-stage';
+import { STAGE_LABEL } from '@/components/process-stage';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { useProcess } from '@/hooks/use-process-polling';
 import { IN_FLIGHT_STAGES, downloadUrl, type ProcessStage } from '@/lib/api';
 
-// The pipeline stages, in the order the server moves a job through them.
+// One Process, live: a horizontal stepper over the real server-side stages,
+// the rendered Output once it exists, and the download behind it.
+
 const PIPELINE_STAGES: ProcessStage[] = [
   'uploaded',
   'transcribing',
@@ -39,132 +37,151 @@ export function ProcessDetails({ processId }: { processId: string }) {
     window.location.href = downloadUrl(process);
   };
 
-  if (notFound) {
+  if (notFound || (error && !process)) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <FileVideo className="w-12 h-12 text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium">Process not found</h3>
-          <p className="text-gray-500 text-center mt-2 mb-6">
-            The process ID you&apos;re looking for doesn&apos;t exist.
-          </p>
-          <Link href="/processes">
-            <Button>View All Processes</Button>
-          </Link>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (error && !process) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12">
-          <FileVideo className="w-12 h-12 text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium">Could not load this process</h3>
-          <p className="text-gray-500 text-center mt-2">{error}</p>
-        </CardContent>
+      <Card className="flex flex-col items-center justify-center border-border/70 bg-card/50 py-16">
+        <FileVideo2 className="mb-4 h-10 w-10 text-muted-foreground/60" />
+        <h3 className="font-display text-lg font-semibold">
+          {notFound ? 'Process not found' : 'Could not load this process'}
+        </h3>
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          {notFound
+            ? 'The process you are looking for does not exist.'
+            : error}
+        </p>
+        <Button asChild className="mt-6">
+          <Link href="/processes">Back to the gallery</Link>
+        </Button>
       </Card>
     );
   }
 
   if (!process) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-500" />
+      <div className="flex justify-center items-center py-24">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   const inFlight = IN_FLIGHT_STAGES.has(process.stage);
+  const currentStageIndex = PIPELINE_STAGES.indexOf(process.stage);
+  const done = process.stage === 'done' && Boolean(process.downloadUrl);
 
   return (
-    <div className="grid gap-6">
+    <div className="space-y-5">
       <Link
         href="/processes"
-        className="flex items-center text-sm text-teal-600 hover:underline"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
-        <ArrowLeft className="w-4 h-4 mr-1" />
-        Back to all processes
+        <ArrowLeft className="h-4 w-4" />
+        Back to the gallery
       </Link>
 
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>{process.filename || process.id}</CardTitle>
-              <CardDescription>Process ID: {process.id}</CardDescription>
-            </div>
-            <StageBadge stage={process.stage} />
+      <Card className="border-border/70 bg-card/50 p-5">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate font-display text-xl font-semibold">
+              {process.filename || process.id}
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(process.createdAt), { addSuffix: true })}{' '}
+              · Process {process.id}
+            </p>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {process.stage === 'failed' && process.reason && (
-            <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-600">
-              This process failed: {process.reason}
-            </div>
-          )}
+          <div className="ml-auto">
+            {done && (
+              <Button onClick={handleDownload}>
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
+            )}
+          </div>
+        </div>
 
-          <div>
-            <h3 className="text-sm font-medium mb-4">Pipeline Stages</h3>
-            <div className="space-y-4">
-              {PIPELINE_STAGES.map((stage) => {
-                const reached =
-                  PIPELINE_STAGES.indexOf(stage) <=
-                  PIPELINE_STAGES.indexOf(process.stage);
-                const isCurrent = stage === process.stage;
-                return (
-                  <div key={stage} className="flex items-center">
-                    {isCurrent && inFlight && (
-                      <Loader2 className="w-4 h-4 text-amber-500 animate-spin mr-2" />
+        {/* Horizontal stepper over the real stages */}
+        <div className="mt-6 flex items-center">
+          {PIPELINE_STAGES.map((stage, index) => {
+            const isCurrent = stage === process.stage;
+            const reached = currentStageIndex >= index;
+            const isLast = index === PIPELINE_STAGES.length - 1;
+            return (
+              <React.Fragment key={stage}>
+                <div className="flex flex-col items-center gap-1.5">
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full border ${
+                      isCurrent && inFlight
+                        ? 'border-amber-400/60 bg-amber-400/10 text-amber-400'
+                        : isCurrent && process.stage === 'failed'
+                          ? 'border-red-500/60 bg-red-500/10 text-red-500'
+                          : reached
+                            ? 'border-primary/60 bg-primary/15 text-primary'
+                            : 'border-border bg-card text-muted-foreground/50'
+                    }`}
+                  >
+                    {isCurrent && inFlight ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : isCurrent && process.stage === 'failed' ? (
+                      <XCircle className="h-4 w-4" />
+                    ) : reached ? (
+                      <CheckCircle className="h-4 w-4" />
+                    ) : (
+                      <span className="text-xs">{index + 1}</span>
                     )}
-                    {isCurrent && process.stage === 'failed' && (
-                      <XCircle className="w-4 h-4 text-red-500 mr-2" />
-                    )}
-                    {reached && !isCurrent && (
-                      <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                    )}
-                    {!reached && !isCurrent && (
-                      <CheckCircle className="w-4 h-4 text-gray-300 mr-2" />
-                    )}
-                    <span
-                      className={`text-sm ${
-                        !reached && !isCurrent ? 'text-gray-400' : ''
-                      }`}
-                    >
-                      {STAGE_LABEL[stage]}
-                    </span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                  <span
+                    className={`text-[11px] font-medium ${
+                      reached ? 'text-foreground' : 'text-muted-foreground/60'
+                    }`}
+                  >
+                    {STAGE_LABEL[stage]}
+                  </span>
+                </div>
+                {!isLast && (
+                  <div
+                    className={`mx-2 mb-5 h-px flex-1 ${
+                      currentStageIndex > index ? 'bg-primary/60' : 'bg-border'
+                    }`}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
 
-          <div className="text-sm text-gray-500">
-            Started: {new Date(process.createdAt).toLocaleString()}
+        {process.stage === 'failed' && process.reason && (
+          <div className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3.5 text-sm text-red-400">
+            This process failed: {process.reason}
           </div>
-        </CardContent>
-        <CardFooter>
-          {process.stage === 'done' && process.downloadUrl && (
-            <Button className="w-full" onClick={handleDownload}>
-              <Download className="w-4 h-4 mr-2" />
-              Download Video with Subtitles
-            </Button>
-          )}
-          {inFlight && (
-            <Button className="w-full" disabled>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Processing — check back later
-            </Button>
-          )}
-          {process.stage === 'failed' && (
-            <Button className="w-full" variant="destructive" disabled>
-              <XCircle className="w-4 h-4 mr-2" />
-              Processing Failed
-            </Button>
-          )}
-        </CardFooter>
+        )}
       </Card>
+
+      {done ? (
+        <Card className="overflow-hidden border-border/70 bg-card/50 p-0">
+          <div className="flex items-center justify-between border-b border-border/60 px-5 py-3.5">
+            <p className="font-display text-sm font-semibold">Your captioned video</p>
+            <Badge variant="secondary" className="font-normal">
+              ready to post
+            </Badge>
+          </div>
+          <video
+            src={downloadUrl(process)}
+            controls
+            playsInline
+            className="max-h-[65vh] w-full bg-black object-contain"
+          />
+        </Card>
+      ) : inFlight ? (
+        <Card className="flex flex-col items-center justify-center border-border/70 bg-card/50 py-14">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+          <p className="mt-4 font-display font-semibold">
+            {STAGE_LABEL[process.stage]}…
+          </p>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            This page updates itself — no need to refresh.
+          </p>
+        </Card>
+      ) : null}
     </div>
   );
 }

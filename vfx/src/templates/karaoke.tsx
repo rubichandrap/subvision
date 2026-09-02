@@ -1,42 +1,78 @@
-import { ISegment } from "@/types";
 import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
+import { SubtitleStyle } from "../contract";
+import { ISegment } from "../types";
+import {
+  activeSegment,
+  StyledCaption,
+  TimedWord,
+  TransparentRoot,
+  wordTimings,
+} from "./shared";
+
+// Karaoke captions: only the active segment is on screen, and each word gets
+// a highlight swipe that fills left-to-right while the word is spoken. The
+// swipe color is the Subtitle Style's highlightColor — the color the old
+// template hard-coded, now user-configurable.
+
 export const Karaoke: React.FC<{
   segments: ISegment[];
-}> = ({ segments }) => {
+  style: SubtitleStyle;
+}> = ({ segments, style }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const time = frame / fps;
+
+  const segment = activeSegment(segments, time);
+  if (!segment) return null;
+
+  const words = wordTimings(segment);
 
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full bg-black text-white text-6xl font-bold">
-      <div className="flex flex-wrap gap-4">
-        {segments.map(({ text, start, end }, i) => {
-          const startFrame = start * fps;
-          const endFrame = end * fps;
-          const progress = interpolate(
-            frame,
-            [startFrame, endFrame],
-            [0, 1],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-          );
-
-          return (
-            <div key={i} className="relative px-2">
-              <span className="relative z-10">{text}</span>
-              <div
-                className="absolute top-0 left-0 h-full w-full rounded-md z-0"
-                style={{
-                  backgroundColor: "#facc15", // TODO: this color should came from user request (message queue)
-                  transform: `scaleX(${progress})`,
-                  transformOrigin: "left",
-                  transition: "transform 0.1s",
-                }}
-              ></div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <TransparentRoot>
+      <StyledCaption style={style}>
+        <span
+          style={{
+            display: "inline-flex",
+            flexWrap: "wrap",
+            justifyContent: "center",
+            columnGap: "0.3em",
+            rowGap: "0.1em",
+          }}
+        >
+          {words.map((word: TimedWord, index) => {
+            const progress = interpolate(time, [word.start, word.end], [0, 1], {
+              extrapolateLeft: "clamp",
+              extrapolateRight: "clamp",
+            });
+            return (
+              <span
+                key={index}
+                style={{ position: "relative", display: "inline-block" }}
+              >
+                <span style={{ position: "relative", zIndex: 1 }}>
+                  {word.text}
+                </span>
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    height: "100%",
+                    width: "100%",
+                    borderRadius: "0.12em",
+                    zIndex: 0,
+                    backgroundColor: style.highlightColor,
+                    transform: `scaleX(${progress})`,
+                    transformOrigin: "left",
+                  }}
+                />
+              </span>
+            );
+          })}
+        </span>
+      </StyledCaption>
+    </TransparentRoot>
   );
 };

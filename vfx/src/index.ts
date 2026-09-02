@@ -1,5 +1,5 @@
 import { env } from "./config/env";
-import { renderImagesFromTemplate } from "./render";
+import { renderOverlayFrames } from "./render";
 import { s3Service } from "./services/storage/s3-service";
 import { rabbitmqService } from "./services/rabbitmq/rabbitmq-service";
 import { RabbitmqJobEventPublisher } from "./services/rabbitmq/job-event-publisher";
@@ -23,13 +23,15 @@ async function main() {
   };
   const renderModule = new RenderModule(
     s3Service,
-    (segments, framesDir) =>
-      renderImagesFromTemplate(segments, env.renderTemplate, framesDir, renderOptions),
+    (request) => renderOverlayFrames(request),
     combineFramesWithFFmpeg,
     {
       tmpDir: env.tmpDir,
       bucket: env.s3Bucket,
       options: renderOptions,
+      // The fallback template for jobs without an Edit Spec; jobs with one
+      // carry their animation in the payload.
+      template: env.renderTemplate,
     }
   );
 

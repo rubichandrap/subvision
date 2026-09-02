@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rubichandrap/subvision/server/internal/editspec"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
@@ -69,7 +70,12 @@ func TestProcessUploadedFilePublishesVfxJob(t *testing.T) {
 		return segments, nil
 	})
 
-	if err := proc.ProcessUploadedFile("u1", "uploads/u1"); err != nil {
+	spec, err := editspec.Parse(`{"trim":{"start":2,"end":9},"frame":{"preset":"9:16","ratio":0.5625,"zoom":1,"panX":0,"panY":0},"animation":"karaoke","style":{"fontFamily":"Inter","fontSizeScale":1,"color":"#FFFFFF","outlineWidth":0,"outlineColor":"#000000","bottomMargin":0.12,"background":"none","backgroundOpacity":0.5,"uppercase":false,"highlightColor":"#FACC15"}}`)
+	if err != nil {
+		t.Fatalf("parse fixture edit spec: %v", err)
+	}
+
+	if err := proc.ProcessUploadedFile("u1", "uploads/u1", spec); err != nil {
 		t.Fatalf("ProcessUploadedFile: %v", err)
 	}
 
@@ -86,6 +92,9 @@ func TestProcessUploadedFilePublishesVfxJob(t *testing.T) {
 	if len(job.Segments) != 2 || job.Segments[0].Text != "hello" || job.Segments[1].Text != "world" {
 		t.Errorf("segments did not reach the vfx job unchanged: %+v", job.Segments)
 	}
+	if job.EditSpec != spec {
+		t.Errorf("the Edit Spec did not reach the vfx job: %+v", job.EditSpec)
+	}
 	if dest, ok := store.downloads["uploads/u1"]; !ok {
 		t.Errorf("video was not downloaded from object key uploads/u1 (downloads: %v)", store.downloads)
 	} else if filepath.Dir(dest) != filepath.Join("tmp", "videos") {
@@ -99,7 +108,7 @@ func TestProcessUploadedFilePublishErrorSurfaces(t *testing.T) {
 		return nil, nil
 	})
 
-	err := proc.ProcessUploadedFile("u1", "uploads/u1")
+	err := proc.ProcessUploadedFile("u1", "uploads/u1", nil)
 	if err == nil || !strings.Contains(err.Error(), "broker down") {
 		t.Fatalf("expected the publish error to surface, got %v", err)
 	}
@@ -111,7 +120,7 @@ func TestProcessUploadedFileRejectsUnexpectedObjectKey(t *testing.T) {
 		return nil, nil
 	})
 
-	err := proc.ProcessUploadedFile("u1", "no-prefix/u1")
+	err := proc.ProcessUploadedFile("u1", "no-prefix/u1", nil)
 	if err == nil {
 		t.Fatal("expected an error for an object key outside the uploads prefix")
 	}

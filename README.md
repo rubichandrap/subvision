@@ -6,11 +6,20 @@
 
 ## Features
 
-- Video upload with resumable uploads (tus protocol)
+- **In-browser editor** — after picking a video, trim the duration, reframe it
+  for any platform (9:16, 4:5, 1:1, 16:9, or a freely dragged ratio), and
+  zoom/pan the crop, all with a live preview
+- **Subtitle styling** — font, size, color, outline, vertical position,
+  background plate, ALL-CAPS, and the karaoke/pop highlight color, previewed
+  before rendering (see the Edit Spec in `CONTEXT.md` and ADR-0003)
+- **Caption animations** — fade, slide, karaoke swipe, or shorts-style word
+  pops; pick one or roll the dice
+- Video upload with resumable uploads (tus protocol) — the edit travels as
+  upload metadata and is applied server-side during the single render pass
 - Automatic subtitle generation using AI
-- Track processing status
+- **Gallery** of every captioned video with hover previews and live status
 - Download processed videos with subtitles
-- Modern web UI (Next.js, Tailwind CSS)
+- Modern web UI (Next.js, Tailwind CSS v4, shadcn/ui, dark-first studio theme)
 - Backend with Gin, RabbitMQ, tusd, RustFS
 
 ---
