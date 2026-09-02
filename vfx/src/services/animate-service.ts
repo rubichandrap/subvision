@@ -4,7 +4,7 @@ import { renderImagesFromTemplate } from "@/render";
 import { ISegment } from "@/types";
 import { spawn } from "child_process";
 import path from "path";
-import { minioService } from "./minio/minio-service";
+import { s3Service } from "./storage/s3-service";
 
 export class AnimateService {
   async create(objectKey: string, segments: ISegment[], animationType: string) {
@@ -16,8 +16,8 @@ export class AnimateService {
 
     // download the file
     const videoPath = path.join(process.cwd(), env.tmpDir, "videos");
-    await minioService.downloadFile(
-      env.minioBucket,
+    await s3Service.downloadFile(
+      env.s3Bucket,
       `${objectUploadPrefix}/${id}`,
       videoPath
     );
@@ -30,9 +30,9 @@ export class AnimateService {
     const outputPath = path.join(process.cwd(), env.tmpDir, "outputs");
     await this.combineImagesWithFFmpeg(videoPath, framePath, outputPath);
 
-    // upload the video to minio
-    await minioService.uploadFile(
-      env.minioBucket,
+    // upload the video to object storage
+    await s3Service.uploadFile(
+      env.s3Bucket,
       `${objectOutputPrefix}/${id}`,
       outputPath
     );

@@ -14,7 +14,7 @@ services:
     restart: always
     depends_on:
       - rabbitmq
-      - minio
+      - rustfs
 
   vfx:
     build:
@@ -26,7 +26,7 @@ services:
     restart: always
     depends_on:
       - rabbitmq
-      - minio
+      - rustfs
 
   client:
     build:
@@ -41,18 +41,25 @@ services:
     depends_on:
       - server
 
-  minio:
-    image: minio/minio
-    container_name: subvision-minio
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: subvision-rustfs
     ports:
       - "9000:9000"
       - "9001:9001"
     environment:
-      MINIO_ROOT_USER: minio
-      MINIO_ROOT_PASSWORD: minio123
+      RUSTFS_ACCESS_KEY: rustfs
+      RUSTFS_SECRET_KEY: rustfs123
+      RUSTFS_ADDRESS: ":9000"
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_CONSOLE_ADDRESS: ":9001"
     volumes:
-      - minio-data:/data
-    command: server /data --console-address ":9001"
+      - rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -65,17 +72,22 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
 
   createbuckets:
-    image: minio/mc
+    image: amazon/aws-cli:latest
     depends_on:
-      - minio
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: rustfs
+      AWS_SECRET_ACCESS_KEY: rustfs123
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_EC2_METADATA_DISABLED: "true"
     entrypoint: >
       /bin/sh -c "
-      sleep 5;
-      mc alias set local http://minio:9000 minio minio123;
-      mc mb -p local/subvision || true;
-      mc anonymous set download local/subvision;
+      echo '{"Version":"2012-10-17","Statement":[{"Sid":"PublicReadGetObject","Effect":"Allow","Principal":"*","Action":"s3:GetObject","Resource":"arn:aws:s3:::subvision/*"}]}' > /tmp/policy.json;
+      aws --endpoint-url http://rustfs:9000 s3api create-bucket --bucket subvision || true;
+      aws --endpoint-url http://rustfs:9000 s3api put-bucket-policy --bucket subvision --policy file:///tmp/policy.json || true;
       exit 0;
       "
 
 volumes:
-  minio-data:
+  rustfs-data:
