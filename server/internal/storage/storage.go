@@ -45,6 +45,18 @@ func (c *Client) Upload(ctx context.Context, key, filePath string) error {
 	return nil
 }
 
+// Open streams the object at key; the caller closes the reader.
+func (c *Client) Open(ctx context.Context, key string) (io.ReadCloser, int64, error) {
+	out, err := c.s3.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to get object: %w", err)
+	}
+	return out.Body, aws.ToInt64(out.ContentLength), nil
+}
+
 func (c *Client) Download(ctx context.Context, key, destPath string) error {
 	out, err := c.s3.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),

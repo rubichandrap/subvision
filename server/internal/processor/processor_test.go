@@ -46,7 +46,13 @@ func (f *fakePublisher) Publish(job vfxjob.Job) error {
 }
 
 func newTestProcessor(pub *fakePublisher, store ObjectStore, transcribe TranscribeFunc) *Processor {
-	proc := New(pub, store, transcribe, "tmp", "model.bin")
+	proc := New(Options{
+		Publisher:        pub,
+		Store:            store,
+		Transcribe:       transcribe,
+		TmpDir:           "tmp",
+		WhisperModelPath: "model.bin",
+	})
 	proc.convert = func(inputPath, outputPath string) error {
 		if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 			return err
