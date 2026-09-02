@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/rubichandrap/subvision/server/internal/config"
+	"github.com/rubichandrap/subvision/server/internal/job"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
@@ -33,25 +34,36 @@ type TranscribeFunc func(modelPath, audioPath string) ([]transcriber.Segment, er
 // implementation is wired in New.
 type ConvertFunc func(inputPath, outputPath string) error
 
+type Options struct {
+	Publisher        VfxJobPublisher
+	Store            ObjectStore
+	Transcribe       TranscribeFunc
+	TmpDir           string
+	WhisperModelPath string
+	Lifecycle        job.Tracker // optional
+}
+
 type Processor struct {
 	publisher        VfxJobPublisher
 	store            ObjectStore
 	transcribe       TranscribeFunc
 	convert          ConvertFunc
+	lifecycle        job.Tracker
 	videoTmpDir      string
 	audioTmpDir      string
 	whisperModelPath string
 }
 
-func New(publisher VfxJobPublisher, store ObjectStore, transcribe TranscribeFunc, tmpDir, whisperModelPath string) *Processor {
+func New(opts Options) *Processor {
 	return &Processor{
-		publisher:        publisher,
-		store:            store,
-		transcribe:       transcribe,
+		publisher:        opts.Publisher,
+		store:            opts.Store,
+		transcribe:       opts.Transcribe,
 		convert:          convertToWav,
-		videoTmpDir:      filepath.Join(tmpDir, "videos"),
-		audioTmpDir:      filepath.Join(tmpDir, "audios"),
-		whisperModelPath: whisperModelPath,
+		lifecycle:        opts.Lifecycle,
+		videoTmpDir:      filepath.Join(opts.TmpDir, "videos"),
+		audioTmpDir:      filepath.Join(opts.TmpDir, "audios"),
+		whisperModelPath: opts.WhisperModelPath,
 	}
 }
 
@@ -61,6 +73,11 @@ func New(publisher VfxJobPublisher, store ObjectStore, transcribe TranscribeFunc
 func (p *Processor) ProcessUploadedFile(uploadID, objectKey string) error {
 	ctx := context.Background()
 	log.Printf("[Processor] Start processing upload %s (object %s)", uploadID, objectKey)
+	if p.lifecycle != nil {
+		if err := p.lifecycle.MarkTranscribing(uploadID); err != nil {
+			log.Printf("[Processor] %v", err)
+		}
+	}
 
 	if !strings.HasPrefix(objectKey, config.ObjectPrefix) {
 		return fmt.Errorf("unexpected object key %q: must start with %q", objectKey, config.ObjectPrefix)
@@ -94,6 +111,11 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string) error {
 		return fmt.Errorf("failed to publish vfx job for upload %s: %w", uploadID, err)
 	}
 	log.Printf("[Processor] Published vfx job for upload %s", uploadID)
+	if p.lifecycle != nil {
+		if err := p.lifecycle.MarkRendering(uploadID); err != nil {
+			log.Printf("[Processor] %v", err)
+		}
+	}
 
 	return nil
 }
