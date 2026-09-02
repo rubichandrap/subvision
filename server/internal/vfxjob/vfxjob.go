@@ -10,6 +10,14 @@ import "github.com/rubichandrap/subvision/server/internal/transcriber"
 // consumes them from.
 const QueueName = "vfx_jobs"
 
+// CompletedQueueName is the queue the vfx service publishes JobCompleted
+// events to and the server consumes them from.
+const CompletedQueueName = "job_completed"
+
+// FailedQueueName is the queue the vfx service publishes JobFailed events to
+// and the server consumes them from.
+const FailedQueueName = "job_failed"
+
 // Job is the message that tells the vfx service to render a video.
 type Job struct {
 	UploadID  string                `json:"uploadId"`
@@ -17,4 +25,16 @@ type Job struct {
 	Segments  []transcriber.Segment `json:"segments"`
 	// AnimationType is reserved by the contract; consumers must not act on it.
 	AnimationType string `json:"animationType,omitempty"`
+}
+
+// JobCompleted reports a rendered Output.
+type JobCompleted struct {
+	UploadID  string `json:"uploadId"`
+	OutputKey string `json:"outputKey"`
+}
+
+// JobFailed reports a job that exhausted its attempts without rendering.
+type JobFailed struct {
+	UploadID string `json:"uploadId"`
+	Reason   string `json:"reason"`
 }

@@ -33,3 +33,36 @@ func TestQueueNameMatchesContract(t *testing.T) {
 		t.Errorf("QueueName = %q, want %q (keep in sync with vfx/src/contract.ts)", QueueName, "vfx_jobs")
 	}
 }
+
+func TestJobCompletedWireShape(t *testing.T) {
+	body, err := json.Marshal(JobCompleted{UploadID: "u1", OutputKey: "outputs/u1"})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"uploadId":"u1","outputKey":"outputs/u1"}`
+	if string(body) != want {
+		t.Errorf("wire shape changed:\n got: %s\nwant: %s", body, want)
+	}
+}
+
+func TestJobFailedWireShape(t *testing.T) {
+	body, err := json.Marshal(JobFailed{UploadID: "u1", Reason: "render exploded"})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	want := `{"uploadId":"u1","reason":"render exploded"}`
+	if string(body) != want {
+		t.Errorf("wire shape changed:\n got: %s\nwant: %s", body, want)
+	}
+}
+
+func TestEventQueueNamesMatchContract(t *testing.T) {
+	if CompletedQueueName != "job_completed" {
+		t.Errorf("CompletedQueueName = %q, want %q (keep in sync with vfx/src/contract.ts)", CompletedQueueName, "job_completed")
+	}
+	if FailedQueueName != "job_failed" {
+		t.Errorf("FailedQueueName = %q, want %q (keep in sync with vfx/src/contract.ts)", FailedQueueName, "job_failed")
+	}
+}

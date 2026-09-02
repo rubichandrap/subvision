@@ -4,15 +4,21 @@ import os from "os";
 import path from "path";
 import { ISegment } from "./types";
 
-const fps = 30;
-const getMaxDurationFrames = (segments: ISegment[]) => {
+export interface RenderFrameOptions {
+  fps: number;
+  width: number;
+  height: number;
+}
+
+const getMaxDurationFrames = (segments: ISegment[], fps: number) => {
   return Math.ceil(Math.max(...segments.map((s) => s.end)) * fps);
 };
 
 export const renderImagesFromTemplate = async (
   segments: ISegment[],
-  animationType: string,
-  outputDir: string
+  template: string,
+  outputDir: string,
+  options: RenderFrameOptions
 ) => {
   const entry = path.join(__dirname, "templates", "index.tsx");
   const bundleLocation = await bundle({
@@ -21,15 +27,15 @@ export const renderImagesFromTemplate = async (
     webpackOverride: (config) => config,
   });
 
-  const durationInFrames = getMaxDurationFrames(segments);
+  const durationInFrames = getMaxDurationFrames(segments, options.fps);
   await renderFrames({
     serveUrl: bundleLocation,
     composition: {
       defaultCodec: "h264",
-      id: animationType,
-      width: 1920,
-      height: 1080,
-      fps: 30,
+      id: template,
+      width: options.width,
+      height: options.height,
+      fps: options.fps,
       defaultOutName: outputDir,
       defaultProps: {
         segments,
