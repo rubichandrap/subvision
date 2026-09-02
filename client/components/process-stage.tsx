@@ -10,27 +10,25 @@ export const STAGE_LABEL: Record<ProcessStage, string> = {
   failed: 'Failed',
 };
 
+const STAGE_STYLE: Record<ProcessStage, string> = {
+  uploaded: 'border-border bg-card text-muted-foreground',
+  transcribing: 'border-amber-400/40 bg-amber-400/10 text-amber-400',
+  rendering: 'border-amber-400/40 bg-amber-400/10 text-amber-400',
+  done: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400',
+  failed: 'border-red-500/40 bg-red-500/10 text-red-400',
+};
+
 export function StageBadge({ stage }: { stage: ProcessStage }) {
-  if (stage === 'done') {
-    return (
-      <div className="flex items-center text-green-500 text-sm font-medium">
-        <CheckCircle className="w-4 h-4 mr-1" />
-        {STAGE_LABEL.done}
-      </div>
-    );
-  }
-  if (stage === 'failed') {
-    return (
-      <div className="flex items-center text-red-500 text-sm font-medium">
-        <XCircle className="w-4 h-4 mr-1" />
-        {STAGE_LABEL.failed}
-      </div>
-    );
-  }
   return (
-    <div className="flex items-center text-amber-500 text-sm font-medium">
-      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium backdrop-blur ${STAGE_STYLE[stage]}`}
+    >
+      {stage === 'done' && <CheckCircle className="h-3.5 w-3.5" />}
+      {stage === 'failed' && <XCircle className="h-3.5 w-3.5" />}
+      {stage !== 'done' && stage !== 'failed' && (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      )}
       {STAGE_LABEL[stage]}
-    </div>
+    </span>
   );
 }
