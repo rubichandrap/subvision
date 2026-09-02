@@ -1,6 +1,7 @@
 {
   "name": "subvision-vfx",
   "private": true,
+  "packageManager": "pnpm@9.15.9",
   "version": "0.0.0",
   "scripts": {
     "dev": "concurrently \"nodemon\" \"pnpm dlx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./dist/styles/tailwind.css --watch\"",
