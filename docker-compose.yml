@@ -16,8 +16,10 @@ services:
       - ./server/data:/app/data
     restart: always
     depends_on:
-      - rabbitmq
-      - rustfs
+      rabbitmq:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
 
   vfx:
     build:
@@ -29,8 +31,10 @@ services:
       - ./vfx/.env
     restart: always
     depends_on:
-      - rabbitmq
-      - rustfs
+      rabbitmq:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
 
   client:
     build:
@@ -77,6 +81,11 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
 
   createbuckets:
     image: amazon/aws-cli:latest
