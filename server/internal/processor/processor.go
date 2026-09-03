@@ -32,7 +32,7 @@ type TranscribeFunc func(modelPath, audioPath string) ([]transcriber.Segment, er
 
 // ConvertFunc extracts a wav from a video file; the ffmpeg-backed
 // implementation is wired in New.
-type ConvertFunc func(inputPath, outputPath string) error
+type ConvertFunc func(inputPath, outputPath string, window [2]float64) error
 
 type Options struct {
 	Publisher        VfxJobPublisher
@@ -94,17 +94,34 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 	}
 	log.Printf("[Processor] Downloaded video to %s", videoPath)
 
+	// Whisper only ever hears the trim window: captioning an 11-second Edit
+	// must not transcribe a 56-minute source. The window is [start, end] in
+	// source seconds, [0, 0] meaning the whole video. Segment times come
+	// back local to the window and are shifted back to absolute source time
+	// before publishing — the vfx contract (absolute in) stays untouched.
+	var window [2]float64
+	if spec != nil {
+		window = [2]float64{spec.Trim.Start, spec.Trim.End}
+	}
+
 	audioPath := filepath.Join(p.audioTmpDir, fmt.Sprintf("%s.wav", id))
-	if err := p.convert(videoPath, audioPath); err != nil {
+	if err := p.convert(videoPath, audioPath, window); err != nil {
 		return fmt.Errorf("failed to convert to wav: %w", err)
 	}
-	log.Printf("[Processor] Converted to WAV: %s", audioPath)
+	log.Printf("[Processor] Converted to WAV: %s (window %.3f-%.3f)", audioPath, window[0], window[1])
 
 	segments, err := p.transcribe(p.whisperModelPath, audioPath)
 	if err != nil {
 		return fmt.Errorf("failed to transcribe audio: %w", err)
 	}
 	log.Printf("[Processor] Transcribed %d segments", len(segments))
+
+	if window[0] > 0 {
+		for i := range segments {
+			segments[i].Start += window[0]
+			segments[i].End += window[0]
+		}
+	}
 
 	job := vfxjob.Job{
 		UploadID:  uploadID,
@@ -128,8 +145,20 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 	return nil
 }
 
-func convertToWav(inputPath, outputPath string) error {
-	cmd := exec.Command("ffmpeg", "-i", inputPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", outputPath)
+func convertToWav(inputPath, outputPath string, window [2]float64) error {
+	args := []string{"-hide_banner"}
+	// Input seeking before -i is a fast stream-level seek; the trailing -to
+	// bounds the read end. -to is absolute source time, so it composes with
+	// -ss correctly for end != 0.
+	if window[0] > 0 {
+		args = append(args, "-ss", fmt.Sprintf("%.3f", window[0]))
+	}
+	args = append(args, "-i", inputPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1")
+	if window[1] > 0 {
+		args = append(args, "-to", fmt.Sprintf("%.3f", window[1]))
+	}
+	args = append(args, outputPath)
+	cmd := exec.Command("ffmpeg", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	log.Printf("[ffmpeg] Running conversion command: %v", cmd.Args)

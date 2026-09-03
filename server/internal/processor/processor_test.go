@@ -50,13 +50,49 @@ func newTestProcessor(pub *fakePublisher, store ObjectStore, transcribe Transcri
 		TmpDir:           "tmp",
 		WhisperModelPath: "model.bin",
 	})
-	proc.convert = func(inputPath, outputPath string) error {
+	proc.convert = func(inputPath, outputPath string, window [2]float64) error {
 		if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 			return err
 		}
 		return os.WriteFile(outputPath, []byte("pcm"), 0o644)
 	}
 	return proc
+}
+
+func TestProcessUploadedFileTranscribesTrimWindowOnly(t *testing.T) {
+	var gotWindow [2]float64
+	pub := &fakePublisher{}
+	store := &fakeStore{}
+	proc := newTestProcessor(pub, store, func(modelPath, audioPath string) ([]transcriber.Segment, error) {
+		// The fake transcription returns times local to the trim window,
+		// exactly what whisper produces for a sliced wav.
+		return []transcriber.Segment{
+			{Start: 0.2, End: 1.4, Text: "hello"},
+			{Start: 1.6, End: 2.9, Text: "there"},
+		}, nil
+	})
+	proc.convert = func(inputPath, outputPath string, window [2]float64) error {
+		gotWindow = window
+		return os.WriteFile(outputPath, []byte("pcm"), 0o644)
+	}
+
+	spec, err := editspec.Parse(`{"trim":{"start":30,"end":41},"frame":{"preset":"9:16","ratio":0.5625,"zoom":1,"panX":0,"panY":0},"animation":"fade"}`)
+	if err != nil {
+		t.Fatalf("parse fixture edit spec: %v", err)
+	}
+
+	if err := proc.ProcessUploadedFile("u1", "uploads/u1", spec); err != nil {
+		t.Fatalf("ProcessUploadedFile: %v", err)
+	}
+
+	if gotWindow[0] != 30 || gotWindow[1] != 41 {
+		t.Fatalf("convert window = %v, want [30 41] (transcribe must stay inside the trim)", gotWindow)
+	}
+	job := pub.jobs[0]
+	// Segments shift back to absolute source time for the vfx contract.
+	if job.Segments[0].Start != 30.2 || job.Segments[0].End != 31.4 || job.Segments[1].Start != 31.6 || job.Segments[1].End != 32.9 {
+		t.Errorf("segments must shift back by trim.start 30, got %+v", job.Segments)
+	}
 }
 
 func TestProcessUploadedFilePublishesVfxJob(t *testing.T) {
