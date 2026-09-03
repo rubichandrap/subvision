@@ -17,6 +17,7 @@ upload as metadata and is applied server-side in a single render pass.
 - **VFX compositor**: Remotion and ffmpeg composite the styled captions onto the trimmed footage.
 - **Gallery**: Monitor in-flight jobs, preview finished videos on hover, and download rendered MP4 files.
 - **Stack**: Next.js client with Tailwind CSS v4 and shadcn/ui; Go backend with Gin, tusd, RabbitMQ, and RustFS; Node.js VFX service with Remotion.
+
 ---
 
 ## Architecture
@@ -214,6 +215,7 @@ The compose stack also sets `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`,
 `RUSTFS_ADDRESS`, and `RUSTFS_CONSOLE_*` on the RustFS container itself, and sets
 the bucket access policy in the `createbuckets` sidecar. Those configure the
 storage adapter rather than the application services, and match the values above.
+
 ---
 
 ## TODO
@@ -225,6 +227,12 @@ storage adapter rather than the application services, and match the values above
    transcription.
 4. Saved caption style presets in the editor.
 5. Frame thumbnails on the trim timeline.
+
+---
+
+## Support
+
+If this project helps you, consider [buying me a coffee](https://buymeacoffee.com/rubichandrap).
 
 ---
 
