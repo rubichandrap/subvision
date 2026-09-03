@@ -11,8 +11,8 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/handler"
 	"github.com/rubichandrap/subvision/server/internal/job"
 	"github.com/rubichandrap/subvision/server/internal/processor"
-	"github.com/rubichandrap/subvision/server/internal/storage"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
+	"github.com/rubichandrap/subvision/server/internal/storage"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 	"github.com/rubichandrap/subvision/server/internal/utils"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
@@ -186,8 +186,8 @@ func main() {
 	// Register tusd handler
 	handler.RegisterTusd(r, tusdHandler)
 
-	// Register the read-only status API over the Process lifecycle
-	handler.RegisterJobs(r, jobs, objectStore)
+	// Register the status API over the Process lifecycle plus Process deletion
+	handler.RegisterJobs(r, jobs, jobs, objectStore, objectStore)
 
 	log.Println("Starting Subvision backend on port", env.Port)
 	if err := r.Run(":" + env.Port); err != nil {

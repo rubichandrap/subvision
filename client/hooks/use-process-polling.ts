@@ -1,13 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { IN_FLIGHT_STAGES, ProcessNotFoundError, fetchJob, fetchJobs, type Process } from '@/lib/api';
+import {
+  IN_FLIGHT_STAGES,
+  ProcessNotFoundError,
+  deleteProcess,
+  fetchJob,
+  fetchJobs,
+  type Process,
+} from '@/lib/api';
 
 // Polling against the status API: the client never invents state, it re-reads
-// the server's while a job is in flight and stops once it reaches a terminal
-// one. Both hooks schedule the next poll with a timeout chain, so there is
-// exactly one request in the air at a time.
+// the server's while a process is in flight and stops once it reaches a
+// terminal one. Both hooks schedule the next poll with a timeout chain, so
+// there is exactly one request in the air at a time. removeProcess deletes a
+// process server-side and every other hook instance picks the change up on
+// its next poll — a gentle broadcast through a window event.
+
+const PROCESSES_CHANGED = 'subvision:processes-changed';
+
+function notifyProcessesChanged() {
+  window.dispatchEvent(new Event(PROCESSES_CHANGED));
+}
 
 export function useProcessList() {
   const [processes, setProcesses] = useState<Process[] | null>(null);
@@ -33,10 +48,17 @@ export function useProcessList() {
       }
     };
 
+    const refresh = () => {
+      if (timer) clearTimeout(timer);
+      void poll();
+    };
+
     poll();
+    window.addEventListener(PROCESSES_CHANGED, refresh);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      window.removeEventListener(PROCESSES_CHANGED, refresh);
     };
   }, []);
 
@@ -67,6 +89,11 @@ export function useProcess(id: string) {
         if (err instanceof ProcessNotFoundError) {
           // A 404 right after the upload may mean the server hasn't
           // recorded the process yet; retry briefly before giving up.
+          // A 404 after this process was deleted is final — stop polling.
+          if (deletedIds.has(id)) {
+            setNotFound(true);
+            return;
+          }
           unknownAttempts += 1;
           if (unknownAttempts >= 15) {
             setNotFound(true);
@@ -80,12 +107,43 @@ export function useProcess(id: string) {
       }
     };
 
+    const refresh = () => {
+      if (timer) clearTimeout(timer);
+      void poll();
+    };
+
     poll();
+    window.addEventListener(PROCESSES_CHANGED, refresh);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
+      window.removeEventListener(PROCESSES_CHANGED, refresh);
     };
   }, [id]);
 
   return { process, notFound, error };
+}
+
+// Ids deleted in this tab; the details hook uses it to stop its
+// not-found retry grace period for its own deletes.
+const deletedIds = new Set<string>();
+
+export function useProcessDelete() {
+  const [deleting, setDeleting] = useState(false);
+
+  const removeProcess = useCallback(async (id: string) => {
+    setDeleting(true);
+    try {
+      deletedIds.add(id);
+      await deleteProcess(id);
+      notifyProcessesChanged();
+    } catch (err) {
+      deletedIds.delete(id);
+      throw err;
+    } finally {
+      setDeleting(false);
+    }
+  }, []);
+
+  return { removeProcess, deleting };
 }

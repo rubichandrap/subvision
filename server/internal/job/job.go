@@ -134,6 +134,20 @@ func (s *Store) MarkFailed(uploadID, reason string) (bool, error) {
 	return s.mark(uploadID, StageFailed, reason, "")
 }
 
+// Delete removes the process row entirely. It reports whether a row was
+// deleted; deleting an unknown id is not an error.
+func (s *Store) Delete(id string) (bool, error) {
+	res, err := s.db.Exec(`DELETE FROM jobs WHERE id = ?`, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete job %s: %w", id, err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to delete job %s: %w", id, err)
+	}
+	return affected > 0, nil
+}
+
 // Get returns the process with the requested id, or ErrNotFound.
 func (s *Store) Get(id string) (*Process, error) {
 	row := s.db.QueryRow(

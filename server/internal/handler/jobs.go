@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/job"
 	"github.com/rubichandrap/subvision/server/internal/primitives"
 )
@@ -22,9 +23,21 @@ type JobReader interface {
 	Get(id string) (*job.Process, error)
 }
 
+// JobDeleter removes a Process record entirely; implemented by the job store.
+type JobDeleter interface {
+	Delete(id string) (bool, error)
+}
+
 // OutputOpener streams an Output object from storage.
 type OutputOpener interface {
 	Open(ctx context.Context, key string) (io.ReadCloser, int64, error)
+}
+
+// ObjectCleaner deletes every stored object under a key prefix (the Upload
+// and the Output ride under `uploads/` and `outputs/`); implemented by the
+// storage client.
+type ObjectCleaner interface {
+	Delete(ctx context.Context, prefix string) error
 }
 
 type processResponse struct {
@@ -54,8 +67,9 @@ func newProcessResponse(p *job.Process) processResponse {
 	return resp
 }
 
-// RegisterJobs exposes the read-only status API over the Process lifecycle.
-func RegisterJobs(r *gin.Engine, jobs JobReader, outputs OutputOpener) {
+// RegisterJobs exposes the status API over the Process lifecycle: reads for
+// the gallery, plus the one write — an immediate, best-effort Delete.
+func RegisterJobs(r *gin.Engine, jobs JobReader, deleter JobDeleter, outputs OutputOpener, cleaner ObjectCleaner) {
 	r.GET("/jobs", func(c *gin.Context) {
 		processes, err := jobs.List()
 		if err != nil {
@@ -110,6 +124,31 @@ func RegisterJobs(r *gin.Engine, jobs JobReader, outputs OutputOpener) {
 		if _, err := io.Copy(c.Writer, body); err != nil {
 			log.Printf("[Jobs] Failed to stream output for job %s: %v", id, err)
 		}
+	})
+
+	// Deletion is immediate and best-effort (ADR-0004): the row goes first so
+	// the process can never reappear, then the Upload and Output objects go
+	// best-effort — an object that fails to vanish is logged, not retried; the
+	// UI outcome never hangs on storage errors.
+	r.DELETE("/jobs/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		deleted, err := deleter.Delete(id)
+		if err != nil {
+			log.Printf("[Jobs] Failed to delete job %s: %v", id, err)
+			primitives.JSendError(c, "failed to delete job", http.StatusInternalServerError, nil)
+			return
+		}
+		if !deleted {
+			primitives.JSendFail(c, gin.H{"id": fmt.Sprintf("no job with id %q", id)}, http.StatusNotFound)
+			return
+		}
+
+		for _, prefix := range []string{config.ObjectPrefix + id, config.OutputPrefix + id} {
+			if err := cleaner.Delete(c.Request.Context(), prefix); err != nil {
+				log.Printf("[Jobs] Failed to clean objects under %s for deleted job %s: %v", prefix, id, err)
+			}
+		}
+		c.Status(http.StatusNoContent)
 	})
 }
 
