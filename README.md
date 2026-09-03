@@ -9,21 +9,14 @@ upload as metadata and is applied server-side in a single render pass.
 
 ## Features
 
-- **Editor** — trim the duration, reframe to 9:16, 4:5, 1:1, 16:9, or any
-  ratio dragged by hand, and zoom/pan the crop, with a live preview
-- **Caption styling** — font, size, color, outline, vertical position,
-  background plate, ALL-CAPS, and highlight color, previewed before
-  rendering (the Edit Spec: `CONTEXT.md`, ADR-0003)
-- **Caption animations** — fade, slide, karaoke swipe, or word-by-word pop,
-  picked directly or resolved randomly on submit
-- Resumable uploads over tus; the edit rides as upload metadata
-- Automatic transcription with whisper.cpp
-- **Gallery** of processed videos with hover previews and live pipeline
-  status
-- Download of the rendered MP4
-- Next.js client on Tailwind CSS v4 and shadcn/ui, dark theme by default
-- Go server with Gin, RabbitMQ, tusd, RustFS
-
+- **Editor**: Trim video duration, reframe to 9:16, 4:5, 1:1, 16:9, or free drag, and pan/zoom the crop with live canvas preview.
+- **Caption styling**: Configure font family, scale, text color, outline stroke, vertical position, background plate, uppercase mode, and highlight color.
+- **Caption animations**: Pick from fade, slide, karaoke swipe, or word-by-word pop, chosen manually or resolved randomly on submit.
+- **Resumable uploads**: Transfers videos over tus, attaching the edit spec directly as upload metadata (ADR-0003).
+- **Local transcription**: whisper.cpp extracts timestamped speech segments on the server.
+- **VFX compositor**: Remotion and ffmpeg composite the styled captions onto the trimmed footage.
+- **Gallery**: Monitor in-flight jobs, preview finished videos on hover, and download rendered MP4 files.
+- **Stack**: Next.js client with Tailwind CSS v4 and shadcn/ui; Go backend with Gin, tusd, RabbitMQ, and RustFS; Node.js VFX service with Remotion.
 ---
 
 ## Architecture
@@ -63,7 +56,7 @@ flowchart TD
 
 ## Reference
 
-- **Speech-to-text** is powered by [whisper.cpp](https://github.com/ggerganov/whisper.cpp), a fast and portable implementation of OpenAI's Whisper model.
+Subvision uses [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for speech-to-text transcription.
 
 ---
 
@@ -149,12 +142,10 @@ pnpm dev
 
 ## Environment Variables
 
-One contract for the whole stack — copy it from this page and the matching
-`.env.example` files. **Bold** variables are required: each runtime's loader
-fails loudly at boot when one is missing, naming the variable. Everything
-else has a documented default. No variable ever falls back to a silent
-default credential or URL.
-
+One contract for the whole stack. Values are documented here and mirrored in matching
+`.env.example` files. **Bold** variables are required: each service loader fails at boot
+when one is missing and names the variable. Everything else has a documented default.
+No variable falls back to silent credentials or default URLs.
 | Variable | Service(s) | Required | Default | Description |
 | --- | --- | :---: | --- | --- |
 | `PORT` | server | **yes** | — | Port the Gin server listens on. |
@@ -219,11 +210,10 @@ RENDER_TEMPLATE=karaoke
 NEXT_PUBLIC_SERVER_URL=http://localhost:8080
 ```
 
-The compose stack also sets `RUSTFS_ACCESS_KEY` / `RUSTFS_SECRET_KEY` /
-`RUSTFS_ADDRESS` / `RUSTFS_CONSOLE_*` on the RustFS container itself and the
-bucket's access policy in the `createbuckets` sidecar — those configure the
-storage adapter, not the three services, and match the values above.
-
+The compose stack also sets `RUSTFS_ACCESS_KEY`, `RUSTFS_SECRET_KEY`,
+`RUSTFS_ADDRESS`, and `RUSTFS_CONSOLE_*` on the RustFS container itself, and sets
+the bucket access policy in the `createbuckets` sidecar. Those configure the
+storage adapter rather than the application services, and match the values above.
 ---
 
 ## TODO

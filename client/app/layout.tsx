@@ -19,9 +19,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'Subvision — AI subtitles that match your edit',
+  title: 'Subvision Studio | Reframe and Caption',
   description:
-    'Upload your video, frame it for any platform, style your captions, and let AI generate the subtitles. Track every process and download the result.',
+    'Reframe video for 9:16, 1:1, or 16:9, style animated captions, and transcribe speech with whisper.cpp. Renders production MP4s on your server.',
 };
 
 export default function RootLayout({

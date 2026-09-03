@@ -260,8 +260,8 @@ function Editor() {
                   disabled={uploading}
                 />
                 <p className="mt-3 rounded-lg border border-border/60 bg-card/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
-                  The preview shows the caption styling; the words themselves
-                  appear once AI has transcribed your audio.
+                  The preview displays your caption styling. The actual words appear after
+                  whisper.cpp transcribes the audio.
                 </p>
               </TabsContent>
               <TabsContent value="style" className="mt-4">
