@@ -47,9 +47,21 @@ export async function fetchJobs(): Promise<Process[]> {
   return data.jobs;
 }
 
+// Job ids come from tusd's S3 store and contain a literal "+" (e.g.
+// "<hex>+<base64>"). A "+" reaches fetchJob either raw or percent-encoded,
+// depending on whether Next.js decoded the route param — normalizing here
+// means the API is called exactly once-encoded no matter which it was.
+function normalizeJobId(id: string): string {
+  try {
+    return decodeURIComponent(id);
+  } catch {
+    return id;
+  }
+}
+
 export async function fetchJob(id: string): Promise<Process> {
   try {
-    return await request<Process>(`/jobs/${encodeURIComponent(id)}`);
+    return await request<Process>(`/jobs/${encodeURIComponent(normalizeJobId(id))}`);
   } catch (error) {
     if (error instanceof Error && error.message === 'not found') {
       throw new ProcessNotFoundError(id);
