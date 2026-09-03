@@ -3,6 +3,9 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile
+      # Build steps talk to apt and the Go module proxy; host networking
+      # sidesteps the flaky NAT path WSL2 gives the default bridge.
+      network: host
     container_name: subvision-server
     ports:
       - "8080:8080"
@@ -20,6 +23,7 @@ services:
     build:
       context: ./vfx
       dockerfile: Dockerfile
+      network: host
     container_name: subvision-vfx
     env_file:
       - ./vfx/.env
@@ -32,6 +36,7 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      network: host
       args:
         NEXT_PUBLIC_SERVER_URL: ${NEXT_PUBLIC_SERVER_URL:-http://localhost:8080}
     container_name: subvision-client
