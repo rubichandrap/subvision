@@ -82,7 +82,10 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # check_port_connectivity, not `ping`: the Erlang node answers RPC
+      # before the AMQP listener on 5672 opens, so `ping` declares the
+      # service healthy seconds before any client could actually connect.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 5s
       timeout: 5s
       retries: 12
