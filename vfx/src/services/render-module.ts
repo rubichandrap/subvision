@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import fs from "fs";
 import path from "path";
 
 import { outputKey, uploadKey } from "../config/storage";
@@ -327,6 +328,22 @@ export async function probeVideoFile(videoPath: string): Promise<VideoProbe> {
 // frames, and encodes the Output with ffmpeg. The overlay is disabled once
 // the plan's overlay window has passed, so the video plays to its (trimmed)
 // end with no frozen caption; the frames input itself only reaches that far.
+// overlaySequencePattern infers the image2 printf pattern from the frames
+// Remotion actually wrote: Remotion pads filenames to the width of the
+// largest frame index (String(lastFrame).length), so the pattern depends on
+// the render's duration — %03d under 1000 frames, %04d above, and so on.
+// Reading the longest filename back means the combiner can never disagree
+// with the renderer about padding again.
+export async function overlaySequencePattern(framesDir: string): Promise<string | null> {
+  const entries = await fs.promises.readdir(framesDir);
+  const frames = entries.filter((name) => /^element-\d+\.png$/.test(name));
+  if (frames.length === 0) return null;
+  const widest = frames.reduce((acc, name) => Math.max(acc, name.length), 0);
+  // "element-0000.png" is 16 chars: prefix+dash+pad+digits… pad = widest - 9
+  const pad = widest - "element-".length - ".png".length;
+  return `${framesDir}/element-%0${pad}d.png`;
+}
+
 export async function combineFramesWithFFmpeg(
   videoPath: string,
   framesDir: string,
@@ -334,6 +351,12 @@ export async function combineFramesWithFFmpeg(
   fps: number,
   plan: CombinePlan
 ): Promise<void> {
+  const sequence = await overlaySequencePattern(framesDir);
+  if (sequence === null) {
+    throw new Error(
+      `no overlay frames found in ${framesDir}; the frame renderer wrote nothing to combine`
+    );
+  }
   const overlay = `[0:v]overlay=0:0${
     plan.overlayUntil !== null
       ? `:enable='lte(t,${Number(plan.overlayUntil.toFixed(3))})'`
@@ -350,7 +373,7 @@ export async function combineFramesWithFFmpeg(
     "-framerate",
     String(fps),
     "-i",
-    `${framesDir}/element-%04d.png`, // overlay (Remotion pads to the widest frame index: 1000+ frames = 4 digits)
+    sequence, // overlay (padding inferred from the frames actually written)
     "-ss",
     String(plan.seekStart),
     "-i",
