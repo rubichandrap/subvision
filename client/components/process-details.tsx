@@ -99,28 +99,36 @@ export function ProcessDetails({ processId }: { processId: string }) {
 
       <Card className="border-border/70 bg-card/50 p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="truncate font-display text-xl font-semibold">
               {process.filename || process.id}
             </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(process.createdAt), { addSuffix: true })} · Process{' '}
-              <span className="break-all">{process.id}</span>
-              <button
-                type="button"
-                aria-label="Copy process id"
-                className="ml-1 inline-flex h-4 w-4 items-center justify-center align-[-2px] rounded text-muted-foreground transition-colors hover:text-foreground"
-                onClick={() => {
-                  void handleCopyId();
-                }}
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-400" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-              </button>
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <span>{formatDistanceToNow(new Date(process.createdAt), { addSuffix: true })}</span>
+              <span className="h-1 w-1 rounded-full bg-border" aria-hidden="true" />
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                <code
+                  title={process.id}
+                  className="max-w-[180px] truncate rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] leading-none text-muted-foreground sm:max-w-[320px] md:max-w-[420px]"
+                >
+                  {process.id}
+                </code>
+                <button
+                  type="button"
+                  aria-label="Copy process id"
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={() => {
+                    void handleCopyId();
+                  }}
+                >
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </span>
+            </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
             {done && (
