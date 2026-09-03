@@ -5,6 +5,16 @@ styled subtitles onto them with Remotion and ffmpeg. A browser editor trims
 and reframes the video and styles the captions; the edit travels with the
 upload as metadata and is applied server-side in a single render pass.
 
+## Screenshots
+
+![Studio — home and dropzone](docs/assets/01-home.png)
+
+![Editor — trim, reframe, and style](docs/assets/02-editor.png)
+
+![Gallery — job archive](docs/assets/03-gallery.png)
+
+![Process — render pipeline and preview](docs/assets/04-process-detail.png)
+
 ---
 
 ## Features
