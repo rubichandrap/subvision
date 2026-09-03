@@ -178,7 +178,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
             {STAGE_LABEL[process.stage]}…
           </p>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            This page updates itself — no need to refresh.
+            This page updates itself. No need to refresh.
           </p>
         </Card>
       ) : null}

@@ -115,7 +115,7 @@ function Editor() {
         }
         toast({
           title: 'Upload complete',
-          description: 'Your video is in the pipeline — watch it in the gallery.',
+          description: 'Your video is in the pipeline. Watch it in the gallery.',
         });
         router.push(`/processes/${fileId}`);
       },
@@ -134,7 +134,7 @@ function Editor() {
             That video is no longer in this session
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            The editor keeps your selection in memory only — pick the video
+            The editor keeps your selection in memory only. Pick the video
             again to start fresh.
           </p>
           <Button asChild className="mt-6">

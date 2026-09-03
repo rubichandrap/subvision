@@ -72,7 +72,7 @@ export const ANIMATION_OPTIONS: Array<{ value: AnimationChoice; label: string; h
   { value: 'slide', label: 'Slide', hint: 'Glides in from the left and settles.' },
   { value: 'karaoke', label: 'Karaoke', hint: 'A highlight swipes across each word as it is spoken.' },
   { value: 'pop', label: 'Pop', hint: 'Shorts-style: words pop in one by one with the active word lit up.' },
-  { value: 'random', label: 'Random', hint: 'Roll the dice — one of the four is picked when you generate.' },
+  { value: 'random', label: 'Random', hint: 'Roll the dice. One of the four is picked when you generate.' },
 ];
 
 export const COLOR_SWATCHES = [
