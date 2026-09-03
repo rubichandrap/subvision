@@ -10,10 +10,32 @@ import {
   type RenderOptions,
 } from "./services/render-module";
 
+// Broker readiness is not part of compose's healthcheck (it pings the
+// process, not the AMQP listener), so startup retries instead of crashing
+// into `restart: always`.
+const CONNECT_RETRIES = 10;
+const CONNECT_RETRY_DELAY_MS = 3000;
+
+async function connectWithRetry(): Promise<ReturnType<typeof rabbitmqService.connect>> {
+  for (let attempt = 1; attempt <= CONNECT_RETRIES; attempt++) {
+    try {
+      return await rabbitmqService.connect();
+    } catch (error) {
+      if (attempt === CONNECT_RETRIES) throw error;
+      console.warn(
+        `[RabbitMQ] Connect attempt ${attempt}/${CONNECT_RETRIES} failed, retrying in ${CONNECT_RETRY_DELAY_MS}ms:`,
+        (error as Error).message
+      );
+      await new Promise((resolve) => setTimeout(resolve, CONNECT_RETRY_DELAY_MS));
+    }
+  }
+  throw new Error("unreachable");
+}
+
 async function main() {
   // init all the 3rd services
   await s3Service.connect();
-  const channel = await rabbitmqService.connect();
+  const channel = await connectWithRetry();
 
   // the render module owns paths, options, ffmpeg and the Output upload
   const renderOptions: RenderOptions = {
@@ -56,4 +78,5 @@ async function main() {
 
 main().catch((error) => {
   console.error("Error starting app:", error);
+  process.exit(1);
 });
