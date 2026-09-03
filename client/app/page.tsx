@@ -56,7 +56,7 @@ export default function Home() {
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-balance text-lg text-muted-foreground">
             Pick a video, trim it, frame it for any platform, and style your
-            captions. Subvision transcribes and burns everything in — you just
+            captions. Subvision transcribes and burns everything in. You just
             download the result.
           </p>
         </div>
@@ -112,10 +112,10 @@ export default function Home() {
             )}
           </span>
           <p className="mt-5 font-display text-xl font-semibold">
-            {dragging ? 'Drop it — let’s caption it' : 'Drop a video here'}
+            {dragging ? 'Drop it. Let’s caption it' : 'Drop a video here'}
           </p>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            or click to browse — MP4, MOV, AVI, MKV, WebM, up to 500 MB
+            or click to browse: MP4, MOV, AVI, MKV, WebM, up to 500 MB
           </p>
           <Button size="lg" className="mt-6 pointer-events-none">
             <FileVideo2 className="h-4 w-4" />
@@ -133,7 +133,7 @@ export default function Home() {
             {
               icon: Sparkles,
               title: 'Style the captions',
-              body: 'Fonts, outline, highlight swipes — previewed live before a single frame renders.',
+              body: 'Fonts, outline, highlight swipes, previewed live before a single frame renders.',
             },
             {
               icon: Clapperboard,

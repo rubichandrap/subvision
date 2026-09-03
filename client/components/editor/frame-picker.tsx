@@ -75,7 +75,7 @@ export function FramePicker({ frame, onChange, disabled }: FramePickerProps) {
         </div>
         {frame.preset === 'free' && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Drag the handle in the preview’s corner to set any ratio — currently{' '}
+            Drag the handle in the preview’s corner to set any ratio. Currently{' '}
             <span className="font-medium text-foreground">{ratioLabel}</span>.
           </p>
         )}

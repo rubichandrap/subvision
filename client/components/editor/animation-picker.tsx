@@ -34,7 +34,7 @@ export function AnimationPicker({ value, onChange, disabled }: AnimationPickerPr
                   : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
               }`}
             >
-              {option.value === 'random' ? 'Random 🎲' : option.label}
+              {option.value === 'random' ? 'Random' : option.label}
             </button>
           );
         })}

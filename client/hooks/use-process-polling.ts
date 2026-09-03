@@ -65,7 +65,7 @@ export function useProcess(id: string) {
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ProcessNotFoundError) {
-          // A 404 right after the upload may simply mean the server hasn't
+          // A 404 right after the upload may mean the server hasn't
           // recorded the process yet; retry briefly before giving up.
           unknownAttempts += 1;
           if (unknownAttempts >= 15) {
