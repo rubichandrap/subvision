@@ -32,6 +32,10 @@ the Next.js client uploads videos with tus.
   and carried inside the Edit Spec.
 - **Output** — the rendered video with burned-in subtitles, stored under
   `outputs/<id>` with the same `<id>` as the Upload.
+- **Delete** — the one-way removal of a Process: its record and both stored
+  objects (the Upload and, if rendered, the Output) are erased. Irreversible —
+  no archive, no restore. A Delete never cancels work already in flight; that
+  is Cancel, a separate concept not yet built (see ADR-0004).
 - **Process** — the client-facing lifecycle of a job (uploaded →
   transcribing → rendering → done/failed). Real server-side state, owned by
   the server's job module, exposed read-only by the status API

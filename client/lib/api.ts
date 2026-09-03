@@ -1,7 +1,8 @@
 import { env } from '@/configs/env';
 
-// The client reads Process state only through the server's status API and
-// downloads only via the API-provided URL — it invents nothing the server owns.
+// The client reads Process state only through the server's status API,
+// deletes through the same API, and downloads only via the API-provided URL
+// — it invents nothing the server owns.
 
 export type ProcessStage = 'uploaded' | 'transcribing' | 'rendering' | 'done' | 'failed';
 
@@ -29,6 +30,7 @@ export class ProcessNotFoundError extends Error {
 }
 
 type JSendSuccess<T> = { status: 'success'; data: T };
+type JSendFail = { status: 'fail'; data: Record<string, unknown> };
 
 async function request<T>(path: string): Promise<T> {
   const res = await fetch(`${env.serverUrl}${path}`);
@@ -68,6 +70,25 @@ export async function fetchJob(id: string): Promise<Process> {
     }
     throw error;
   }
+}
+
+// Delete is irreversible: the Process record and both stored objects (the
+// upload and, if rendered, the output) are erased server-side (ADR-0004).
+export async function deleteProcess(id: string): Promise<void> {
+  const res = await fetch(`${env.serverUrl}/jobs/${encodeURIComponent(normalizeJobId(id))}`, {
+    method: 'DELETE',
+  });
+  if (res.status === 404) {
+    throw new ProcessNotFoundError(id);
+  }
+  if (res.status === 204) {
+    return;
+  }
+  if (!res.ok) {
+    throw new Error(`delete returned ${res.status}`);
+  }
+  const body = (await res.json()) as JSendFail;
+  throw new Error(String(body.data?.id ?? 'delete failed'));
 }
 
 // The URL the API provides for the rendered Output; the server streams it as

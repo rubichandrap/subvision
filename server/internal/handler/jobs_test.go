@@ -27,7 +27,16 @@ func (f *fakeOutputs) Open(ctx context.Context, key string) (io.ReadCloser, int6
 	return io.NopCloser(strings.NewReader(f.body)), int64(len(f.body)), nil
 }
 
-func newJobsRouter(t *testing.T) (*gin.Engine, *job.Store, *fakeOutputs) {
+type fakeCleaner struct {
+	deleted []string
+}
+
+func (f *fakeCleaner) Delete(ctx context.Context, prefix string) error {
+	f.deleted = append(f.deleted, prefix)
+	return nil
+}
+
+func newJobsRouter(t *testing.T) (*gin.Engine, *job.Store, *fakeOutputs, *fakeCleaner) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 
@@ -42,9 +51,10 @@ func newJobsRouter(t *testing.T) (*gin.Engine, *job.Store, *fakeOutputs) {
 		t.Fatalf("create job store: %v", err)
 	}
 	outputs := &fakeOutputs{body: "video bytes"}
+	cleaner := &fakeCleaner{}
 	router := gin.New()
-	RegisterJobs(router, store, outputs)
-	return router, store, outputs
+	RegisterJobs(router, store, store, outputs, cleaner)
+	return router, store, outputs, cleaner
 }
 
 func doGet(t *testing.T, router *gin.Engine, path string) *httptest.ResponseRecorder {
@@ -55,8 +65,16 @@ func doGet(t *testing.T, router *gin.Engine, path string) *httptest.ResponseReco
 	return rec
 }
 
+func doDelete(t *testing.T, router *gin.Engine, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodDelete, path, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
 func TestLifecycleMovesThroughTheStatusAPI(t *testing.T) {
-	router, store, _ := newJobsRouter(t)
+	router, store, _, _ := newJobsRouter(t)
 
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
@@ -113,7 +131,7 @@ func TestLifecycleMovesThroughTheStatusAPI(t *testing.T) {
 }
 
 func TestFailedJobSurfacesItsReason(t *testing.T) {
-	router, store, _ := newJobsRouter(t)
+	router, store, _, _ := newJobsRouter(t)
 
 	if err := store.Create("u2", "broken.mov"); err != nil {
 		t.Fatalf("create: %v", err)
@@ -136,7 +154,7 @@ func TestFailedJobSurfacesItsReason(t *testing.T) {
 }
 
 func TestUnknownJobIDReturns404(t *testing.T) {
-	router, _, _ := newJobsRouter(t)
+	router, _, _, _ := newJobsRouter(t)
 
 	for _, path := range []string{"/jobs/missing", "/jobs/missing/download"} {
 		rec := doGet(t, router, path)
@@ -150,7 +168,7 @@ func TestUnknownJobIDReturns404(t *testing.T) {
 }
 
 func TestDownloadBeforeDoneReturns404(t *testing.T) {
-	router, store, outputs := newJobsRouter(t)
+	router, store, outputs, _ := newJobsRouter(t)
 
 	if err := store.Create("u3", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
@@ -166,7 +184,7 @@ func TestDownloadBeforeDoneReturns404(t *testing.T) {
 }
 
 func TestListReturnsEveryProcess(t *testing.T) {
-	router, store, _ := newJobsRouter(t)
+	router, store, _, _ := newJobsRouter(t)
 
 	if err := store.Create("u1", "one.mp4"); err != nil {
 		t.Fatalf("create u1: %v", err)
@@ -185,5 +203,81 @@ func TestListReturnsEveryProcess(t *testing.T) {
 	}
 	if !strings.Contains(body, `"status":"success"`) {
 		t.Errorf("GET /jobs body = %s, want a jsend success", body)
+	}
+}
+
+func TestDeleteRemovesRowAndCleansObjects(t *testing.T) {
+	router, store, _, cleaner := newJobsRouter(t)
+
+	if err := store.Create("u1", "clip.mp4"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if recorded, err := store.MarkDone("u1", "outputs/u1"); err != nil || !recorded {
+		t.Fatalf("mark done: recorded=%v err=%v", recorded, err)
+	}
+
+	rec := doDelete(t, router, "/jobs/u1")
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("DELETE /jobs/u1 = %d: %s", rec.Code, rec.Body)
+	}
+
+	if get := doGet(t, router, "/jobs/u1"); get.Code != http.StatusNotFound {
+		t.Errorf("GET after delete = %d, want 404", get.Code)
+	}
+	if list := doGet(t, router, "/jobs"); strings.Contains(list.Body.String(), `"id":"u1"`) {
+		t.Errorf("deleted job must vanish from the list: %s", list.Body)
+	}
+
+	// both the Upload and the Output objects must be queued for cleanup
+	want := map[string]bool{"uploads/u1": false, "outputs/u1": false}
+	for _, prefix := range cleaner.deleted {
+		if _, ok := want[prefix]; ok {
+			want[prefix] = true
+		}
+	}
+	for prefix, cleaned := range want {
+		if !cleaned {
+			t.Errorf("objects under %s were not cleaned after delete (cleaned %v)", prefix, cleaner.deleted)
+		}
+	}
+}
+
+func TestDeleteInFlightJobIsAllowed(t *testing.T) {
+	router, store, _, cleaner := newJobsRouter(t)
+
+	if err := store.Create("u4", "clip.mp4"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if recorded, err := store.MarkTranscribing("u4"); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
+	}
+
+	rec := doDelete(t, router, "/jobs/u4")
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("DELETE in-flight /jobs/u4 = %d: %s", rec.Code, rec.Body)
+	}
+	if get := doGet(t, router, "/jobs/u4"); get.Code != http.StatusNotFound {
+		t.Errorf("GET after delete = %d, want 404", get.Code)
+	}
+	found := false
+	for _, prefix := range cleaner.deleted {
+		if prefix == "uploads/u4" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("upload objects were not cleaned after delete (cleaned %v)", cleaner.deleted)
+	}
+}
+
+func TestDeleteUnknownJobReturns404(t *testing.T) {
+	router, _, _, cleaner := newJobsRouter(t)
+
+	rec := doDelete(t, router, "/jobs/missing")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("DELETE /jobs/missing = %d, want 404", rec.Code)
+	}
+	if len(cleaner.deleted) != 0 {
+		t.Errorf("unknown job must not touch object storage, cleaned %v", cleaner.deleted)
 	}
 }

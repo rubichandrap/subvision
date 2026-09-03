@@ -9,13 +9,16 @@ import {
   Download,
   FileVideo2,
   Loader2,
+  Trash2,
   XCircle,
 } from 'lucide-react';
 
 import { STAGE_LABEL } from '@/components/process-stage';
+import { DeleteProcessDialog } from '@/components/process-gallery';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
 import { useProcess } from '@/hooks/use-process-polling';
 import { IN_FLIGHT_STAGES, downloadUrl, type ProcessStage } from '@/lib/api';
 
@@ -31,6 +34,8 @@ const PIPELINE_STAGES: ProcessStage[] = [
 
 export function ProcessDetails({ processId }: { processId: string }) {
   const { process, notFound, error } = useProcess(processId);
+  const router = useRouter();
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
 
   const handleDownload = () => {
     if (!process?.downloadUrl) return;
@@ -89,13 +94,21 @@ export function ProcessDetails({ processId }: { processId: string }) {
               · Process {process.id}
             </p>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             {done && (
               <Button onClick={handleDownload}>
                 <Download className="h-4 w-4" />
                 Download
               </Button>
             )}
+            <Button
+              variant="outline"
+              className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
           </div>
         </div>
 
@@ -182,6 +195,15 @@ export function ProcessDetails({ processId }: { processId: string }) {
           </p>
         </Card>
       ) : null}
+
+      {process && (
+        <DeleteProcessDialog
+          process={process}
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onDeleted={() => router.push('/processes')}
+        />
+      )}
     </div>
   );
 }
