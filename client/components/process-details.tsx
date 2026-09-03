@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import {
   ArrowLeft,
+  Check,
   CheckCircle,
+  Copy,
   Download,
   FileVideo2,
   Loader2,
@@ -36,6 +38,18 @@ export function ProcessDetails({ processId }: { processId: string }) {
   const { process, notFound, error } = useProcess(processId);
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopyId = async () => {
+    if (!process) return;
+    try {
+      await navigator.clipboard.writeText(process.id);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard unavailable (insecure origin) — nothing sensible to do
+    }
+  };
 
   const handleDownload = () => {
     if (!process?.downloadUrl) return;
@@ -90,8 +104,22 @@ export function ProcessDetails({ processId }: { processId: string }) {
               {process.filename || process.id}
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(process.createdAt), { addSuffix: true })}{' '}
-              · Process {process.id}
+              {formatDistanceToNow(new Date(process.createdAt), { addSuffix: true })} · Process{' '}
+              <span className="break-all">{process.id}</span>
+              <button
+                type="button"
+                aria-label="Copy process id"
+                className="ml-1 inline-flex h-4 w-4 items-center justify-center align-[-2px] rounded text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => {
+                  void handleCopyId();
+                }}
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </button>
             </p>
           </div>
           <div className="ml-auto flex items-center gap-2">
