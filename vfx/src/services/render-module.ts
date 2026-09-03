@@ -350,7 +350,7 @@ export async function combineFramesWithFFmpeg(
     "-framerate",
     String(fps),
     "-i",
-    `${framesDir}/element-%03d.png`, // overlay
+    `${framesDir}/element-%04d.png`, // overlay (Remotion pads to the widest frame index: 1000+ frames = 4 digits)
     "-ss",
     String(plan.seekStart),
     "-i",
