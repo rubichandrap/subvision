@@ -1,4 +1,4 @@
-import { env } from "@/config/env";
+import { env } from "../../config/env";
 import amqp, { Channel, ChannelModel, Options } from "amqplib";
 
 class RabbitmqService {

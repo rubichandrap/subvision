@@ -17,7 +17,10 @@ const getMaxDurationFrames = (segments: OverlayRenderRequest["segments"], fps: n
 export const renderOverlayFrames = async (
   request: OverlayRenderRequest
 ) => {
-  const entry = path.join(__dirname, "templates", "index.tsx");
+  // The bundler needs the templates as TypeScript source (tsc does not copy
+  // .tsx into dist), so the entry resolves from the package root, which both
+  // `pnpm start` and the container's WORKDIR give us as the cwd.
+  const entry = path.join(process.cwd(), "src", "templates", "index.tsx");
   const bundleLocation = await bundle({
     entryPoint: entry,
     outDir: path.join(os.tmpdir(), "remotion-bundle"),

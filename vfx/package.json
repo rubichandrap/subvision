@@ -7,7 +7,7 @@
     "dev": "concurrently \"nodemon\" \"pnpm dlx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./dist/styles/tailwind.css --watch\"",
     "build:tailwind": "pnpm dlx @tailwindcss/cli -i ./src/styles/tailwind.css -o ./dist/styles/tailwind.css --minify",
     "build": "tsc",
-    "start": "node dist/src/index.js",
+    "start": "node dist/index.js",
     "test": "tsx --test $(find src -name '*.test.ts')",
     "typecheck": "tsc --noEmit"
   },
