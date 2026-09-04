@@ -16,6 +16,9 @@ the Next.js client uploads videos with tus.
   end time, taken from whisper's token timestamps. The timing unit the
   karaoke and pop Animations render against; word timings are never guessed
   from the segment's duration.
+- **Caption Page** — a group of Timed Words from one Transcription Segment
+  shown together on screen by the karaoke and pop Animations; only the page
+  holding the currently spoken word is visible.
 - **VFX Job** — the message that tells the vfx service to render a video: the
   upload's object key, its Transcription Segments, and its Edit Spec. Published
   by the server to the vfx queue; consumed by the vfx service. The contract —
