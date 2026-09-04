@@ -67,7 +67,9 @@ func Transcribe(modelPath, audioPath string) ([]Segment, error) {
 		})
 	}
 
-	return segments, nil
+	// Whisper emits few long segments; the renderer needs short ones —
+	// split on speech pauses before publishing (see ADR-0005).
+	return SplitSegments(segments), nil
 }
 
 // wordsFromTokens groups a segment's whisper tokens into Words carrying
@@ -159,4 +161,3 @@ func loadWavToFloat32(path string) ([]float32, error) {
 
 	return buf.AsFloat32Buffer().Data, nil
 }
-

@@ -231,10 +231,8 @@ storage adapter rather than the application services, and match the values above
 ## TODO
 
 1. Language selection and translation for subtitles.
-2. Split subtitle segments by max characters or duration during
-   transcription.
-3. Saved caption style presets in the editor.
-4. Frame thumbnails on the trim timeline.
+2. Saved caption style presets in the editor.
+3. Frame thumbnails on the trim timeline.
 
 ---
 
