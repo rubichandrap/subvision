@@ -98,7 +98,8 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 	// must not transcribe a 56-minute source. The window is [start, end] in
 	// source seconds, [0, 0] meaning the whole video. Segment times come
 	// back local to the window and are shifted back to absolute source time
-	// before publishing — the vfx contract (absolute in) stays untouched.
+	// before publishing — word timings shift with their segment — so the
+	// vfx contract (absolute in) stays untouched.
 	var window [2]float64
 	if spec != nil {
 		window = [2]float64{spec.Trim.Start, spec.Trim.End}
@@ -120,6 +121,10 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 		for i := range segments {
 			segments[i].Start += window[0]
 			segments[i].End += window[0]
+			for j := range segments[i].Words {
+				segments[i].Words[j].Start += window[0]
+				segments[i].Words[j].End += window[0]
+			}
 		}
 	}
 

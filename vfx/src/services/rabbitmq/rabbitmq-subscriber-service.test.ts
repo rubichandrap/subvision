@@ -14,7 +14,14 @@ import {
 const job = {
   uploadId: "u1",
   objectKey: "uploads/u1",
-  segments: [{ start: 0, end: 1.5, text: "hello" }],
+  segments: [
+    {
+      start: 0,
+      end: 1.5,
+      text: "hello",
+      words: [{ text: "hello", start: 0, end: 1.5 }],
+    },
+  ],
 };
 
 class FakeChannel {

@@ -19,9 +19,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: 'Subvision Studio | Reframe and Caption',
+  title: 'Subvision | Reframe and Caption',
   description:
-    'Reframe video for 9:16, 1:1, or 16:9, style animated captions, and transcribe speech with whisper.cpp. Renders production MP4s on your server.',
+    'Reframe video for 9:16, 1:1, or 16:9, style animated captions, and render production MP4s on your server.',
 };
 
 export default function RootLayout({

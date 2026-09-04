@@ -87,30 +87,6 @@ export const StyledCaption: React.FC<{
   );
 };
 
-export interface TimedWord {
-  text: string;
-  start: number;
-  end: number;
-}
-
-// Word timings are derived, not transcribed: Transcription Segments carry no
-// word-level timestamps, so a segment's duration is distributed across its
-// words weighted by their length (+1, so no word is ever instantaneous).
-export function wordTimings(segment: ISegment): TimedWord[] {
-  const words = segment.text.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return [];
-  const weights = words.map((word) => word.length + 1);
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-  const duration = Math.max(0, segment.end - segment.start);
-  let cursor = segment.start;
-  return words.map((word, index) => {
-    const span = (weights[index]! / totalWeight) * duration;
-    const timed = { text: word, start: cursor, end: cursor + span };
-    cursor += span;
-    return timed;
-  });
-}
-
 // The one segment whose window contains the given time, if any.
 export function activeSegment(
   segments: ISegment[],

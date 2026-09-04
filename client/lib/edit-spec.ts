@@ -68,11 +68,11 @@ export const FRAME_PRESETS: Array<{ name: FramePresetName; ratio: number; label:
 ];
 
 export const ANIMATION_OPTIONS: Array<{ value: AnimationChoice; label: string; hint: string }> = [
-  { value: 'fade', label: 'Fade', hint: 'Eases in, holds, eases out. Calm and clean.' },
-  { value: 'slide', label: 'Slide', hint: 'Glides in from the left and settles.' },
-  { value: 'karaoke', label: 'Karaoke', hint: 'A highlight swipes across each word as it is spoken.' },
-  { value: 'pop', label: 'Pop', hint: 'Shorts-style: words pop in one by one with the active word lit up.' },
-  { value: 'random', label: 'Random', hint: 'Roll the dice. One of the four is picked when you generate.' },
+  { value: 'fade', label: 'Fade', hint: 'Text fades in, holds, then fades out.' },
+  { value: 'slide', label: 'Slide', hint: 'Text slides in from the left.' },
+  { value: 'karaoke', label: 'Karaoke', hint: 'Each spoken word lights up in turn.' },
+  { value: 'pop', label: 'Pop', hint: 'Words appear one by one, current word highlighted.' },
+  { value: 'random', label: 'Random', hint: 'Picks one of the four when you generate.' },
 ];
 
 export const COLOR_SWATCHES = [

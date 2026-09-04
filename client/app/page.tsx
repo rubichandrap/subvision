@@ -45,18 +45,9 @@ export default function Home() {
   return (
     <AppShell>
       <section className="mx-auto w-full max-w-6xl px-4 pb-24 pt-10 sm:px-6 md:pt-16">
-        {/* Studio Hero Header */}
+        {/* Hero */}
         <div className="mx-auto max-w-3xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/80 px-3.5 py-1 text-xs font-medium text-muted-foreground shadow-2xs backdrop-blur-sm">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-foreground">Subvision Studio</span>
-            <span className="text-border">/</span>
-            <span>whisper.cpp</span>
-            <span className="text-border">/</span>
-            <span className="hidden sm:inline">Remotion</span>
-          </div>
-
-          <h1 className="mt-6 font-display text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl text-balance">
+          <h1 className="font-display text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl text-balance">
             Captions that look{' '}
             <span className="relative inline-block">
               <span className="relative z-10 text-primary underline decoration-primary/40 decoration-wavy underline-offset-4">
@@ -67,11 +58,11 @@ export default function Home() {
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-balance text-base leading-relaxed text-muted-foreground sm:text-lg">
-            Reframe footage for TikTok, Reels, or YouTube Shorts. Choose a kinetic subtitle
-            animation, then render the MP4 on your server.
+            Reframe footage for TikTok, Reels, or YouTube Shorts. Choose an animated caption
+            style, then render the MP4 on your server.
           </p>
         </div>
-        {/* Studio Ingestion Deck */}
+        {/* Dropzone */}
         <div className="mx-auto mt-10 max-w-2xl">
           <div
             role="button"
@@ -100,7 +91,7 @@ export default function Home() {
                 : 'border-border/80 bg-card/60 hover:border-primary/60 hover:bg-card hover:shadow-md'
             }`}
           >
-            {/* Studio framing viewfinder brackets */}
+            {/* Corner brackets */}
             <div className="pointer-events-none absolute left-3 top-3 h-3 w-3 border-l-2 border-t-2 border-primary/40 transition-colors group-hover:border-primary" />
             <div className="pointer-events-none absolute right-3 top-3 h-3 w-3 border-r-2 border-t-2 border-primary/40 transition-colors group-hover:border-primary" />
             <div className="pointer-events-none absolute bottom-3 left-3 h-3 w-3 border-l-2 border-b-2 border-primary/40 transition-colors group-hover:border-primary" />
@@ -133,7 +124,7 @@ export default function Home() {
 
             <div className="mt-5">
               <p className="font-display text-xl font-semibold tracking-tight">
-                {dragging ? 'Drop to load footage into studio' : 'Drop video footage here'}
+                {dragging ? 'Drop to load your video' : 'Drop your video here'}
               </p>
               <p className="mt-1.5 text-xs sm:text-sm text-muted-foreground">
                 or click anywhere to browse local files
@@ -173,7 +164,7 @@ export default function Home() {
               </h2>
             </div>
             <span className="text-xs text-muted-foreground">
-              Trim · Reframe · Transcribe · Burn
+              Trim · Reframe · Transcribe · Export
             </span>
           </div>
 
@@ -222,13 +213,8 @@ export default function Home() {
                 Local render
               </h3>
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                whisper.cpp transcribes speech to timestamped tokens. Remotion composites styled
-                captions directly into the MP4 file.
+                Speech becomes timed captions, burned into the finished MP4 on your server.
               </p>
-              <div className="mt-3 flex gap-1.5 font-mono text-[10px] text-muted-foreground">
-                <span className="rounded bg-muted px-1.5 py-0.5">whisper.cpp</span>
-                <span className="rounded bg-muted px-1.5 py-0.5">Remotion</span>
-              </div>
             </div>
           </div>
         </div>

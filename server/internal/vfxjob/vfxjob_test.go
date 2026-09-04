@@ -16,14 +16,14 @@ func TestJobWireShape(t *testing.T) {
 		UploadID:  "u1",
 		ObjectKey: "uploads/u1",
 		Segments: []transcriber.Segment{
-			{Start: 0, End: 1.5, Text: "hello"},
+			{Start: 0, End: 1.5, Text: "hello", Words: []transcriber.Word{{Text: "hello", Start: 0, End: 1.5}}},
 		},
 	})
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	want := `{"uploadId":"u1","objectKey":"uploads/u1","segments":[{"start":0,"end":1.5,"text":"hello"}]}`
+	want := `{"uploadId":"u1","objectKey":"uploads/u1","segments":[{"start":0,"end":1.5,"text":"hello","words":[{"text":"hello","start":0,"end":1.5}]}]}`
 	if string(body) != want {
 		t.Errorf("wire shape changed:\n got: %s\nwant: %s", body, want)
 	}
@@ -36,7 +36,7 @@ func TestJobEditSpecWireShape(t *testing.T) {
 		UploadID:  "u1",
 		ObjectKey: "uploads/u1",
 		Segments: []transcriber.Segment{
-			{Start: 0, End: 1.5, Text: "hello"},
+			{Start: 0, End: 1.5, Text: "hello", Words: []transcriber.Word{{Text: "hello", Start: 0, End: 1.5}}},
 		},
 		EditSpec: &editspec.Spec{
 			Trim:      editspec.Trim{Start: 2, End: 9},
@@ -60,7 +60,7 @@ func TestJobEditSpecWireShape(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	want := `{"uploadId":"u1","objectKey":"uploads/u1","segments":[{"start":0,"end":1.5,"text":"hello"}],` +
+	want := `{"uploadId":"u1","objectKey":"uploads/u1","segments":[{"start":0,"end":1.5,"text":"hello","words":[{"text":"hello","start":0,"end":1.5}]}],` +
 		`"editSpec":{"trim":{"start":2,"end":9},` +
 		`"frame":{"preset":"9:16","ratio":0.5625,"zoom":1.5,"panX":-0.5,"panY":0},` +
 		`"animation":"pop",` +

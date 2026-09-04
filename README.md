@@ -23,7 +23,7 @@ upload as metadata and is applied server-side in a single render pass.
 - **Caption styling**: Configure font family, scale, text color, outline stroke, vertical position, background plate, uppercase mode, and highlight color.
 - **Caption animations**: Pick from fade, slide, karaoke swipe, or word-by-word pop, chosen manually or resolved randomly on submit.
 - **Resumable uploads**: Transfers videos over tus, attaching the edit spec directly as upload metadata (ADR-0003).
-- **Local transcription**: whisper.cpp extracts timestamped speech segments on the server.
+- **Local transcription**: whisper.cpp extracts timestamped speech segments with per-word timings on the server.
 - **VFX compositor**: Remotion and ffmpeg composite the styled captions onto the trimmed footage.
 - **Gallery**: Monitor in-flight jobs, preview finished videos on hover, and download rendered MP4 files.
 - **Stack**: Next.js client with Tailwind CSS v4 and shadcn/ui; Go backend with Gin, tusd, RabbitMQ, and RustFS; Node.js VFX service with Remotion.
@@ -231,12 +231,10 @@ storage adapter rather than the application services, and match the values above
 ## TODO
 
 1. Language selection and translation for subtitles.
-2. Word-level timestamps from whisper for exact pop/karaoke word timing
-   (currently derived from segment durations weighted by word length).
-3. Split subtitle segments by max characters or duration during
+2. Split subtitle segments by max characters or duration during
    transcription.
-4. Saved caption style presets in the editor.
-5. Frame thumbnails on the trim timeline.
+3. Saved caption style presets in the editor.
+4. Frame thumbnails on the trim timeline.
 
 ---
 

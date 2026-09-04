@@ -10,8 +10,12 @@ the Next.js client uploads videos with tus.
 - **Upload** — a video a user uploads through the tus endpoint. Stored in object
   storage under the key `uploads/<id>`, where `<id>` is the tus upload id.
 - **Transcription Segment** — one timed subtitle unit produced by whisper:
-  start time, end time, text. The unit that flows from transcription into
-  rendering.
+  start time, end time, text, and the Timed Words inside it. The unit that
+  flows from transcription into rendering.
+- **Timed Word** — one word of a Transcription Segment with its own start and
+  end time, taken from whisper's token timestamps. The timing unit the
+  karaoke and pop Animations render against; word timings are never guessed
+  from the segment's duration.
 - **VFX Job** — the message that tells the vfx service to render a video: the
   upload's object key, its Transcription Segments, and its Edit Spec. Published
   by the server to the vfx queue; consumed by the vfx service. The contract —

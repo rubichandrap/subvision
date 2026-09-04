@@ -2,14 +2,8 @@ import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 import { SubtitleStyle } from "../contract";
-import { ISegment } from "../types";
-import {
-  activeSegment,
-  StyledCaption,
-  TimedWord,
-  TransparentRoot,
-  wordTimings,
-} from "./shared";
+import { ISegment, IWord } from "../types";
+import { activeSegment, StyledCaption, TransparentRoot } from "./shared";
 
 // The shorts-style caption: words pop in one at a time with a springy
 // overshoot, the word currently being spoken is highlighted, and words
@@ -44,14 +38,14 @@ export const Pop: React.FC<{
   const segment = activeSegment(segments, time);
   if (!segment) return null;
 
-  const words = wordTimings(segment);
+  const words = segment.words;
   const lastWordEnd = words.length > 0 ? words[words.length - 1]!.end : segment.end;
 
   return (
     <TransparentRoot>
       <StyledCaption style={style}>
         <span style={{ display: "inline-flex", flexWrap: "wrap", justifyContent: "center", columnGap: "0.3em", rowGap: "0.1em" }}>
-          {words.map((word: TimedWord, index) => {
+          {words.map((word: IWord, index) => {
             if (time < word.start) return null;
             const progress = Math.min(1, (time - word.start) / POP_IN_SECONDS);
             // The last word of a segment stays active until the segment ends.

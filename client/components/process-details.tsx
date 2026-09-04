@@ -17,7 +17,6 @@ import {
 
 import { STAGE_LABEL } from '@/components/process-stage';
 import { DeleteProcessDialog } from '@/components/process-gallery';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
@@ -209,9 +208,6 @@ export function ProcessDetails({ processId }: { processId: string }) {
         <Card className="overflow-hidden border-border/70 bg-card/50 p-0">
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-3.5">
             <p className="font-display text-sm font-semibold">Your captioned video</p>
-            <Badge variant="secondary" className="font-normal">
-              ready to post
-            </Badge>
           </div>
           <video
             src={downloadUrl(process)}

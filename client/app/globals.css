@@ -3,29 +3,29 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Subvision studio theme — dark-first. All UI color goes through these
-   tokens; no component hardcodes a gray. The accent is a caption-highlight
-   chartreuse, echoing the karaoke swipe color of the rendered output. */
+/* Subvision theme — dark-first. All UI color goes through these
+   tokens; no component hardcodes a gray. Light mode is warm paper to sit
+   with the green primary; dark mode stays cool charcoal. */
 
 :root {
-  --background: oklch(0.985 0.002 250);
-  --foreground: oklch(0.18 0.012 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.012 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.18 0.012 250);
+  --background: oklch(0.965 0.025 95);
+  --foreground: oklch(0.25 0.02 85);
+  --card: oklch(0.99 0.012 95);
+  --card-foreground: oklch(0.25 0.02 85);
+  --popover: oklch(0.99 0.012 95);
+  --popover-foreground: oklch(0.25 0.02 85);
   --primary: oklch(0.44 0.17 142);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.94 0.005 250);
-  --secondary-foreground: oklch(0.22 0.01 250);
-  --muted: oklch(0.94 0.005 250);
-  --muted-foreground: oklch(0.48 0.015 250);
-  --accent: oklch(0.95 0.02 142);
-  --accent-foreground: oklch(0.25 0.08 142);
+  --primary-foreground: oklch(0.99 0.01 95);
+  --secondary: oklch(0.925 0.03 90);
+  --secondary-foreground: oklch(0.28 0.03 85);
+  --muted: oklch(0.92 0.03 90);
+  --muted-foreground: oklch(0.48 0.03 80);
+  --accent: oklch(0.925 0.045 125);
+  --accent-foreground: oklch(0.28 0.08 135);
   --destructive: oklch(0.55 0.22 27);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.90 0.005 250);
-  --input: oklch(0.88 0.005 250);
+  --border: oklch(0.875 0.03 90);
+  --input: oklch(0.86 0.03 90);
   --ring: oklch(0.44 0.17 142);
   --chart-1: oklch(0.44 0.17 142);
   --chart-2: oklch(0.60 0.15 200);
@@ -33,13 +33,13 @@
   --chart-4: oklch(0.60 0.18 330);
   --chart-5: oklch(0.58 0.17 275);
   --radius: 0.75rem;
-  --sidebar-background: oklch(0.97 0.003 250);
-  --sidebar-foreground: oklch(0.22 0.01 250);
+  --sidebar-background: oklch(0.95 0.028 95);
+  --sidebar-foreground: oklch(0.28 0.03 85);
   --sidebar-primary: oklch(0.44 0.17 142);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.95 0.02 142);
-  --sidebar-accent-foreground: oklch(0.25 0.08 142);
-  --sidebar-border: oklch(0.90 0.005 250);
+  --sidebar-primary-foreground: oklch(0.99 0.01 95);
+  --sidebar-accent: oklch(0.925 0.045 125);
+  --sidebar-accent-foreground: oklch(0.28 0.08 135);
+  --sidebar-border: oklch(0.875 0.03 90);
   --sidebar-ring: oklch(0.44 0.17 142);
 }
 

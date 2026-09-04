@@ -219,9 +219,6 @@ function GalleryCard({ process }: { process: Process }) {
                       ? 'Transcribing audio…'
                       : 'Rendering captions…'}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-muted-foreground">
-                    whisper.cpp processing
-                  </p>
                 </div>
               </div>
             )}
@@ -270,7 +267,7 @@ export function ProcessGallery() {
     return (
       <div className="flex flex-col items-center justify-center py-28 text-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="mt-3 text-sm text-muted-foreground">Loading studio gallery…</p>
+        <p className="mt-3 text-sm text-muted-foreground">Loading videos…</p>
       </div>
     );
   }
@@ -295,7 +292,7 @@ export function ProcessGallery() {
         </div>
         <h3 className="mt-4 font-display text-lg font-semibold">No captioned videos yet</h3>
         <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
-          Import a video in the studio to reframe it and burn styled subtitles.
+          Drop a video on the home page to reframe it and add subtitles.
         </p>
         <Button asChild className="mt-6 gap-2">
           <Link href="/">
@@ -354,10 +351,6 @@ export function ProcessGallery() {
             </button>
           ))}
         </div>
-
-        <p className="text-xs text-muted-foreground">
-          Hover to preview · Click for full timeline & details
-        </p>
       </div>
 
       {filteredProcesses.length === 0 ? (

@@ -1,4 +1,4 @@
-import { ISegment } from "./types";
+import { ISegment, IWord } from "./types";
 
 // One definition of the VFX Job contract for this runtime: the queue name and
 // the payload shape the vfx service consumes. The server's publisher mirrors
@@ -145,6 +145,31 @@ function requireString(
   return value;
 }
 
+// parseWords validates a segment's Timed Words — whisper-transcribed word
+// timings built server-side. A segment without them cannot render the karaoke
+// or pop animations faithfully, so the contract requires them.
+function parseWords(value: unknown, path: string): IWord[] {
+  if (!Array.isArray(value)) {
+    throw new ContractError(`"${path}" must be an array`);
+  }
+  return value.map((entry, index) => {
+    if (!isObject(entry)) {
+      throw new ContractError(`${path}[${index}] must be an object`);
+    }
+    const { text, start, end } = entry;
+    if (typeof text !== "string" || text === "") {
+      throw new ContractError(`${path}[${index}].text must be a non-empty string`);
+    }
+    if (typeof start !== "number" || !Number.isFinite(start)) {
+      throw new ContractError(`${path}[${index}].start must be a number`);
+    }
+    if (typeof end !== "number" || !Number.isFinite(end)) {
+      throw new ContractError(`${path}[${index}].end must be a number`);
+    }
+    return { text, start, end };
+  });
+}
+
 function parseSegments(value: unknown): ISegment[] {
   if (!Array.isArray(value)) {
     throw new ContractError(`"segments" must be an array`);
@@ -163,7 +188,12 @@ function parseSegments(value: unknown): ISegment[] {
     if (typeof text !== "string") {
       throw new ContractError(`segments[${index}].text must be a string`);
     }
-    return { start, end, text };
+    return {
+      start,
+      end,
+      text,
+      words: parseWords(entry["words"], `segments[${index}].words`),
+    };
   });
 }
 

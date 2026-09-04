@@ -9,13 +9,13 @@ export default function ProcessesPage() {
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-              <span>Studio Archive</span>
+              <span>Archive</span>
             </div>
             <h1 className="mt-1 font-display text-3xl font-bold tracking-tight sm:text-4xl">
               Video Gallery
             </h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Manage your captioned videos, monitor in-flight rendering jobs, or download final MP4s.
+              Track rendering jobs, watch finished videos, or download the MP4s.
             </p>
           </div>
         </div>

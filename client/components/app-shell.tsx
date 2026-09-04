@@ -2,14 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Captions, Film, FolderOpen, Plus, Sparkles } from 'lucide-react';
+import { Captions, Film, FolderOpen, Github, Plus } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// The shell every page shares: a studio-grade header with clean navigation,
-// wordmark, active states, and a minimal craft footer.
+// The shell every page shares: header, nav, active states, and footer.
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isHome = pathname === '/';
@@ -24,14 +23,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary shadow-xs transition-colors group-hover:border-primary/50 group-hover:bg-primary/20">
                 <Captions className="h-4.5 w-4.5" />
               </span>
-              <div className="flex items-center gap-2">
-                <span className="font-display text-base font-semibold tracking-tight sm:text-lg">
-                  Subvision
-                </span>
-                <span className="hidden rounded-full border border-border/80 bg-muted/60 px-2 py-0.5 text-[10px] font-medium tracking-wide text-muted-foreground sm:inline-flex">
-                  STUDIO
-                </span>
-              </div>
+              <span className="font-display text-base font-semibold tracking-tight sm:text-lg">
+                Subvision
+              </span>
             </Link>
 
             <nav className="hidden items-center gap-1 sm:flex">
@@ -45,7 +39,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 )}
               >
                 <Film className="h-3.5 w-3.5" />
-                Studio
+                Home
               </Link>
               <Link
                 href="/processes"
@@ -91,15 +85,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1">{children}</main>
       <footer className="border-t border-border/60 bg-background/50">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 text-center sm:flex-row sm:text-left sm:px-6">
-          <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <p className="text-xs text-muted-foreground">
-              Subvision Studio. Video reframing and animated subtitles.
-            </p>
-          </div>
-          <p className="font-mono text-[11px] text-muted-foreground/70">
-            whisper.cpp · Remotion · ffmpeg
+          <p className="text-xs text-muted-foreground">
+            Subvision. Video reframing and animated subtitles.
           </p>
+          <Link
+            href="https://github.com/rubichandrap/subvision"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Subvision on GitHub"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Github className="h-4 w-4" />
+            GitHub
+          </Link>
         </div>
       </footer>
     </div>

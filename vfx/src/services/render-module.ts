@@ -4,7 +4,7 @@ import path from "path";
 
 import { outputKey, uploadKey } from "../config/storage";
 import { DEFAULT_STYLE, EditSpec, Frame, SubtitleStyle, VfxJobPayload } from "../contract";
-import { ISegment } from "../types";
+import { ISegment, IWord } from "../types";
 import { ensureDirs } from "../utils/ensure-dirs";
 
 // The render module owns everything render-related: the id derived from the
@@ -198,7 +198,9 @@ export function maxSegmentEnd(segments: ISegment[]): number | null {
 // shiftSegments translates absolute Transcription Segment times into the
 // trim window's local times and drops segments outside it. Segments ending
 // exactly at the window start (or starting exactly at a finite window end)
-// contribute nothing.
+// contribute nothing. Their Timed Words follow the same translation and
+// clipping: words entirely outside the window contribute nothing, the rest
+// clamp into the window edges.
 export function shiftSegments(
   segments: ISegment[],
   trim: EditSpec["trim"]
@@ -210,6 +212,17 @@ export function shiftSegments(
       ...segment,
       start: Math.max(0, segment.start - trim.start),
       end: Math.min(segment.end, windowEnd) - trim.start,
+      words: shiftWords(segment.words, trim, windowEnd),
+    }));
+}
+
+function shiftWords(words: IWord[], trim: EditSpec["trim"], windowEnd: number): IWord[] {
+  return words
+    .filter((word) => word.end > trim.start && word.start < windowEnd)
+    .map((word) => ({
+      text: word.text,
+      start: Math.max(0, word.start - trim.start),
+      end: Math.min(word.end, windowEnd) - trim.start,
     }));
 }
 

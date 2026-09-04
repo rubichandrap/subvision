@@ -67,7 +67,10 @@ func TestProcessUploadedFileTranscribesTrimWindowOnly(t *testing.T) {
 		// The fake transcription returns times local to the trim window,
 		// exactly what whisper produces for a sliced wav.
 		return []transcriber.Segment{
-			{Start: 0.2, End: 1.4, Text: "hello"},
+			{
+				Start: 0.2, End: 1.4, Text: "hello",
+				Words: []transcriber.Word{{Text: "hello", Start: 0.3, End: 1.3}},
+			},
 			{Start: 1.6, End: 2.9, Text: "there"},
 		}, nil
 	})
@@ -92,6 +95,11 @@ func TestProcessUploadedFileTranscribesTrimWindowOnly(t *testing.T) {
 	// Segments shift back to absolute source time for the vfx contract.
 	if job.Segments[0].Start != 30.2 || job.Segments[0].End != 31.4 || job.Segments[1].Start != 31.6 || job.Segments[1].End != 32.9 {
 		t.Errorf("segments must shift back by trim.start 30, got %+v", job.Segments)
+	}
+	// Word timings shift with their segment.
+	words := job.Segments[0].Words
+	if len(words) != 1 || words[0].Start != 30.3 || words[0].End != 31.3 {
+		t.Errorf("word timings must shift back by trim.start 30, got %+v", words)
 	}
 }
 

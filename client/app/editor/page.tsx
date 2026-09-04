@@ -23,7 +23,7 @@ import { formatTime, buildEditSpecPayload, DEFAULT_EDIT_SPEC, type EditSpecState
 
 // The editor: one video, four decisions (Frame, Trim, Animation, Style), one
 // upload. Nothing renders here — the preview is the browser compositor; the
-// server applies the same numbers in its single ffmpeg/Remotion pass.
+// server applies the same numbers in its single render pass.
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
@@ -260,8 +260,7 @@ function Editor() {
                   disabled={uploading}
                 />
                 <p className="mt-3 rounded-lg border border-border/60 bg-card/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
-                  The preview displays your caption styling. The actual words appear after
-                  whisper.cpp transcribes the audio.
+                  The preview shows your caption style. Words appear once transcription finishes.
                 </p>
               </TabsContent>
               <TabsContent value="style" className="mt-4">

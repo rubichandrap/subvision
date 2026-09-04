@@ -2,14 +2,8 @@ import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 import { SubtitleStyle } from "../contract";
-import { ISegment } from "../types";
-import {
-  activeSegment,
-  StyledCaption,
-  TimedWord,
-  TransparentRoot,
-  wordTimings,
-} from "./shared";
+import { ISegment, IWord } from "../types";
+import { activeSegment, StyledCaption, TransparentRoot } from "./shared";
 
 // Karaoke captions: only the active segment is on screen, and each word gets
 // a highlight swipe that fills left-to-right while the word is spoken. The
@@ -27,7 +21,7 @@ export const Karaoke: React.FC<{
   const segment = activeSegment(segments, time);
   if (!segment) return null;
 
-  const words = wordTimings(segment);
+  const words = segment.words;
 
   return (
     <TransparentRoot>
@@ -41,7 +35,7 @@ export const Karaoke: React.FC<{
             rowGap: "0.1em",
           }}
         >
-          {words.map((word: TimedWord, index) => {
+          {words.map((word: IWord, index) => {
             const progress = interpolate(time, [word.start, word.end], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",

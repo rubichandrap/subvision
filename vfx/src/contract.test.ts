@@ -27,8 +27,18 @@ describe("vfx job contract", () => {
       uploadId: "u1",
       objectKey: "uploads/u1",
       segments: [
-        { start: 0, end: 1.5, text: "hello" },
-        { start: 1.5, end: 3, text: "world" },
+        {
+          start: 0,
+          end: 1.5,
+          text: "hello",
+          words: [{ text: "hello", start: 0, end: 1.5 }],
+        },
+        {
+          start: 1.5,
+          end: 3,
+          text: "world",
+          words: [{ text: "world", start: 1.5, end: 3 }],
+        },
       ],
     };
 
@@ -41,7 +51,14 @@ describe("vfx job contract", () => {
     const raw = {
       uploadId: "u1",
       objectKey: "uploads/u1",
-      segments: [{ start: 0, end: 1.5, text: "hello" }],
+      segments: [
+        {
+          start: 0,
+          end: 1.5,
+          text: "hello",
+          words: [{ text: "hello", start: 0, end: 1.5 }],
+        },
+      ],
       editSpec: {
         trim: { start: 2, end: 9 },
         frame: { preset: "9:16", ratio: 0.5625, zoom: 1.5, panX: -0.5, panY: 0 },
@@ -160,6 +177,37 @@ describe("vfx job contract", () => {
           segments: [{ start: "zero", end: 1, text: "hello" }],
         }),
       /segments\[0\]\.start/
+    );
+  });
+
+  it("rejects a segment without word timings", () => {
+    assert.throws(
+      () =>
+        parseVfxJob({
+          uploadId: "u1",
+          objectKey: "uploads/u1",
+          segments: [{ start: 0, end: 1.5, text: "hello" }],
+        }),
+      /segments\[0\]\.words/
+    );
+  });
+
+  it("rejects a word timing with a non-numeric start", () => {
+    assert.throws(
+      () =>
+        parseVfxJob({
+          uploadId: "u1",
+          objectKey: "uploads/u1",
+          segments: [
+            {
+              start: 0,
+              end: 1.5,
+              text: "hello",
+              words: [{ text: "hello", start: "0", end: 1.5 }],
+            },
+          ],
+        }),
+      /words\[0\]\.start/
     );
   });
 

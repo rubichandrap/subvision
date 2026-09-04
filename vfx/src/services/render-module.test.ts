@@ -16,8 +16,18 @@ import {
 import { ISegment } from "../types";
 
 const segments: ISegment[] = [
-  { start: 0, end: 1.5, text: "hello" },
-  { start: 1.5, end: 3, text: "world" },
+  {
+    start: 0,
+    end: 1.5,
+    text: "hello",
+    words: [{ text: "hello", start: 0, end: 1.5 }],
+  },
+  {
+    start: 1.5,
+    end: 3,
+    text: "world",
+    words: [{ text: "world", start: 1.5, end: 3 }],
+  },
 ];
 
 const style = {
@@ -217,21 +227,54 @@ describe("render module with an Edit Spec", () => {
     const storage = new FakeStorage();
     const { module, renderCalls, combineCalls } = makeModule(tmpDir, storage);
 
-    // A segment outside the trim window is dropped; one straddling it is clipped.
+    // A segment outside the trim window is dropped; one straddling it is
+    // clipped, and its words are clipped and dropped with it.
     await module.run({
       uploadId: "u1",
       objectKey: "uploads/u1",
       segments: [
-        { start: 2, end: 5, text: "before" },
-        { start: 12, end: 16, text: "inside" },
-        { start: 18, end: 25, text: "straddles" },
+        { start: 2, end: 5, text: "before", words: [{ text: "before", start: 2, end: 5 }] },
+        {
+          start: 12,
+          end: 16,
+          text: "inside",
+          words: [
+            { text: "in", start: 12, end: 14 },
+            { text: "side", start: 14, end: 16 },
+          ],
+        },
+        {
+          start: 18,
+          end: 25,
+          text: "straddles",
+          words: [
+            { text: "strad", start: 18, end: 19.5 },
+            { text: "dles", start: 19.5, end: 25 },
+          ],
+        },
       ],
       editSpec,
     });
 
     assert.deepEqual(renderCalls[0]!.segments, [
-      { start: 2, end: 6, text: "inside" },
-      { start: 8, end: 10, text: "straddles" },
+      {
+        start: 2,
+        end: 6,
+        text: "inside",
+        words: [
+          { text: "in", start: 2, end: 4 },
+          { text: "side", start: 4, end: 6 },
+        ],
+      },
+      {
+        start: 8,
+        end: 10,
+        text: "straddles",
+        words: [
+          { text: "strad", start: 8, end: 9.5 },
+          { text: "dles", start: 9.5, end: 10 },
+        ],
+      },
     ]);
     assert.equal(combineCalls[0]!.plan.seekStart, 10);
     assert.equal(combineCalls[0]!.plan.seekDuration, 10);
@@ -358,18 +401,73 @@ describe("shiftSegments", () => {
 
   it("clips segments that straddle the window edges", () => {
     const shifted = shiftSegments(
-      [{ start: 1, end: 6, text: "straddles start" }],
+      [
+        {
+          start: 1,
+          end: 6,
+          text: "straddles start",
+          words: [{ text: "straddles start", start: 1, end: 6 }],
+        },
+      ],
       { start: 3, end: 0 }
     );
-    assert.deepEqual(shifted, [{ start: 0, end: 3, text: "straddles start" }]);
+    assert.deepEqual(shifted, [
+      {
+        start: 0,
+        end: 3,
+        text: "straddles start",
+        words: [{ text: "straddles start", start: 0, end: 3 }],
+      },
+    ]);
   });
 
   it("renders to the segment end when the trim end is open", () => {
     const shifted = shiftSegments(segments, { start: 1, end: 0 });
     // "hello" straddles the window start and is clipped to it; "world" shifts in.
     assert.deepEqual(shifted, [
-      { start: 0, end: 0.5, text: "hello" },
-      { start: 0.5, end: 2, text: "world" },
+      {
+        start: 0,
+        end: 0.5,
+        text: "hello",
+        words: [{ text: "hello", start: 0, end: 0.5 }],
+      },
+      {
+        start: 0.5,
+        end: 2,
+        text: "world",
+        words: [{ text: "world", start: 0.5, end: 2 }],
+      },
+    ]);
+  });
+
+  it("drops words outside the window and clips words at its edges", () => {
+    const shifted = shiftSegments(
+      [
+        {
+          start: 2,
+          end: 6,
+          text: "gone kept clipped",
+          words: [
+            { text: "gone", start: 2, end: 3 },
+            { text: "kept", start: 3, end: 5 },
+            { text: "clipped", start: 5, end: 6 },
+          ],
+        },
+      ],
+      { start: 3, end: 5.5 }
+    );
+    // "gone" ends exactly at the window start and contributes nothing,
+    // "kept" shifts in whole, "clipped" clamps to the window end.
+    assert.deepEqual(shifted, [
+      {
+        start: 0,
+        end: 2.5,
+        text: "gone kept clipped",
+        words: [
+          { text: "kept", start: 0, end: 2 },
+          { text: "clipped", start: 2, end: 2.5 },
+        ],
+      },
     ]);
   });
 });
