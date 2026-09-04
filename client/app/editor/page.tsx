@@ -246,14 +246,14 @@ function Editor() {
                 <TabsTrigger value="animation">Animation</TabsTrigger>
                 <TabsTrigger value="style">Style</TabsTrigger>
               </TabsList>
-              <TabsContent value="frame" className="mt-4">
+              <TabsContent value="frame" className="mt-4 max-h-[min(420px,60vh)] overflow-y-auto">
                 <FramePicker
                   frame={spec.frame}
                   onChange={(frame) => patchSpec({ frame })}
                   disabled={uploading}
                 />
               </TabsContent>
-              <TabsContent value="animation" className="mt-4">
+              <TabsContent value="animation" className="mt-4 max-h-[min(420px,60vh)] overflow-y-auto">
                 <AnimationPicker
                   value={spec.animation}
                   wordsPerPage={spec.captions.wordsPerPage}
@@ -267,7 +267,7 @@ function Editor() {
                   The preview shows your caption style. Words appear once transcription finishes.
                 </p>
               </TabsContent>
-              <TabsContent value="style" className="mt-4">
+              <TabsContent value="style" className="mt-4 max-h-[min(420px,60vh)] overflow-y-auto">
                 <StylePanel
                   style={spec.style}
                   animation={spec.animation}
