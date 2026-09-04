@@ -1,7 +1,7 @@
 import React from "react";
 import { Composition, registerRoot } from "remotion";
 
-import { DEFAULT_STYLE } from "../contract";
+import { DEFAULT_STYLE, DEFAULT_WORDS_PER_PAGE } from "../contract";
 import "../styles/tailwind.css";
 
 // Fonts bundled with the service (see the FONT_FAMILIES contract): a caption
@@ -55,7 +55,7 @@ const RemotionRoot: React.FC = () => {
         fps={30}
         width={1080}
         height={1920}
-        defaultProps={{ segments: [], style: DEFAULT_STYLE }}
+        defaultProps={{ segments: [], style: DEFAULT_STYLE, wordsPerPage: DEFAULT_WORDS_PER_PAGE }}
       />
       <Composition
         id="pop"
@@ -64,7 +64,7 @@ const RemotionRoot: React.FC = () => {
         fps={30}
         width={1080}
         height={1920}
-        defaultProps={{ segments: [], style: DEFAULT_STYLE }}
+        defaultProps={{ segments: [], style: DEFAULT_STYLE, wordsPerPage: DEFAULT_WORDS_PER_PAGE }}
       />
     </>
   );

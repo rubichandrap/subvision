@@ -6,6 +6,9 @@ import { describe, it } from "node:test";
 
 import {
   CombinePlan,
+  FrameCombiner,
+  FrameRenderer,
+  OverlayRenderRequest,
   RenderModule,
   RenderModuleConfig,
   VideoProber,
@@ -75,14 +78,7 @@ function makeModule(
     options: { fps, width: 1920, height: 1080 },
     template: "karaoke",
   };
-  const renderCalls: Array<{
-    segments: ISegment[];
-    framesDir: string;
-    width: number;
-    height: number;
-    fps: number;
-    template: string;
-  }> = [];
+  const renderCalls: OverlayRenderRequest[] = [];
   const combineCalls: Array<{
     videoPath: string;
     framesDir: string;
@@ -90,22 +86,15 @@ function makeModule(
     fps: number;
     plan: CombinePlan;
   }> = [];
-  const renderFrames = async (request: {
-    segments: ISegment[];
-    framesDir: string;
-    width: number;
-    height: number;
-    fps: number;
-    template: string;
-  }) => {
+  const renderFrames: FrameRenderer = async (request) => {
     renderCalls.push(request);
   };
-  const combineFrames = async (
-    videoPath: string,
-    framesDir: string,
-    outputPath: string,
-    frameRate: number,
-    plan: CombinePlan
+  const combineFrames: FrameCombiner = async (
+    videoPath,
+    framesDir,
+    outputPath,
+    frameRate,
+    plan
   ) => {
     combineCalls.push({ videoPath, framesDir, outputPath, fps: frameRate, plan });
   };
@@ -162,6 +151,7 @@ describe("render module", () => {
     assert.equal(renderCalls[0]!.width, 1920);
     assert.equal(renderCalls[0]!.height, 1080);
     assert.equal(renderCalls[0]!.template, "karaoke");
+    assert.equal(renderCalls[0]!.wordsPerPage, 4);
   });
 
   it("derives the render option fps, not the caller", async () => {
@@ -201,6 +191,7 @@ describe("render module with an Edit Spec", () => {
     frame: { preset: "9:16", ratio: 9 / 16, zoom: 1.5, panX: -1, panY: 0 },
     animation: "pop" as const,
     style,
+    captions: { wordsPerPage: 4 },
   };
 
   it("probes the video and renders the overlay at the frame's dimensions with the job's animation", async () => {
@@ -220,6 +211,22 @@ describe("render module with an Edit Spec", () => {
     assert.equal(renderCalls[0]!.width, 606);
     assert.equal(renderCalls[0]!.height, 1076);
     assert.equal(renderCalls[0]!.fps, 30);
+    assert.equal(renderCalls[0]!.wordsPerPage, 4);
+  });
+
+  it("passes the job's wordsPerPage through to the overlay renderer", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "render-module-"));
+    const storage = new FakeStorage();
+    const { module, renderCalls } = makeModule(tmpDir, storage);
+
+    await module.run({
+      uploadId: "u1",
+      objectKey: "uploads/u1",
+      segments,
+      editSpec: { ...editSpec, captions: { wordsPerPage: 6 } },
+    });
+
+    assert.equal(renderCalls[0]!.wordsPerPage, 6);
   });
 
   it("shifts the segments into the trim window and cuts the video accordingly", async () => {

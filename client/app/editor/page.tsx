@@ -256,7 +256,11 @@ function Editor() {
               <TabsContent value="animation" className="mt-4">
                 <AnimationPicker
                   value={spec.animation}
+                  wordsPerPage={spec.captions.wordsPerPage}
                   onChange={(animation) => patchSpec({ animation })}
+                  onWordsPerPageChange={(wordsPerPage) =>
+                    patchSpec({ captions: { wordsPerPage } })
+                  }
                   disabled={uploading}
                 />
                 <p className="mt-3 rounded-lg border border-border/60 bg-card/60 p-2.5 text-xs leading-relaxed text-muted-foreground">

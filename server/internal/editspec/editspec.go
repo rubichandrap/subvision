@@ -90,10 +90,18 @@ type Style struct {
 // Spec is the complete Edit Spec. A nil *Spec means "no edit": the vfx
 // service renders the full video with its defaults.
 type Spec struct {
-	Trim      Trim   `json:"trim"`
-	Frame     Frame  `json:"frame"`
-	Animation string `json:"animation"`
-	Style     *Style `json:"style,omitempty"`
+	Trim      Trim      `json:"trim"`
+	Frame     Frame     `json:"frame"`
+	Animation string    `json:"animation"`
+	Style     *Style    `json:"style,omitempty"`
+	Captions  *Captions `json:"captions,omitempty"`
+}
+
+// Captions carries the Caption Page size for the karaoke and pop
+// animations. Nil means the job predates the knob: the vfx service renders
+// page size 4.
+type Captions struct {
+	WordsPerPage int `json:"wordsPerPage"`
 }
 
 // Parse decodes and validates the raw editSpec metadata value. An empty
@@ -123,6 +131,12 @@ func (s Spec) validate() error {
 	if !Animations[s.Animation] {
 		return fmt.Errorf(`editSpec.animation must be one of fade, slide, karaoke, pop, got %q`, s.Animation)
 	}
+	if s.Captions != nil {
+		if s.Captions.WordsPerPage < 2 || s.Captions.WordsPerPage > 8 {
+			return fmt.Errorf("editSpec.captions.wordsPerPage must be an integer within [2, 8], got %v", s.Captions.WordsPerPage)
+		}
+	}
+
 	if s.Style == nil {
 		return nil
 	}

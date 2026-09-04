@@ -1,7 +1,7 @@
 import React from "react";
 import { useVideoConfig } from "remotion";
 
-import { SubtitleStyle } from "../contract";
+import { DEFAULT_WORDS_PER_PAGE, SubtitleStyle } from "../contract";
 import { ISegment, IWord } from "../types";
 
 // Shared rendering for every subtitle template: the Subtitle Style metrics
@@ -86,10 +86,6 @@ export const StyledCaption: React.FC<{
     </div>
   );
 };
-
-// Words per Caption Page when the job carries no page-size config; old
-// payloads render unchanged. The configurable knob is #19's work.
-export const DEFAULT_WORDS_PER_PAGE = 4;
 
 // The Caption Page holding the currently spoken word: the words of one
 // fixed-size chunk of the segment's Timed Words. Between chunks the previous

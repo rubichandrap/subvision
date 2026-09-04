@@ -64,6 +64,7 @@ describe("vfx job contract", () => {
         frame: { preset: "9:16", ratio: 0.5625, zoom: 1.5, panX: -0.5, panY: 0 },
         animation: "pop",
         style,
+        captions: { wordsPerPage: 4 },
       },
     };
 
@@ -214,5 +215,80 @@ describe("vfx job contract", () => {
   it("rejects a payload that is not an object", () => {
     assert.throws(() => parseVfxJob("not a job"), ContractError);
     assert.throws(() => parseVfxJob(null), ContractError);
+  });
+
+  it("defaults captions.wordsPerPage to 4 when the job carries no captions", () => {
+    const job = parseVfxJob({
+      uploadId: "u1",
+      objectKey: "uploads/u1",
+      segments: [],
+      editSpec: {
+        trim: { start: 0, end: 0 },
+        frame: { preset: "1:1", ratio: 1, zoom: 1, panX: 0, panY: 0 },
+        animation: "pop",
+        style,
+      },
+    });
+
+    assert.equal(job.editSpec!.captions.wordsPerPage, 4);
+  });
+
+  it("parses a job carrying captions.wordsPerPage unchanged", () => {
+    const raw = {
+      uploadId: "u1",
+      objectKey: "uploads/u1",
+      segments: [],
+      editSpec: {
+        trim: { start: 0, end: 0 },
+        frame: { preset: "1:1", ratio: 1, zoom: 1, panX: 0, panY: 0 },
+        animation: "pop",
+        style,
+        captions: { wordsPerPage: 6 },
+      },
+    };
+
+    const job = parseVfxJob(raw);
+
+    assert.deepEqual(job, raw);
+  });
+
+  it("rejects captions.wordsPerPage outside 2-8", () => {
+    for (const wordsPerPage of [1, 9]) {
+      assert.throws(
+        () =>
+          parseVfxJob({
+            uploadId: "u1",
+            objectKey: "uploads/u1",
+            segments: [],
+            editSpec: {
+              trim: { start: 0, end: 0 },
+              frame: { preset: "1:1", ratio: 1, zoom: 1, panX: 0, panY: 0 },
+              animation: "pop",
+              style,
+              captions: { wordsPerPage },
+            },
+          }),
+        /wordsPerPage/
+      );
+    }
+  });
+
+  it("rejects a non-integer captions.wordsPerPage", () => {
+    assert.throws(
+      () =>
+        parseVfxJob({
+          uploadId: "u1",
+          objectKey: "uploads/u1",
+          segments: [],
+          editSpec: {
+            trim: { start: 0, end: 0 },
+            frame: { preset: "1:1", ratio: 1, zoom: 1, panX: 0, panY: 0 },
+            animation: "pop",
+            style,
+            captions: { wordsPerPage: 4.5 },
+          },
+        }),
+      /wordsPerPage/
+    );
   });
 });

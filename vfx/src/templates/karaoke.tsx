@@ -1,7 +1,7 @@
 import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-import { SubtitleStyle } from "../contract";
+import { DEFAULT_WORDS_PER_PAGE, SubtitleStyle } from "../contract";
 import { ISegment, IWord } from "../types";
 import { activePageWords, activeSegment, StyledCaption, TransparentRoot } from "./shared";
 
@@ -13,7 +13,8 @@ import { activePageWords, activeSegment, StyledCaption, TransparentRoot } from "
 export const Karaoke: React.FC<{
   segments: ISegment[];
   style: SubtitleStyle;
-}> = ({ segments, style }) => {
+  wordsPerPage?: number;
+}> = ({ segments, style, wordsPerPage = DEFAULT_WORDS_PER_PAGE }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const time = frame / fps;
@@ -21,9 +22,8 @@ export const Karaoke: React.FC<{
   const segment = activeSegment(segments, time);
   if (!segment) return null;
 
-  // Only the Caption Page holding the spoken word is on screen; page size
-  // from #19's contract knob, default (4) until then.
-  const words = activePageWords(segment, time);
+  // Only the Caption Page holding the spoken word is on screen.
+  const words = activePageWords(segment, time, wordsPerPage);
 
   return (
     <TransparentRoot>

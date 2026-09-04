@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { DEFAULT_WORDS_PER_PAGE } from "../contract";
 import { ISegment, IWord } from "../types";
-import { DEFAULT_WORDS_PER_PAGE, activePageWords } from "./shared";
+import { activePageWords } from "./shared";
 
 // Synthetic segment: word i spans [i, i + 0.8], segment holds `trailing`
 // seconds past the last word end (trailing pauses are real whisper output).

@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 
 import { outputKey, uploadKey } from "../config/storage";
-import { DEFAULT_STYLE, EditSpec, Frame, SubtitleStyle, VfxJobPayload } from "../contract";
+import { DEFAULT_STYLE, DEFAULT_WORDS_PER_PAGE, EditSpec, Frame, SubtitleStyle, VfxJobPayload } from "../contract";
 import { ISegment, IWord } from "../types";
 import { ensureDirs } from "../utils/ensure-dirs";
 
@@ -26,7 +26,8 @@ export interface ObjectStorage {
 
 // What the subtitle overlay renderer receives for one job: the segments
 // already shifted into the trim window, the frame's pixel dimensions, the
-// animation template to render, and the Subtitle Style to style it with.
+// animation template to render, the Subtitle Style to style it with, and the
+// Caption Page size to page pop/karaoke with.
 export interface OverlayRenderRequest {
   segments: ISegment[];
   framesDir: string;
@@ -35,6 +36,7 @@ export interface OverlayRenderRequest {
   fps: number;
   template: string;
   style: SubtitleStyle;
+  wordsPerPage: number;
 }
 
 // Renders the subtitle frames for the request into framesDir as
@@ -124,6 +126,7 @@ export class RenderModule {
         fps: this.config.options.fps,
         template: this.config.template,
         style: DEFAULT_STYLE,
+        wordsPerPage: DEFAULT_WORDS_PER_PAGE,
       });
       await this.combineFrames(videoPath, framesDir, outputPath, this.config.options.fps, {
         videoFilters: [],
@@ -151,6 +154,7 @@ export class RenderModule {
       fps: this.config.options.fps,
       template: job.editSpec.animation,
       style: job.editSpec.style,
+      wordsPerPage: job.editSpec.captions.wordsPerPage,
     });
     await this.combineFrames(videoPath, framesDir, outputPath, this.config.options.fps, {
       videoFilters: framePlan.filters,

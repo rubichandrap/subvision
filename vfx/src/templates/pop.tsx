@@ -1,7 +1,7 @@
 import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
-import { SubtitleStyle } from "../contract";
+import { DEFAULT_WORDS_PER_PAGE, SubtitleStyle } from "../contract";
 import { ISegment, IWord } from "../types";
 import { activePageWords, activeSegment, StyledCaption, TransparentRoot } from "./shared";
 
@@ -30,7 +30,8 @@ function wordOpacity(progress: number): number {
 export const Pop: React.FC<{
   segments: ISegment[];
   style: SubtitleStyle;
-}> = ({ segments, style }) => {
+  wordsPerPage?: number;
+}> = ({ segments, style, wordsPerPage = DEFAULT_WORDS_PER_PAGE }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const time = frame / fps;
@@ -39,9 +40,8 @@ export const Pop: React.FC<{
   if (!segment) return null;
 
   // Only the Caption Page holding the spoken word is on screen; the rest of
-  // the segment waits off screen. Page size comes from #19's contract knob —
-  // until then the default (4) holds, so old payloads render unchanged.
-  const words = activePageWords(segment, time);
+  // the segment waits off screen.
+  const words = activePageWords(segment, time, wordsPerPage);
   const lastWordEnd = words.length > 0 ? words[words.length - 1]!.end : segment.end;
 
   return (

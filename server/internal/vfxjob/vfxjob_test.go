@@ -54,6 +54,7 @@ func TestJobEditSpecWireShape(t *testing.T) {
 				Uppercase:         true,
 				HighlightColor:    "#FACC15",
 			},
+			Captions: &editspec.Captions{WordsPerPage: 6},
 		},
 	})
 	if err != nil {
@@ -64,7 +65,7 @@ func TestJobEditSpecWireShape(t *testing.T) {
 		`"editSpec":{"trim":{"start":2,"end":9},` +
 		`"frame":{"preset":"9:16","ratio":0.5625,"zoom":1.5,"panX":-0.5,"panY":0},` +
 		`"animation":"pop",` +
-		`"style":{"fontFamily":"Montserrat","fontSizeScale":1.2,"color":"#FFFFFF","outlineWidth":8,"outlineColor":"#000000","bottomMargin":0.1,"background":"box","backgroundOpacity":0.5,"uppercase":true,"highlightColor":"#FACC15"}}}`
+		`"style":{"fontFamily":"Montserrat","fontSizeScale":1.2,"color":"#FFFFFF","outlineWidth":8,"outlineColor":"#000000","bottomMargin":0.1,"background":"box","backgroundOpacity":0.5,"uppercase":true,"highlightColor":"#FACC15"},"captions":{"wordsPerPage":6}}}`
 	if string(body) != want {
 		t.Errorf("editSpec wire shape changed:\n got: %s\nwant: %s", body, want)
 	}

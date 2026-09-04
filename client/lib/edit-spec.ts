@@ -44,11 +44,16 @@ export interface SubtitleStyleState {
   highlightColor: string;
 }
 
+export interface CaptionsState {
+  wordsPerPage: number;
+}
+
 export interface EditSpecState {
   frame: FrameState;
   trim: TrimState;
   animation: AnimationChoice;
   style: SubtitleStyleState;
+  captions: CaptionsState;
 }
 
 export const FONT_FAMILIES: CaptionFont[] = [
@@ -86,10 +91,15 @@ export const COLOR_SWATCHES = [
   '#4ADE80',
 ];
 
+export const DEFAULT_WORDS_PER_PAGE = 4;
+export const MIN_WORDS_PER_PAGE = 2;
+export const MAX_WORDS_PER_PAGE = 8;
+
 export const DEFAULT_EDIT_SPEC: EditSpecState = {
   frame: { preset: '9:16', ratio: 9 / 16, zoom: 1, panX: 0, panY: 0 },
   trim: { start: 0, end: 0 },
   animation: 'pop',
+  captions: { wordsPerPage: DEFAULT_WORDS_PER_PAGE },
   style: {
     fontFamily: 'Montserrat',
     fontSizeScale: 1,
@@ -123,8 +133,8 @@ export function formatTime(seconds: number): string {
 
 // buildEditSpecPayload serializes the editor state into the metadata value
 // the server validates. It carries the concrete ratio (for "free" frames the
-// dragged one), the trim window, the resolved animation, and the full style —
-// the contract requires every style field.
+// dragged one), the trim window, the resolved animation, the Caption Page
+// size, and the full style — the contract requires every style field.
 export function buildEditSpecPayload(state: EditSpecState): {
   animation: AnimationName;
   payload: string;
@@ -140,6 +150,11 @@ export function buildEditSpecPayload(state: EditSpecState): {
       panY: Number(clamp(state.frame.panY, -1, 1).toFixed(3)),
     },
     animation: resolveAnimation(state.animation),
+    captions: {
+      wordsPerPage: Math.round(
+        clamp(state.captions.wordsPerPage, MIN_WORDS_PER_PAGE, MAX_WORDS_PER_PAGE)
+      ),
+    },
     style: {
       fontFamily: state.style.fontFamily,
       fontSizeScale: Number(clamp(state.style.fontSizeScale, 0.5, 2).toFixed(2)),

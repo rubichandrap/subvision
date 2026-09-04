@@ -79,6 +79,8 @@ func TestParseRejectsViolations(t *testing.T) {
 		{"unknown background", func(j map[string]any) { j["style"].(map[string]any)["background"] = "shadow" }, "background"},
 		{"bad color", func(j map[string]any) { j["style"].(map[string]any)["color"] = "white" }, "style.color"},
 		{"bad highlight color", func(j map[string]any) { j["style"].(map[string]any)["highlightColor"] = "#FFF" }, "highlightColor"},
+		{"wordsPerPage too small", func(j map[string]any) { j["captions"] = map[string]any{"wordsPerPage": 1} }, "wordsPerPage"},
+		{"wordsPerPage too large", func(j map[string]any) { j["captions"] = map[string]any{"wordsPerPage": 9} }, "wordsPerPage"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -99,6 +101,29 @@ func TestParseRejectsViolations(t *testing.T) {
 				t.Errorf("error %q does not mention %q", parseErr.Error(), tt.want)
 			}
 		})
+	}
+}
+
+func TestParseCaptionsOptional(t *testing.T) {
+	spec := mustParse(t, validSpecJSON())
+	if spec.Captions != nil {
+		t.Errorf("Captions = %+v, want nil (absent knob stays absent)", spec.Captions)
+	}
+}
+
+func TestParseCaptionsRoundTrip(t *testing.T) {
+	var job map[string]any
+	if err := json.Unmarshal([]byte(validSpecJSON()), &job); err != nil {
+		t.Fatalf("unmarshal fixture: %v", err)
+	}
+	job["captions"] = map[string]any{"wordsPerPage": 6}
+	raw, err := json.Marshal(job)
+	if err != nil {
+		t.Fatalf("marshal job: %v", err)
+	}
+	spec := mustParse(t, string(raw))
+	if spec.Captions == nil || spec.Captions.WordsPerPage != 6 {
+		t.Errorf("Captions = %+v, want {WordsPerPage: 6}", spec.Captions)
 	}
 }
 

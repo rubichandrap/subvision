@@ -86,11 +86,21 @@ export interface SubtitleStyle {
   highlightColor: string;
 }
 
+export interface Captions {
+  /** Words per Caption Page for the karaoke and pop animations, 2..8. */
+  wordsPerPage: number;
+}
+
+// Words per Caption Page when the job carries no page-size config; old
+// payloads render unchanged.
+export const DEFAULT_WORDS_PER_PAGE = 4;
+
 export interface EditSpec {
   trim: Trim;
   frame: Frame;
   animation: Animation;
   style: SubtitleStyle;
+  captions: Captions;
 }
 
 export const DEFAULT_STYLE: SubtitleStyle = {
@@ -220,6 +230,26 @@ function inRange(
     );
   }
   return value;
+}
+
+function parseCaptions(value: unknown): Captions {
+  // Optional so old payloads validate unchanged; absent renders page size 4.
+  if (value === undefined) return { wordsPerPage: DEFAULT_WORDS_PER_PAGE };
+  if (!isObject(value)) {
+    throw new ContractError(`"editSpec.captions" must be an object`);
+  }
+  const wordsPerPage = value["wordsPerPage"];
+  if (
+    typeof wordsPerPage !== "number" ||
+    !Number.isInteger(wordsPerPage) ||
+    wordsPerPage < 2 ||
+    wordsPerPage > 8
+  ) {
+    throw new ContractError(
+      `"editSpec.captions.wordsPerPage" must be an integer within [2, 8]`
+    );
+  }
+  return { wordsPerPage };
 }
 
 function parseEditSpec(value: unknown): EditSpec | undefined {
@@ -353,6 +383,7 @@ function parseEditSpec(value: unknown): EditSpec | undefined {
       uppercase: style["uppercase"] === true,
       highlightColor: style["highlightColor"] as string,
     },
+    captions: parseCaptions(value["captions"]),
   };
 }
 

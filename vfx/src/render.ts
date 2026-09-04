@@ -7,8 +7,9 @@ import type { OverlayRenderRequest } from "./services/render-module";
 
 // Renders one job's subtitle overlay frames: bundles the templates and asks
 // Remotion for the request's template at the request's frame dimensions with
-// the request's (already shifted) segments and Subtitle Style. The frames are
-// transparent PNGs the FrameCombiner composites over the video.
+// the request's (already shifted) segments, Subtitle Style, and Caption Page
+// size. The frames are transparent PNGs the FrameCombiner composites over
+// the video.
 
 const getMaxDurationFrames = (segments: OverlayRenderRequest["segments"], fps: number) => {
   return Math.max(1, Math.ceil(Math.max(...segments.map((s) => s.end)) * fps));
@@ -40,16 +41,19 @@ export const renderOverlayFrames = async (
       defaultProps: {
         segments: [],
         style: request.style,
+        wordsPerPage: request.wordsPerPage,
       },
       props: {
         segments: request.segments,
         style: request.style,
+        wordsPerPage: request.wordsPerPage,
       },
       durationInFrames,
     },
     inputProps: {
       segments: request.segments,
       style: request.style,
+      wordsPerPage: request.wordsPerPage,
     },
     outputDir: request.framesDir,
     imageFormat: "png",
