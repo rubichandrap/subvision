@@ -3,7 +3,7 @@ import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 import { SubtitleStyle } from "../contract";
 import { ISegment, IWord } from "../types";
-import { activeSegment, StyledCaption, TransparentRoot } from "./shared";
+import { activePageWords, activeSegment, StyledCaption, TransparentRoot } from "./shared";
 
 // Karaoke captions: only the active segment is on screen, and each word gets
 // a highlight swipe that fills left-to-right while the word is spoken. The
@@ -21,7 +21,9 @@ export const Karaoke: React.FC<{
   const segment = activeSegment(segments, time);
   if (!segment) return null;
 
-  const words = segment.words;
+  // Only the Caption Page holding the spoken word is on screen; page size
+  // from #19's contract knob, default (4) until then.
+  const words = activePageWords(segment, time);
 
   return (
     <TransparentRoot>

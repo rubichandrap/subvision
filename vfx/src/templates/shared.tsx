@@ -2,7 +2,7 @@ import React from "react";
 import { useVideoConfig } from "remotion";
 
 import { SubtitleStyle } from "../contract";
-import { ISegment } from "../types";
+import { ISegment, IWord } from "../types";
 
 // Shared rendering for every subtitle template: the Subtitle Style metrics
 // and the caption block placement. Templates draw their animation on top of
@@ -86,6 +86,36 @@ export const StyledCaption: React.FC<{
     </div>
   );
 };
+
+// Words per Caption Page when the job carries no page-size config; old
+// payloads render unchanged. The configurable knob is #19's work.
+export const DEFAULT_WORDS_PER_PAGE = 4;
+
+// The Caption Page holding the currently spoken word: the words of one
+// fixed-size chunk of the segment's Timed Words. Between chunks the previous
+// page holds, so nothing flashes empty mid-gap; the last page holds until the
+// segment ends, so trailing pauses keep their caption.
+export function activePageWords(
+  segment: ISegment,
+  time: number,
+  wordsPerPage: number = DEFAULT_WORDS_PER_PAGE
+): IWord[] {
+  const words = segment.words;
+  if (words.length === 0) return [];
+  const size = Math.max(1, Math.floor(wordsPerPage));
+  const page = Math.floor(highestStartedIndex(words, time) / size);
+  const start = page * size;
+  return words.slice(start, start + size);
+}
+
+// Index of the last word that started at or before time; 0 when none has.
+function highestStartedIndex(words: IWord[], time: number): number {
+  let index = 0;
+  for (let i = 0; i < words.length; i++) {
+    if (words[i]!.start <= time) index = i;
+  }
+  return index;
+}
 
 // The one segment whose window contains the given time, if any.
 export function activeSegment(

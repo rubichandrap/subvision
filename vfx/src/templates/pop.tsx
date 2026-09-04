@@ -3,7 +3,7 @@ import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 import { SubtitleStyle } from "../contract";
 import { ISegment, IWord } from "../types";
-import { activeSegment, StyledCaption, TransparentRoot } from "./shared";
+import { activePageWords, activeSegment, StyledCaption, TransparentRoot } from "./shared";
 
 // The shorts-style caption: words pop in one at a time with a springy
 // overshoot, the word currently being spoken is highlighted, and words
@@ -38,7 +38,10 @@ export const Pop: React.FC<{
   const segment = activeSegment(segments, time);
   if (!segment) return null;
 
-  const words = segment.words;
+  // Only the Caption Page holding the spoken word is on screen; the rest of
+  // the segment waits off screen. Page size comes from #19's contract knob —
+  // until then the default (4) holds, so old payloads render unchanged.
+  const words = activePageWords(segment, time);
   const lastWordEnd = words.length > 0 ? words[words.length - 1]!.end : segment.end;
 
   return (
