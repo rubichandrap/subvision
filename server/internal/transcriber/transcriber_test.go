@@ -109,3 +109,36 @@ func TestWordsFromTokens(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultWordThresholdsMatchUpstream(t *testing.T) {
+	// Upstream whisper.cpp defaults: thold_pt and thold_ptsum are both
+	// 0.01f (src/whisper.cpp, --word-thold CLI flag).
+	if DefaultTokenThreshold != 0.01 {
+		t.Errorf("DefaultTokenThreshold = %v, want 0.01", DefaultTokenThreshold)
+	}
+	if DefaultTokenSumThreshold != 0.01 {
+		t.Errorf("DefaultTokenSumThreshold = %v, want 0.01", DefaultTokenSumThreshold)
+	}
+}
+
+type fakeThresholdContext struct {
+	token, tokenSum float32
+}
+
+func (f *fakeThresholdContext) SetTokenThreshold(t float32)    { f.token = t }
+func (f *fakeThresholdContext) SetTokenSumThreshold(t float32) { f.tokenSum = t }
+func (f *fakeThresholdContext) SetTokenTimestamps(bool)        {}
+
+func TestApplyWordThresholdsReachesDecoderContext(t *testing.T) {
+	fake := &fakeThresholdContext{}
+	applyWordThresholds(fake, 0.05, 0.07)
+	if fake.token != 0.05 || fake.tokenSum != 0.07 {
+		t.Errorf("thresholds = (%v, %v), want (0.05, 0.07)", fake.token, fake.tokenSum)
+	}
+
+	defaults := &fakeThresholdContext{}
+	applyWordThresholds(defaults, DefaultTokenThreshold, DefaultTokenSumThreshold)
+	if defaults.token != 0.01 || defaults.tokenSum != 0.01 {
+		t.Errorf("defaults = (%v, %v), want (0.01, 0.01)", defaults.token, defaults.tokenSum)
+	}
+}

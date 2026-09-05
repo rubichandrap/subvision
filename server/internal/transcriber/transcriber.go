@@ -22,6 +22,27 @@ type Segment struct {
 	Words []Word  `json:"words"`
 }
 
+// Word timestamp probability thresholds, defaulting to the upstream
+// whisper.cpp defaults (thold_pt and thold_ptsum are both 0.01f — see the
+// --word-thold CLI flag). Values move only on measured evidence (ADR-0006).
+const (
+	DefaultTokenThreshold    float32 = 0.01
+	DefaultTokenSumThreshold float32 = 0.01
+)
+
+// thresholdSetter is the decoder-context surface applyWordThresholds needs.
+type thresholdSetter interface {
+	SetTokenThreshold(float32)
+	SetTokenSumThreshold(float32)
+}
+
+// applyWordThresholds wires the word timestamp thresholds into the decoder
+// context through the existing Go binding setters.
+func applyWordThresholds(ctx thresholdSetter, token, tokenSum float32) {
+	ctx.SetTokenThreshold(token)
+	ctx.SetTokenSumThreshold(tokenSum)
+}
+
 // transcribes the audio file at audioPath using the Whisper model at modelPath
 func Transcribe(modelPath, audioPath string) ([]Segment, error) {
 	model, err := whisper.New(modelPath)
@@ -43,6 +64,7 @@ func Transcribe(modelPath, audioPath string) ([]Segment, error) {
 
 	// Word timings are transcribed, not derived: token timestamps make
 	// whisper time every token, which the words below are built from.
+	applyWordThresholds(ctx, DefaultTokenThreshold, DefaultTokenSumThreshold)
 	ctx.SetTokenTimestamps(true)
 
 	if err := ctx.Process(data, nil, nil, nil); err != nil {
