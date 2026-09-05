@@ -56,10 +56,23 @@ describe("activePageWords", () => {
     assert.deepEqual(activePageWords(makeSegment(0), 0), []);
   });
 
-  it("shows the first page before the first word starts", () => {
+  it("leaves wordless segments unaffected at any time (no onset gate)", () => {
+    const wordless = makeSegment(0);
+    assert.deepEqual(activePageWords(wordless, 0), []);
+    assert.deepEqual(activePageWords(wordless, 5), []);
+  });
+
+  it("yields no words before the first word starts (onset gate)", () => {
     const segment = makeSegment(6);
     segment.words[0]!.start = 1;
-    assert.deepEqual(texts(activePageWords(segment, 0.5, 4)), ["w0", "w1", "w2", "w3"]);
+    assert.deepEqual(texts(activePageWords(segment, 0.5, 4)), []);
+    assert.deepEqual(texts(activePageWords(segment, 0.999, 4)), []);
+  });
+
+  it("shows the first page exactly at first word start (onset edge)", () => {
+    const segment = makeSegment(6);
+    segment.words[0]!.start = 1;
+    assert.deepEqual(texts(activePageWords(segment, 1, 4)), ["w0", "w1", "w2", "w3"]);
   });
 
   it("partitions the segment: every word on exactly one page", () => {

@@ -87,10 +87,18 @@ export const StyledCaption: React.FC<{
   );
 };
 
+// True while a word-driven caption must stay off screen: the segment has
+// words but its first word has not started yet. Wordless segments are never
+// gated, so music or sound markers render exactly as before.
+export function isBeforeOnset(segment: ISegment, time: number): boolean {
+  return segment.words.length > 0 && time < segment.words[0]!.start;
+}
+
 // The Caption Page holding the currently spoken word: the words of one
-// fixed-size chunk of the segment's Timed Words. Between chunks the previous
-// page holds, so nothing flashes empty mid-gap; the last page holds until the
-// segment ends, so trailing pauses keep their caption.
+// fixed-size chunk of the segment's Timed Words. Before the first word
+// starts no page is visible; between chunks the previous page holds, so
+// nothing flashes empty mid-gap; the last page holds until the segment
+// ends, so trailing pauses keep their caption.
 export function activePageWords(
   segment: ISegment,
   time: number,
@@ -98,6 +106,7 @@ export function activePageWords(
 ): IWord[] {
   const words = segment.words;
   if (words.length === 0) return [];
+  if (isBeforeOnset(segment, time)) return [];
   const size = Math.max(1, Math.floor(wordsPerPage));
   const page = Math.floor(highestStartedIndex(words, time) / size);
   const start = page * size;

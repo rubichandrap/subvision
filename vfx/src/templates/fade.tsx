@@ -5,6 +5,7 @@ import { SubtitleStyle } from "../contract";
 import { ISegment } from "../types";
 import {
   activeSegment,
+  isBeforeOnset,
   StyledCaption,
   TransparentRoot,
 } from "./shared";
@@ -23,6 +24,7 @@ export const Fade: React.FC<{
 
   const segment = activeSegment(segments, time);
   if (!segment) return null;
+  if (isBeforeOnset(segment, time)) return null;
 
   const fadeIn = interpolate(
     time,
