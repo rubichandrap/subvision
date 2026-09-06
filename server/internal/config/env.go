@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -18,7 +19,7 @@ type Env struct {
 	S3SecretKey      string
 	S3Bucket         string
 	WhisperModelPath string
-	VADModelPath     string
+	VADGating        bool
 }
 
 func LoadEnv() *Env {
@@ -55,7 +56,21 @@ func LoadEnv() *Env {
 		S3SecretKey:      os.Getenv("S3_SECRET_KEY"),
 		S3Bucket:         os.Getenv("S3_BUCKET"),
 		WhisperModelPath: os.Getenv("WHISPER_MODEL_PATH"),
-		// Optional (ADR-0007): unset keeps VAD off — the legacy behavior.
-		VADModelPath: os.Getenv("VAD_MODEL_PATH"),
+		// Optional (ADR-0007): unset keeps gating off — the pre-gating behavior.
+		VADGating: VADGatingFromEnv(),
 	}
+}
+
+// VADGatingFromEnv parses the optional VAD_GATING flag shared by the server
+// and the onset fixture command. A set-but-invalid value fails loudly:
+// misconfiguration must never silently change what gets transcribed.
+func VADGatingFromEnv() bool {
+	if raw := os.Getenv("VAD_GATING"); raw != "" {
+		parsed, err := strconv.ParseBool(raw)
+		if err != nil {
+			log.Fatalf("Invalid VAD_GATING value %q: use \"true\" or \"false\"", raw)
+		}
+		return parsed
+	}
+	return false
 }

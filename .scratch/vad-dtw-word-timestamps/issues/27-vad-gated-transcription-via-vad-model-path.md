@@ -13,7 +13,11 @@ default params into the decoder — no new binding, no fork.
 
 **Blocked by:** #26 (threaded settings + pure policy seams).
 
-**Status:** ready-for-agent (GitHub: #27, sub-issue of #25)
+**Status:** superseded 2026-09-06 — the vendored binding and the whisper.cpp
+bump this ticket shipped are reverted (owner decision: third-party code
+stays stock). VAD gating survives, rebuilt in the transcriber's own code
+(ffmpeg silencedetect + windowed decode) behind `VAD_GATING`; see ADR-0007's
+second amendment and the regenerated onset fixture.
 
 - [ ] Setting the VAD model path env (named to mirror the whisper model path
       var) makes the decoder run with VAD enabled against the configured

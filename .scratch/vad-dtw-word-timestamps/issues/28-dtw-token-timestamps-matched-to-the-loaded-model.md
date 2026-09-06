@@ -11,7 +11,11 @@ model-load path to carry the DTW enable flag and preset.
 **Blocked by:** #27 (fixture evidence must be measured with both mechanisms on;
 both touch the same vendored shim).
 
-**Status:** ready-for-agent (GitHub: #28, sub-issue of #25)
+**Status:** wontfix — closed 2026-09-06. DTW can only be configured through
+`whisper_context_params` at model load, which the stock Go binding does not
+expose, and the owner ruled vendored third-party code is never edited
+(#27's vendoring reverted; ADR-0007 second amendment). Within-speech
+heuristic drift is accepted; the onset gate stands.
 
 - [ ] With the configured model, model load enables DTW token timestamps with
       the matching alignment-heads preset; the vendored shim change is minimal

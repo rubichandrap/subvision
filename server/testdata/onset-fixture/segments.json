@@ -1,50 +1,50 @@
 [
   {
     "start": 3.34,
-    "end": 7.28,
-    "text": "And so my fellow America, ask not",
+    "end": 7.29,
+    "text": "And so my fellow America asked not",
     "words": [
       {
         "text": "And",
         "start": 3.34,
-        "end": 3.5300000000000002
+        "end": 3.76
       },
       {
         "text": "so",
-        "start": 3.69,
-        "end": 3.85
+        "start": 3.76,
+        "end": 4.05
       },
       {
         "text": "my",
-        "start": 3.85,
-        "end": 4.07
+        "start": 4.05,
+        "end": 4.24
       },
       {
         "text": "fellow",
-        "start": 4.07,
-        "end": 4.68
+        "start": 4.37,
+        "end": 5.1
       },
       {
-        "text": "America,",
-        "start": 4.7,
-        "end": 6.5600000000000005
+        "text": "America",
+        "start": 5.29,
+        "end": 6.3
       },
       {
-        "text": "ask",
-        "start": 6.5600000000000005,
+        "text": "asked",
+        "start": 6.3,
         "end": 6.65
       },
       {
         "text": "not",
         "start": 7.01,
-        "end": 7.28
+        "end": 7.29
       }
     ]
   },
   {
     "start": 8.41,
-    "end": 11.18,
-    "text": "what your country can do for you.",
+    "end": 11.16,
+    "text": "what your country can do for you,",
     "words": [
       {
         "text": "what",
@@ -64,69 +64,69 @@
       {
         "text": "can",
         "start": 9.42,
-        "end": 9.62
+        "end": 9.65
       },
       {
         "text": "do",
-        "start": 9.62,
-        "end": 9.86
+        "start": 9.67,
+        "end": 9.92
       },
       {
         "text": "for",
-        "start": 9.86,
+        "start": 10.01,
         "end": 10.09
       },
       {
-        "text": "you.",
+        "text": "you,",
         "start": 10.1,
-        "end": 11.18
+        "end": 11.16
       }
     ]
   },
   {
-    "start": 11.18,
-    "end": 13.46,
-    "text": "Ask what you can do for your country.",
+    "start": 11.19,
+    "end": 13.52,
+    "text": "ask what you can do for your country.",
     "words": [
       {
-        "text": "Ask",
-        "start": 11.21,
-        "end": 11.39
+        "text": "ask",
+        "start": 11.19,
+        "end": 11.4
       },
       {
         "text": "what",
-        "start": 11.56,
-        "end": 11.67
+        "start": 11.4,
+        "end": 11.72
       },
       {
         "text": "you",
-        "start": 11.67,
-        "end": 11.85
+        "start": 11.72,
+        "end": 11.96
       },
       {
         "text": "can",
-        "start": 11.9,
-        "end": 12.09
+        "start": 11.96,
+        "end": 12.17
       },
       {
         "text": "do",
-        "start": 12.09,
-        "end": 12.12
+        "start": 12.19,
+        "end": 12.36
       },
       {
         "text": "for",
-        "start": 12.25,
-        "end": 12.44
+        "start": 12.36,
+        "end": 12.6
       },
       {
         "text": "your",
-        "start": 12.44,
-        "end": 12.72
+        "start": 12.6,
+        "end": 12.92
       },
       {
         "text": "country.",
-        "start": 12.72,
-        "end": 13.46
+        "start": 12.92,
+        "end": 13.52
       }
     ]
   }

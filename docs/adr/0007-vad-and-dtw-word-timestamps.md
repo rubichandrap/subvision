@@ -32,3 +32,53 @@ room-tone ramp, not speech), first reported word 3.34 s — so no VAD
 parameter moved. That measurement supersedes the −35 dB acceptance
 reference above: the ±100 ms gate holds against the measured voice onset
 (≈3.33 s), and it is that onset the fixture now records.
+
+## Amendment (2026-09-06, issue #28 reverted; #27's vendoring reverted)
+
+The owner ruled that vendored third-party code is never edited in place —
+neither the whisper.cpp submodule nor the Go binding. That decision
+unwinds this ADR's "extend the vendored shim" premise and forces two
+mechanism changes:
+
+- **The vendored Go binding is gone.** The server consumes
+  `github.com/ggerganov/whisper.cpp/bindings/go` from the module proxy
+  again and the submodule pin returns to `d1f114da` (both the pre-#27
+  state). The binding's #27 extension (reading token times through the C
+  remap getters) is withdrawn, which means whisper.cpp's *built-in* VAD can
+  no longer be used: its remap exists only in the C getters
+  (`whisper_full_get_token_t0/t1`), while the stock binding reads
+  `TokenData.t0/t1`, which stay on the filtered (compressed) timeline —
+  word timings would be seconds early. Measured in #27 and re-confirmed
+  against the v1.9.3 and ggml-org sources.
+- **DTW token timestamps are dropped** (#28 closed wontfix). The drift DTW
+  would have shrunk — within-speech token timing error of a few hundred ms —
+  is accepted. Within-speech alignment stays at heuristic quality; the
+  onset gate (ADR-0006) stands on top of it.
+
+VAD gating survives, rebuilt entirely in the transcriber's own code, with
+the third-party surface stock end to end:
+
+- `VAD_GATING` (optional, default off) enables gating. On: the transcriber
+  runs ffmpeg `silencedetect` (−30 dB, 0.5 s minimum — the same measured
+  thresholds as above) over the converted wav, derives the speech windows
+  (splitting only at silences ≥ 2 s, dropping windows < 0.25 s), and decodes
+  only those windows through the stock binding's `SetOffset`/`SetDuration`.
+  The audio buffer is never cut, so whisper's reported timings stay on the
+  original timeline — no C-side remap needed. Off: today's behavior, the
+  whole audio in one pass, no ffmpeg subprocess.
+- Fail-fast: with gating on, a silencedetect failure fails the
+  transcription loudly; zero detected speech transcribes empty with a
+  warning — the operator policies of the first amendment carry over.
+- Measured on the acceptance fixture, gated decode reproduces the first
+  amendment's numbers: first reported word 3.34 s against the measured
+  ≈3.33 s onset, last word ends 13.52 s against a real ≈13.5 s. The
+  window-split rule carries its own measurement: a 2 s window ending at a
+  1 s pause leaked 2 s past its end (whisper decodes into the zero-padded
+  tail of its mel chunk and re-reports the next window's words), so windows
+  split only at pauses long enough to be skipped wholesale; collected words
+  are clamped to their window as a second guard.
+
+The upgrade path this ADR first imagined — upstream exposing the missing
+surfaces and this repo consuming them stock — remains the route to closer
+word timing: a PR to the Go binding reading token times through the remap
+getters would re-enable whisper's built-in VAD without any vendoring.

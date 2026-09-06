@@ -6,21 +6,21 @@ import { describe, it } from "node:test";
 import { ISegment, IWord } from "../types";
 import { activePageWords, activeSegment, onsetStart } from "./shared";
 
-// The acceptance fixture (issue #23, ADR-0006; regenerated VAD-gated per
-// ADR-0007, issue #27): real Transcription Segments for a 24-second clip —
-// leading silence, then speech (whisper.cpp's jfk sample), then trailing
-// silence — transcribed by the production transcriber and stored in
-// server/testdata/onset-fixture. Regenerate with
-// `VAD_MODEL_PATH=<silero-vad-model> go run ./cmd/onsetfixture <model> <wav> <out>`
-// when the model or the vendored build changes.
+// The acceptance fixture (issue #23, ADR-0006; gated on detected speech per
+// ADR-0007, #27 reverted to stock third-party code): real Transcription
+// Segments for a 24-second clip — leading silence, then speech (whisper.cpp's
+// jfk sample), then trailing silence — transcribed by the production
+// transcriber and stored in server/testdata/onset-fixture. Regenerate with
+// `VAD_GATING=true go run ./cmd/onsetfixture <model> <wav> <out>` when the
+// model or the vendored build changes.
 //
 // Measured finding baked into this fixture: the physical speech onset is
 // 3.33 s (ffmpeg silencedetect −30 dB on the fixture wav — the −35 dB
 // crossing at 3.10 s is the sample's room-tone ramp, not speech), and the
-// first reported word sits at 3.34 s. VAD-gated decoding (whisper.cpp v1.9.3,
-// whose token remap reports word timings on the real timeline) replaces the
-// old pre-VAD behavior that stamped the first tokens at 0 — inside the
-// silence.
+// first reported word sits at 3.34 s. The transcriber runs ffmpeg
+// silencedetect itself and decodes only the speech windows, so the decoder
+// never sees the leading silence (no first-token clamping into it) and the
+// reported timings stay on the real timeline.
 const segments: ISegment[] = JSON.parse(
   readFileSync(
     resolve(process.cwd(), "../server/testdata/onset-fixture/segments.json"),

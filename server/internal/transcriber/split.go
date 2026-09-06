@@ -50,17 +50,22 @@ func splitOne(segment Segment) []Segment {
 	boundaries = append(boundaries, len(segment.Words))
 	out := make([]Segment, 0, len(boundaries)-1)
 	for i := 0; i+1 < len(boundaries); i++ {
-		words := segment.Words[boundaries[i]:boundaries[i+1]]
-		texts := make([]string, len(words))
-		for j, word := range words {
-			texts[j] = word.Text
-		}
-		out = append(out, Segment{
-			Start: words[0].Start,
-			End:   words[len(words)-1].End,
-			Text:  strings.Join(texts, " "),
-			Words: words,
-		})
+		out = append(out, segmentFromWords(segment.Words[boundaries[i]:boundaries[i+1]]))
 	}
 	return out
+}
+
+// segmentFromWords rebuilds a Segment from its words: the text is the word
+// texts joined, the window is the first and last word's bounds.
+func segmentFromWords(words []Word) Segment {
+	texts := make([]string, len(words))
+	for i, word := range words {
+		texts[i] = word.Text
+	}
+	return Segment{
+		Start: words[0].Start,
+		End:   words[len(words)-1].End,
+		Text:  strings.Join(texts, " "),
+		Words: words,
+	}
 }

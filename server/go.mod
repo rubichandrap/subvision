@@ -2,10 +2,6 @@ module github.com/rubichandrap/subvision/server
 
 go 1.24.3
 
-// The whisper.cpp Go binding is vendored (extended cgo shim, ADR-0007):
-// the operative copy is the local directory, not the module cache.
-replace github.com/ggerganov/whisper.cpp/bindings/go => ./third_party/whisper-go-binding
-
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.12

@@ -4,6 +4,11 @@
 
 **Status:** open — specified after a grilling session (2026-09-06); ADR-0007
 landed first, implementation deliberately deferred until this spec existed.
+**Revised 2026-09-06 (#28):** the owner ruled vendored third-party code is
+never edited. #27's vendored binding is reverted, DTW is dropped (#28
+wontfix), and VAD gating is rebuilt in the transcriber's own code — ffmpeg
+silencedetect + windowed decode over the stock binding (ADR-0007, second
+amendment). Sections below reflect the revision.
 
 ## Problem Statement
 
@@ -20,22 +25,24 @@ belongs upstream, in how transcription produces Timed Words.
 
 ## Solution
 
-Enable the two word-timestamp mechanisms the vendored whisper.cpp already
-ships, both exposed through a small extension of the vendored Go binding's cgo
-shim:
+Enable word-timestamp-faithful transcription by keeping silence and music
+out of the decoder, using only stock third-party code:
 
-- **VAD** (Voice Activity Detection, Silero): before decoding, silence and
-  music are detected and dropped, so whisper only ever transcribes real speech
-  and reports its timings on the real timeline. Leading-silence stamping and
-  mid-video hallucinations disappear at the source.
-- **DTW** token timestamps: whisper's per-token time estimates are computed by
-  aligning tokens to audio frames (dynamic time warping) instead of the coarse
-  default heuristic, so within-speech drift shrinks.
+- **Speech gating (revised)**: the transcriber runs ffmpeg `silencedetect`
+  over the converted wav and decodes only the detected speech windows
+  (stock binding's `SetOffset`/`SetDuration`; the audio buffer is never
+  cut, so reported timings stay on the real timeline). Leading-silence
+  stamping and mid-video hallucinations disappear at the source. No
+  vendored edits, no VAD model download.
+- ~~**DTW token timestamps**~~: dropped (#28 wontfix) — DTW can only be
+  configured through `whisper_context_params` at model load, which the
+  stock Go binding does not expose, and vendored edits are off the table.
+  Within-speech heuristic drift is accepted.
 
 With trustworthy Timed Words, the existing onset gate makes every word-driven
 caption — pop, karaoke, and the gated fade/slide entrances — appear with the
-voice. VAD is adopted by configuration (an optional VAD model path); DTW turns
-on with the model. See ADR-0007.
+voice. VAD-style gating is adopted by configuration (a `VAD_GATING` env
+flag). See ADR-0007 (second amendment).
 
 ## User Stories
 
@@ -90,46 +97,47 @@ on with the model. See ADR-0007.
 
 ## Implementation Decisions
 
-- **VAD activation (ADR-0007)**: the server's env config gains an optional
-  `VAD_MODEL_PATH` mirroring `WHISPER_MODEL_PATH`; the Silero model is fetched
-  with the vendored download script into the models directory the compose file
-  already mounts. Unset means today's behavior. Set means VAD required: the
-  transcription fails if the VAD model cannot be loaded (fail fast — the job
-  fails visibly), and zero detected speech yields empty segments plus a warning
-  log. VAD parameters stay at whisper.cpp's upstream defaults; they move only
-  on measured evidence, like the threshold constants.
-- **DTW activation (ADR-0007)**: DTW token timestamps are enabled at model load
-  with the alignment-heads preset matching the loaded model; the current model
-  maps to the base.en preset. The preset mapping lives on the transcriber side;
-  an unrecognized model means DTW disabled plus a warning (never a failure).
-  DTW is not separately gated.
-- **Vendored binding extension**: the vendored Go binding's cgo shim is
-  extended in place — the full-params wrapper carries VAD (enable flag, model
-  path, upstream-default params) and the model-load path carries DTW (enable
-  flag, preset). No new binding, no fork of whisper.cpp.
+- **Gating activation (revised)**: the server's env config gains an optional
+  boolean `VAD_GATING`; unset means today's behavior. Set means gating
+  required: ffmpeg silencedetect (−30 dB / 0.5 s, the measured thresholds)
+  failing fails the transcription loudly, and zero detected speech yields
+  empty segments plus a warning log. Windows split only at silences ≥ 2 s
+  (shorter pauses stay inside windows — measured on the fixture, windows
+  that end at every pause leak past their end into the zero-padded chunk
+  tail) and windows < 0.25 s are dropped (whisper's own
+  min_speech_duration_ms default).
+- ~~**DTW activation**~~: dropped — no preset mapping, no model-load
+  extension (ADR-0007, second amendment).
+- ~~**Vendored binding extension**~~: reverted. The binding is consumed
+  stock from the module proxy; the submodule pin returns to `d1f114da`.
+  Third-party code is never edited in place (owner decision).
 - **One producer of Timed Words**: the transcriber remains the only source of
   word timings; word timings are still never guessed (glossary invariant).
   Segment splitting and the caption onset gate are untouched — they consume
-  whatever timestamps whisper reports, which this feature makes real.
-- **Docs**: the server env example and README whisper setup gain the VAD model
-  path and its download step.
+  whatever timestamps whisper reports, which gating keeps on the real
+  timeline.
+- **Docs**: the server env example gains `VAD_GATING` alongside the whisper
+  model path.
 
 ## Testing Decisions
 
 - A good test asserts external behavior — given configuration and inputs, what
   the transcriber decides and what reaches the decoder — never cgo internals.
-- **Transcriber seam (primary, existing)**: extend the transcriber unit tests
-  with fakes for the new decoder-context surface: a configured VAD path reaches
-  the context and an unset one does not; the DTW preset resolves for the known
-  model and disables with a warning for an unknown one; the fail-fast decision
-  is a pure function. The existing threshold-wiring tests (fake setter pattern)
-  keep passing unchanged.
-- **Fixture seam (acceptance, existing)**: the onset fixture regen command runs
-  with VAD+DTW enabled and records measured numbers — first reported word
-  within ±100 ms of the measured speech onset (≈3.10 s by silencedetect
-  −35 dB / 0.5 s) — into the fixture and issue #25. The vfx template fixture
-  test keeps locking the onset gate on the regenerated segments. CI stays
-  hermetic: no model downloads, no whisper inference in CI.
+- **Transcriber seam (primary, existing)**: unit tests with fakes at the
+  new seams: silencedetect output parsing (pure), speech-window derivation
+  (pure: clamping, the ≥ 2 s split rule, the 0.25 s minimum), the clamp of
+  collected segments to their window (pure), the no-speech policy (pure),
+  and the Transcribe wiring with a faked silence detector (gating off never
+  runs detection; a silent wav transcribes empty without the model; a
+  failing detection fails loudly). The existing threshold-wiring tests keep
+  passing unchanged.
+- **Fixture seam (acceptance, existing)**: the onset fixture regen command
+  runs with `VAD_GATING=true` and records measured numbers — first reported
+  word within ±100 ms of the measured voice onset (≈3.33 s) — into the
+  fixture and issue #25. The vfx template fixture test keeps locking the
+  onset gate on the regenerated segments. CI stays hermetic: no model
+  downloads, no whisper inference, no ffmpeg subprocess in unit tests (the
+  detection runner is a faked seam).
 - **Vendored shim (no unit tests)**: validated end-to-end by the fixture regen,
   per house convention of not unit-testing vendored code.
 - Prior art: the transcriber threshold tests, the #23 onset fixture and its
