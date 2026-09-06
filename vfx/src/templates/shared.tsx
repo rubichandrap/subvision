@@ -87,18 +87,18 @@ export const StyledCaption: React.FC<{
   );
 };
 
-// True while a word-driven caption must stay off screen: the segment has
-// words but its first word has not started yet. Wordless segments are never
-// gated, so music or sound markers render exactly as before.
-export function isBeforeOnset(segment: ISegment, time: number): boolean {
-  return segment.words.length > 0 && time < segment.words[0]!.start;
+// The earliest time this segment's caption may become visible: the first
+// Timed Word's start when the segment has words (the onset, ADR-0006), the
+// segment's own start otherwise — wordless segments are never held back.
+export function onsetStart(segment: ISegment): number {
+  return segment.words.length > 0 ? segment.words[0]!.start : segment.start;
 }
 
 // The Caption Page holding the currently spoken word: the words of one
-// fixed-size chunk of the segment's Timed Words. Before the first word
-// starts no page is visible; between chunks the previous page holds, so
-// nothing flashes empty mid-gap; the last page holds until the segment
-// ends, so trailing pauses keep their caption.
+// fixed-size chunk of the segment's Timed Words. Nothing is visible before
+// the onset; between chunks the previous page holds, so nothing flashes
+// empty mid-gap; the last page holds until the segment ends, so trailing
+// pauses keep their caption.
 export function activePageWords(
   segment: ISegment,
   time: number,
@@ -106,7 +106,7 @@ export function activePageWords(
 ): IWord[] {
   const words = segment.words;
   if (words.length === 0) return [];
-  if (isBeforeOnset(segment, time)) return [];
+  if (time < onsetStart(segment)) return [];
   const size = Math.max(1, Math.floor(wordsPerPage));
   const page = Math.floor(highestStartedIndex(words, time) / size);
   const start = page * size;
@@ -122,12 +122,15 @@ function highestStartedIndex(words: IWord[], time: number): number {
   return index;
 }
 
-// The one segment whose window contains the given time, if any.
+// The one segment whose window contains the given time and whose caption may
+// be on screen: a word-driven segment stays inactive until its onset, so no
+// template ever mounts one during leading silence.
 export function activeSegment(
   segments: ISegment[],
   time: number
 ): ISegment | undefined {
   return segments.find(
-    (segment) => time >= segment.start && time < segment.end
+    (segment) =>
+      time >= segment.start && time < segment.end && time >= onsetStart(segment)
   );
 }

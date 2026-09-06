@@ -3,7 +3,7 @@ import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 import { DEFAULT_WORDS_PER_PAGE, SubtitleStyle } from "../contract";
 import { ISegment, IWord } from "../types";
-import { activePageWords, activeSegment, isBeforeOnset, StyledCaption, TransparentRoot } from "./shared";
+import { activePageWords, activeSegment, StyledCaption, TransparentRoot } from "./shared";
 
 // The shorts-style caption: words pop in one at a time with a springy
 // overshoot, the word currently being spoken is highlighted, and words
@@ -38,7 +38,6 @@ export const Pop: React.FC<{
 
   const segment = activeSegment(segments, time);
   if (!segment) return null;
-  if (isBeforeOnset(segment, time)) return null;
 
   // Only the Caption Page holding the spoken word is on screen; the rest of
   // the segment waits off screen.

@@ -5,7 +5,7 @@ import { SubtitleStyle } from "../contract";
 import { ISegment } from "../types";
 import {
   activeSegment,
-  isBeforeOnset,
+  onsetStart,
   StyledCaption,
   TransparentRoot,
 } from "./shared";
@@ -24,11 +24,13 @@ export const Fade: React.FC<{
 
   const segment = activeSegment(segments, time);
   if (!segment) return null;
-  if (isBeforeOnset(segment, time)) return null;
 
+  // The fade eases in from the onset, not the segment start: a first word
+  // that starts late must not spend the fade invisibly during silence.
+  const start = onsetStart(segment);
   const fadeIn = interpolate(
     time,
-    [segment.start, segment.start + FADE_SECONDS],
+    [start, start + FADE_SECONDS],
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
