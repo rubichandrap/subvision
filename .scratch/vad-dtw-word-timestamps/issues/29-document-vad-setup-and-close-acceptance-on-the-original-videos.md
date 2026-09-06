@@ -11,7 +11,7 @@ at video start or mid-video.
 **Blocked by:** #27 (VAD) and #28 (DTW) — final numbers and docs must describe
 the shipped combination.
 
-**Status:** ready-for-agent (GitHub: #29, sub-issue of #25)
+**Status:** closed 2026-09-06 — docs shipped (GitHub: #29 closed)
 
 - [ ] The server env example gains the VAD model path var with a comment; the
       README whisper setup documents the Silero download step and the unset/set

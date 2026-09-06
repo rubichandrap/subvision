@@ -13,7 +13,7 @@ default params into the decoder — no new binding, no fork.
 
 **Blocked by:** #26 (threaded settings + pure policy seams).
 
-**Status:** superseded 2026-09-06 — the vendored binding and the whisper.cpp
+**Status:** closed 2026-09-06 (superseded) — the vendored binding and the whisper.cpp
 bump this ticket shipped are reverted (owner decision: third-party code
 stays stock). VAD gating survives, rebuilt in the transcriber's own code
 (ffmpeg silencedetect + windowed decode) behind `VAD_GATING`; see ADR-0007's

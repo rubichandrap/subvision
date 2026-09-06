@@ -2,9 +2,7 @@
 
 **GitHub issue:** #20
 
-**Status:** open — implementation and verification delivered; closure pending the
-reporter's ear check of the original 24-second video (see Verification in the
-issue comment from 2026-09-06).
+**Status:** closed 2026-09-06 — implementation and verification delivered (GitHub: #20 closed).
 
 ## Problem Statement
 

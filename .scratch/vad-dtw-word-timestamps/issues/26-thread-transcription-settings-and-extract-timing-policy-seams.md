@@ -10,7 +10,7 @@ before either mechanism lands.
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent (GitHub: #26, sub-issue of #25)
+**Status:** closed 2026-09-06 — shipped (GitHub: #26 closed; mechanism reworked to VAD_GATING, see ADR-0007)
 
 - [ ] Transcription settings (model path, VAD path) flow from server config
       into the transcriber as parameters; nothing new is read from the

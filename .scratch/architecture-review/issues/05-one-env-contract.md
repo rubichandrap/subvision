@@ -2,7 +2,7 @@
 
 **GitHub issue:** #6
 
-**Status:** ready-for-agent
+**Status:** closed 2026-09-06 — shipped (GitHub: #6 closed)
 
 ## Parent
 

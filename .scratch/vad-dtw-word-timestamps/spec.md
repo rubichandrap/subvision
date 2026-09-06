@@ -2,7 +2,7 @@
 
 **GitHub issue:** #25 (labelled `ready-for-agent`)
 
-**Status:** open — specified after a grilling session (2026-09-06); ADR-0007
+**Status:** closed 2026-09-06 — shipped as VAD_GATING (GitHub: #25 closed); ADR-0007
 landed first, implementation deliberately deferred until this spec existed.
 **Revised 2026-09-06 (#28):** the owner ruled vendored third-party code is
 never edited. #27's vendored binding is reverted, DTW is dropped (#28
