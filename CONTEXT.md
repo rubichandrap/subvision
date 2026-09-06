@@ -19,6 +19,11 @@ the Next.js client uploads videos with tus.
 - **Caption Page** — a group of Timed Words from one Transcription Segment
   shown together on screen by the karaoke and pop Animations; only the page
   holding the currently spoken word is visible.
+- **Onset** — the start time of a Transcription Segment's first Timed Word;
+  the moment a word-driven caption may first become visible. No caption
+  mounts before onset, even when the segment window opens earlier
+  (ADR-0006); segments without Timed Words are visible from the segment's
+  start.
 - **VFX Job** — the message that tells the vfx service to render a video: the
   upload's object key, its Transcription Segments, and its Edit Spec. Published
   by the server to the vfx queue; consumed by the vfx service. The contract —
