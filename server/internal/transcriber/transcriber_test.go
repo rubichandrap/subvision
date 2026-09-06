@@ -127,7 +127,6 @@ type fakeThresholdContext struct {
 
 func (f *fakeThresholdContext) SetTokenThreshold(t float32)    { f.token = t }
 func (f *fakeThresholdContext) SetTokenSumThreshold(t float32) { f.tokenSum = t }
-func (f *fakeThresholdContext) SetTokenTimestamps(bool)        {}
 
 func TestApplyWordThresholdsReachesDecoderContext(t *testing.T) {
 	fake := &fakeThresholdContext{}
