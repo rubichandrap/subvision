@@ -69,6 +69,26 @@ flowchart TD
 
 Subvision uses [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for speech-to-text transcription.
 
+### Speech gating (optional)
+
+By default whisper decodes the whole audio in one pass, and silence can pull
+words forward: first tokens stamped inside a quiet intro, hallucinated words
+over music or long pauses. Setting `VAD_GATING=true` in `server/.env` gates
+the decode on detected speech (ADR-0007):
+
+- The transcriber runs ffmpeg `silencedetect` over the converted wav at the
+  measured thresholds (**−30 dB, 0.5 s minimum**) and decodes only the speech
+  windows it finds. The audio buffer is never cut, so word timings stay on the
+  original timeline.
+- Windows split only at silences of **2 s or longer** — shorter pauses stay
+  inside a window, where whisper handles them natively — and windows shorter
+  than **0.25 s** are skipped.
+- Unset or `false` means today's one-pass behavior: no detection runs, no
+  extra ffmpeg call. `true` means gating is required: if silence detection
+  fails, the transcription fails loudly; if no speech is detected, the video
+  transcribes to zero segments with a warning log (a caption-less output is
+  correct, not broken).
+
 ---
 
 ## Getting Started
@@ -163,6 +183,7 @@ No variable falls back to silent credentials or default URLs.
 | `TMP_DIR` | server, vfx | **yes** | — | Scratch directory for videos, audio, frames, rendered outputs. |
 | `CLIENT_URL` | server | **yes** | — | Origin of the Next.js client, allowed by the server's CORS. |
 | `WHISPER_MODEL_PATH` | server | **yes** | — | Path to the whisper.cpp ggml model. |
+| `VAD_GATING` | server | no | `off` | Gate decoding on detected speech: ffmpeg silencedetect (−30 dB, 0.5 s) finds the speech windows and only they are decoded (see [Speech gating](#speech-gating-optional)). |
 | `S3_ENDPOINT` | server, vfx | **yes** | — | Full URL of the S3-compatible store (RustFS in compose). |
 | `S3_ACCESS_KEY` | server, vfx | **yes** | — | S3 access key. |
 | `S3_SECRET_KEY` | server, vfx | **yes** | — | S3 secret key. |
@@ -187,6 +208,8 @@ PORT=8080
 TMP_DIR=/tmp
 CLIENT_URL=http://localhost:3000
 WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
+# Optional: decode only the speech ffmpeg silencedetect finds (ADR-0007).
+# VAD_GATING=true
 S3_ENDPOINT=http://rustfs:9000
 S3_ACCESS_KEY=rustfs
 S3_SECRET_KEY=rustfs123
