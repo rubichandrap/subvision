@@ -17,3 +17,18 @@ ADR-0006 left VAD as the upgrade path believing it would mean a new cgo binding 
 - DTW raises decode CPU and memory cost and is not separately gated; reversing it means removing the shim extension.
 - ADR-0006's no-VAD stance and its new-binding premise are superseded; its onset gate and threshold constants stand.
 - Acceptance: the onset fixture regenerates with VAD+DTW enabled and records measured numbers (first word ≈ 3.10 s ± 100 ms); CI stays hermetic (recorded fixture JSON plus the regen command); the reporter's ear check on the original videos remains the final gate.
+
+## Amendment (2026-09-06, issue #27)
+
+Implementing VAD moved the vendored pin from `d1f114da` to the v1.9.3
+release: at `d1f114da` whisper.cpp remaps segment timestamps under VAD but
+not token timestamps — the token/word timings the transcriber builds on
+stayed on the filtered (compressed) timeline — and its Go binding exposed no
+VAD surface. v1.9.3 carries upstream's token-level remap (PR #3910) and VAD
+binding setters; the decision above is unchanged. Measured on the acceptance
+fixture, VAD's upstream defaults already track the voice onset — 3.33 s at
+−30 dB silencedetect (the −35 dB crossing at 3.10 s is the sample's
+room-tone ramp, not speech), first reported word 3.34 s — so no VAD
+parameter moved. That measurement supersedes the −35 dB acceptance
+reference above: the ±100 ms gate holds against the measured voice onset
+(≈3.33 s), and it is that onset the fixture now records.

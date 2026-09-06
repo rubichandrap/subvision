@@ -1,6 +1,7 @@
 package transcriber
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -139,5 +140,59 @@ func TestApplyWordThresholdsReachesDecoderContext(t *testing.T) {
 	applyWordThresholds(defaults, DefaultTokenThreshold, DefaultTokenSumThreshold)
 	if defaults.token != 0.01 || defaults.tokenSum != 0.01 {
 		t.Errorf("defaults = (%v, %v), want (0.01, 0.01)", defaults.token, defaults.tokenSum)
+	}
+}
+
+type fakeVADContext struct {
+	enabled bool
+	path    string
+}
+
+func (f *fakeVADContext) SetVAD(enable bool)          { f.enabled = true }
+func (f *fakeVADContext) SetVADModelPath(path string) { f.path = path }
+
+func TestApplyVADReachesDecoderContext(t *testing.T) {
+	fake := &fakeVADContext{}
+	applyVAD(fake, "models/ggml-silero-v5.1.2.bin")
+	if !fake.enabled || fake.path != "models/ggml-silero-v5.1.2.bin" {
+		t.Errorf("applyVAD configured = (enabled=%v, path=%q), want VAD enabled against the configured path", fake.enabled, fake.path)
+	}
+}
+
+func TestApplyVADUnsetLeavesDecoderContextUntouched(t *testing.T) {
+	fake := &fakeVADContext{}
+	applyVAD(fake, "")
+	if fake.enabled || fake.path != "" {
+		t.Errorf("applyVAD with an unset path touched the decoder context (enabled=%v, path=%q)", fake.enabled, fake.path)
+	}
+}
+
+func TestNoSpeechDetected(t *testing.T) {
+	cases := []struct {
+		name     string
+		settings Settings
+		segments []Segment
+		want     bool
+	}{
+		{"no vad configured: an empty result carries no finding", Settings{}, nil, false},
+		{"no vad configured with segments", Settings{}, []Segment{{}}, false},
+		{"vad configured with zero segments means no speech", Settings{VADModelPath: "vad.bin"}, nil, true},
+		{"vad configured with an empty result", Settings{VADModelPath: "vad.bin"}, []Segment{}, true},
+		{"vad configured with segments", Settings{VADModelPath: "vad.bin"}, []Segment{{}}, false},
+	}
+	for _, tc := range cases {
+		if got := noSpeechDetected(tc.settings, tc.segments); got != tc.want {
+			t.Errorf("%s: noSpeechDetected() = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func TestTranscribeFailsFastOnUnloadableVADModel(t *testing.T) {
+	_, err := Transcribe(
+		Settings{ModelPath: "unused", VADModelPath: filepath.Join(t.TempDir(), "absent.bin")},
+		"unused.wav",
+	)
+	if err == nil || !strings.Contains(err.Error(), "not loadable") {
+		t.Fatalf("Transcribe() error = %v, want it to contain %q", err, "not loadable")
 	}
 }

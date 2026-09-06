@@ -2,6 +2,7 @@ package transcriber
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -43,10 +44,47 @@ func applyWordThresholds(ctx thresholdSetter, token, tokenSum float32) {
 	ctx.SetTokenSumThreshold(tokenSum)
 }
 
-// transcribes the audio file at audioPath using the whisper model and options
-// carried in settings (ADR-0007: the VAD model path and the DTW preset the
-// settings resolve to reach the decoder in their own tickets)
+// vadSetter is the decoder-context surface applyVAD needs: the vendored
+// binding's VAD setters.
+type vadSetter interface {
+	SetVAD(enable bool)
+	SetVADModelPath(path string)
+}
+
+// applyVAD gates decoding on detected speech when the settings configure a
+// Silero VAD model (ADR-0007); an unset path leaves the decoder untouched —
+// the pre-VAD behavior. VAD parameters stay at the upstream defaults the
+// decoder filled in.
+func applyVAD(ctx vadSetter, modelPath string) {
+	if modelPath == "" {
+		return
+	}
+	ctx.SetVAD(true)
+	ctx.SetVADModelPath(modelPath)
+}
+
+// noSpeechDetected reports whether a VAD-gated transcription came back
+// empty: under VAD that means the audio carried no speech at all, which
+// transcribes empty with a warning — correct output, not a failure
+// (ADR-0007).
+func noSpeechDetected(settings Settings, segments []Segment) bool {
+	return settings.VADRequired() && len(segments) == 0
+}
+
+// transcribes the audio file at audioPath using the whisper model and
+// options carried in settings (ADR-0007: the DTW preset the settings
+// resolve to reaches the decoder in its own ticket)
 func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
+	// A configured VAD model is required, not best-effort (ADR-0007): the
+	// probe fails a missing or unreadable one up front and the decoder
+	// itself fails the transcription when the model will not load —
+	// misconfiguration must never silently degrade into un-gated decoding.
+	if settings.VADRequired() {
+		if _, err := os.Stat(settings.VADModelPath); err != nil {
+			return nil, fmt.Errorf("vad model %q not loadable: %w", settings.VADModelPath, err)
+		}
+	}
+
 	model, err := whisper.New(settings.ModelPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load whisper model: %w", err)
@@ -69,6 +107,10 @@ func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
 	applyWordThresholds(ctx, DefaultTokenThreshold, DefaultTokenSumThreshold)
 	ctx.SetTokenTimestamps(true)
 
+	// VAD gates decoding on detected speech: silence and music never reach
+	// the decoder, and the reported timings stay on the real timeline.
+	applyVAD(ctx, settings.VADModelPath)
+
 	if err := ctx.Process(data, nil, nil, nil); err != nil {
 		return nil, fmt.Errorf("failed to process audio: %w", err)
 	}
@@ -89,6 +131,10 @@ func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
 			Text:  seg.Text,
 			Words: words,
 		})
+	}
+
+	if noSpeechDetected(settings, segments) {
+		log.Printf("[Transcriber] VAD detected no speech in %s; transcribed empty", audioPath)
 	}
 
 	// Whisper emits few long segments; the renderer needs short ones —

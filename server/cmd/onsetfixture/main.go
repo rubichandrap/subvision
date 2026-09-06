@@ -2,6 +2,10 @@
 // segments.json (server/testdata/onset-fixture): it transcribes the fixture
 // WAV through the production transcriber and writes the Transcription
 // Segments the onset gate is verified against (ADR-0006, issue #23).
+//
+// The VAD model path comes from VAD_MODEL_PATH — the same env the server
+// reads (ADR-0007). Set it to regenerate the fixture VAD-gated; unset
+// regenerates the pre-VAD behavior.
 package main
 
 import (
@@ -19,7 +23,10 @@ func main() {
 	}
 	modelPath, wavPath, outPath := os.Args[1], os.Args[2], os.Args[3]
 
-	segments, err := transcriber.Transcribe(transcriber.Settings{ModelPath: modelPath}, wavPath)
+	segments, err := transcriber.Transcribe(transcriber.Settings{
+		ModelPath:    modelPath,
+		VADModelPath: os.Getenv("VAD_MODEL_PATH"),
+	}, wavPath)
 	if err != nil {
 		log.Fatalf("transcribe: %v", err)
 	}

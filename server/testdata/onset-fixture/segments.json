@@ -1,139 +1,132 @@
 [
   {
-    "start": 0,
-    "end": 1.75,
-    "text": "And so my",
+    "start": 3.34,
+    "end": 7.28,
+    "text": "And so my fellow America, ask not",
     "words": [
       {
         "text": "And",
-        "start": 0,
-        "end": 0.75
+        "start": 3.34,
+        "end": 3.5300000000000002
       },
       {
         "text": "so",
-        "start": 0.75,
-        "end": 1.25
+        "start": 3.69,
+        "end": 3.85
       },
       {
         "text": "my",
-        "start": 1.25,
-        "end": 1.75
+        "start": 3.85,
+        "end": 4.07
+      },
+      {
+        "text": "fellow",
+        "start": 4.07,
+        "end": 4.68
+      },
+      {
+        "text": "America,",
+        "start": 4.7,
+        "end": 6.5600000000000005
+      },
+      {
+        "text": "ask",
+        "start": 6.5600000000000005,
+        "end": 6.65
+      },
+      {
+        "text": "not",
+        "start": 7.01,
+        "end": 7.28
       }
     ]
   },
   {
-    "start": 3.04,
-    "end": 10.89,
-    "text": "fellow America asked not what your country can do for you,",
+    "start": 8.41,
+    "end": 11.18,
+    "text": "what your country can do for you.",
     "words": [
       {
-        "text": "fellow",
-        "start": 3.04,
-        "end": 3.24
-      },
-      {
-        "text": "America",
-        "start": 3.34,
-        "end": 4.98
-      },
-      {
-        "text": "asked",
-        "start": 5.01,
-        "end": 6.68
-      },
-      {
-        "text": "not",
-        "start": 7.03,
-        "end": 7.28
-      },
-      {
         "text": "what",
-        "start": 7.28,
-        "end": 7.9399999999999995
+        "start": 8.41,
+        "end": 8.54
       },
       {
         "text": "your",
-        "start": 8.32,
-        "end": 8.48
+        "start": 8.66,
+        "end": 8.83
       },
       {
         "text": "country",
-        "start": 8.48,
+        "start": 8.97,
         "end": 9.42
       },
       {
         "text": "can",
-        "start": 9.49,
-        "end": 9.6
+        "start": 9.42,
+        "end": 9.62
       },
       {
         "text": "do",
-        "start": 9.6,
-        "end": 9.72
+        "start": 9.62,
+        "end": 9.86
       },
       {
         "text": "for",
-        "start": 9.72,
-        "end": 10.08
+        "start": 9.86,
+        "end": 10.09
       },
       {
-        "text": "you,",
-        "start": 10.08,
-        "end": 10.89
+        "text": "you.",
+        "start": 10.1,
+        "end": 11.18
       }
     ]
   },
   {
-    "start": 11.19,
-    "end": 12.48,
-    "text": "ask what you can do",
+    "start": 11.18,
+    "end": 13.46,
+    "text": "Ask what you can do for your country.",
     "words": [
       {
-        "text": "ask",
-        "start": 11.19,
-        "end": 11.22
+        "text": "Ask",
+        "start": 11.21,
+        "end": 11.39
       },
       {
         "text": "what",
-        "start": 11.22,
-        "end": 11.66
+        "start": 11.56,
+        "end": 11.67
       },
       {
         "text": "you",
-        "start": 11.66,
-        "end": 12
+        "start": 11.67,
+        "end": 11.85
       },
       {
         "text": "can",
-        "start": 12,
-        "end": 12.36
+        "start": 11.9,
+        "end": 12.09
       },
       {
         "text": "do",
-        "start": 12.36,
-        "end": 12.48
-      }
-    ]
-  },
-  {
-    "start": 12.48,
-    "end": 13.48,
-    "text": "for your country.",
-    "words": [
+        "start": 12.09,
+        "end": 12.12
+      },
       {
         "text": "for",
-        "start": 12.48,
-        "end": 12.63
+        "start": 12.25,
+        "end": 12.44
       },
       {
         "text": "your",
-        "start": 12.65,
-        "end": 12.88
+        "start": 12.44,
+        "end": 12.72
       },
       {
         "text": "country.",
-        "start": 12.88,
-        "end": 13.47
+        "start": 12.72,
+        "end": 13.46
       }
     ]
   }
