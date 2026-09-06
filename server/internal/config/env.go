@@ -18,6 +18,7 @@ type Env struct {
 	S3SecretKey      string
 	S3Bucket         string
 	WhisperModelPath string
+	VADModelPath     string
 }
 
 func LoadEnv() *Env {
@@ -54,5 +55,7 @@ func LoadEnv() *Env {
 		S3SecretKey:      os.Getenv("S3_SECRET_KEY"),
 		S3Bucket:         os.Getenv("S3_BUCKET"),
 		WhisperModelPath: os.Getenv("WHISPER_MODEL_PATH"),
+		// Optional (ADR-0007): unset keeps VAD off — the legacy behavior.
+		VADModelPath: os.Getenv("VAD_MODEL_PATH"),
 	}
 }

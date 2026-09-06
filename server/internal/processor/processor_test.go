@@ -63,7 +63,7 @@ func TestProcessUploadedFileTranscribesTrimWindowOnly(t *testing.T) {
 	var gotWindow [2]float64
 	pub := &fakePublisher{}
 	store := &fakeStore{}
-	proc := newTestProcessor(pub, store, func(modelPath, audioPath string) ([]transcriber.Segment, error) {
+	proc := newTestProcessor(pub, store, func(settings transcriber.Settings, audioPath string) ([]transcriber.Segment, error) {
 		// The fake transcription returns times local to the trim window,
 		// exactly what whisper produces for a sliced wav.
 		return []transcriber.Segment{
@@ -110,7 +110,7 @@ func TestProcessUploadedFilePublishesVfxJob(t *testing.T) {
 	}
 	pub := &fakePublisher{}
 	store := &fakeStore{}
-	proc := newTestProcessor(pub, store, func(modelPath, audioPath string) ([]transcriber.Segment, error) {
+	proc := newTestProcessor(pub, store, func(settings transcriber.Settings, audioPath string) ([]transcriber.Segment, error) {
 		return segments, nil
 	})
 
@@ -148,7 +148,7 @@ func TestProcessUploadedFilePublishesVfxJob(t *testing.T) {
 
 func TestProcessUploadedFilePublishErrorSurfaces(t *testing.T) {
 	pub := &fakePublisher{err: errors.New("broker down")}
-	proc := newTestProcessor(pub, &fakeStore{}, func(string, string) ([]transcriber.Segment, error) {
+	proc := newTestProcessor(pub, &fakeStore{}, func(transcriber.Settings, string) ([]transcriber.Segment, error) {
 		return nil, nil
 	})
 
@@ -160,7 +160,7 @@ func TestProcessUploadedFilePublishErrorSurfaces(t *testing.T) {
 
 func TestProcessUploadedFileRejectsUnexpectedObjectKey(t *testing.T) {
 	pub := &fakePublisher{}
-	proc := newTestProcessor(pub, &fakeStore{}, func(string, string) ([]transcriber.Segment, error) {
+	proc := newTestProcessor(pub, &fakeStore{}, func(transcriber.Settings, string) ([]transcriber.Segment, error) {
 		return nil, nil
 	})
 
@@ -170,5 +170,32 @@ func TestProcessUploadedFileRejectsUnexpectedObjectKey(t *testing.T) {
 	}
 	if len(pub.jobs) != 0 {
 		t.Errorf("no vfx job should be published for an unexpected key, got %d", len(pub.jobs))
+	}
+}
+
+func TestProcessUploadedFilePassesTranscriptionSettings(t *testing.T) {
+	var gotSettings transcriber.Settings
+	pub := &fakePublisher{}
+	proc := New(Options{
+		Publisher: pub,
+		Store:     &fakeStore{},
+		Transcribe: func(settings transcriber.Settings, audioPath string) ([]transcriber.Segment, error) {
+			gotSettings = settings
+			return nil, nil
+		},
+		TmpDir:           "tmp",
+		WhisperModelPath: "model.bin",
+		VADModelPath:     "vad.bin",
+	})
+	proc.convert = func(inputPath, outputPath string, window [2]float64) error {
+		return os.WriteFile(outputPath, []byte("pcm"), 0o644)
+	}
+
+	if err := proc.ProcessUploadedFile("u1", "uploads/u1", nil); err != nil {
+		t.Fatalf("ProcessUploadedFile: %v", err)
+	}
+
+	if gotSettings.ModelPath != "model.bin" || gotSettings.VADModelPath != "vad.bin" {
+		t.Errorf("transcription settings must reach the transcriber from config, got %+v", gotSettings)
 	}
 }

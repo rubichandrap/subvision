@@ -28,7 +28,7 @@ type ObjectStore interface {
 
 // TranscribeFunc converts an audio file into Transcription Segments; the
 // whisper-backed implementation is wired in main.
-type TranscribeFunc func(modelPath, audioPath string) ([]transcriber.Segment, error)
+type TranscribeFunc func(settings transcriber.Settings, audioPath string) ([]transcriber.Segment, error)
 
 // ConvertFunc extracts a wav from a video file; the ffmpeg-backed
 // implementation is wired in New.
@@ -40,30 +40,34 @@ type Options struct {
 	Transcribe       TranscribeFunc
 	TmpDir           string
 	WhisperModelPath string
+	VADModelPath     string
 	Lifecycle        job.Tracker // optional
 }
 
 type Processor struct {
-	publisher        VfxJobPublisher
-	store            ObjectStore
-	transcribe       TranscribeFunc
-	convert          ConvertFunc
-	lifecycle        job.Tracker
-	videoTmpDir      string
-	audioTmpDir      string
-	whisperModelPath string
+	publisher       VfxJobPublisher
+	store           ObjectStore
+	transcribe      TranscribeFunc
+	convert         ConvertFunc
+	lifecycle       job.Tracker
+	videoTmpDir     string
+	audioTmpDir     string
+	whisperSettings transcriber.Settings
 }
 
 func New(opts Options) *Processor {
 	return &Processor{
-		publisher:        opts.Publisher,
-		store:            opts.Store,
-		transcribe:       opts.Transcribe,
-		convert:          convertToWav,
-		lifecycle:        opts.Lifecycle,
-		videoTmpDir:      filepath.Join(opts.TmpDir, "videos"),
-		audioTmpDir:      filepath.Join(opts.TmpDir, "audios"),
-		whisperModelPath: opts.WhisperModelPath,
+		publisher:   opts.Publisher,
+		store:       opts.Store,
+		transcribe:  opts.Transcribe,
+		convert:     convertToWav,
+		lifecycle:   opts.Lifecycle,
+		videoTmpDir: filepath.Join(opts.TmpDir, "videos"),
+		audioTmpDir: filepath.Join(opts.TmpDir, "audios"),
+		whisperSettings: transcriber.Settings{
+			ModelPath:    opts.WhisperModelPath,
+			VADModelPath: opts.VADModelPath,
+		},
 	}
 }
 
@@ -111,7 +115,7 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 	}
 	log.Printf("[Processor] Converted to WAV: %s (window %.3f-%.3f)", audioPath, window[0], window[1])
 
-	segments, err := p.transcribe(p.whisperModelPath, audioPath)
+	segments, err := p.transcribe(p.whisperSettings, audioPath)
 	if err != nil {
 		return fmt.Errorf("failed to transcribe audio: %w", err)
 	}

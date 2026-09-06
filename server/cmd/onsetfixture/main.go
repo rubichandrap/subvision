@@ -19,7 +19,7 @@ func main() {
 	}
 	modelPath, wavPath, outPath := os.Args[1], os.Args[2], os.Args[3]
 
-	segments, err := transcriber.Transcribe(modelPath, wavPath)
+	segments, err := transcriber.Transcribe(transcriber.Settings{ModelPath: modelPath}, wavPath)
 	if err != nil {
 		log.Fatalf("transcribe: %v", err)
 	}

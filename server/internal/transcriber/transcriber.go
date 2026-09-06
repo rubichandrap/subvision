@@ -43,9 +43,11 @@ func applyWordThresholds(ctx thresholdSetter, token, tokenSum float32) {
 	ctx.SetTokenSumThreshold(tokenSum)
 }
 
-// transcribes the audio file at audioPath using the Whisper model at modelPath
-func Transcribe(modelPath, audioPath string) ([]Segment, error) {
-	model, err := whisper.New(modelPath)
+// transcribes the audio file at audioPath using the whisper model and options
+// carried in settings (ADR-0007: the VAD model path and the DTW preset the
+// settings resolve to reach the decoder in their own tickets)
+func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
+	model, err := whisper.New(settings.ModelPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load whisper model: %w", err)
 	}
