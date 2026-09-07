@@ -10,12 +10,12 @@ Migrate pipeline execution (`processor`), entry point wiring (`main.go`), and fi
 
 ## Acceptance criteria
 
-- [ ] `processor.TranscribeFunc` signature updated to return `[]transcript.Segment`
-- [ ] `server/cmd/subvision/main.go` instantiates `transcriber.New(...)` and injects `transcriber.Transcribe` into the processor
-- [ ] `server/cmd/onsetfixture/main.go` uses `transcriber.New(...)` and `transcript.Segment`
-- [ ] Obsolete types (`Segment`, `Word`) and functions (`ValidateSegmentTiming`, `RescaleWords`, `SplitSegments`) removed from `internal/transcriber`
-- [ ] `./test.sh` passes across all server packages
-- [ ] Zero backward-compatibility type aliases or legacy shims remain
+- [x] `processor.TranscribeFunc` signature updated to return `[]transcript.Segment`
+- [x] `server/cmd/subvision/main.go` instantiates `transcriber.New(...)` and injects `transcriber.Transcribe` into the processor
+- [x] `server/cmd/onsetfixture/main.go` uses `transcriber.New(...)` and `transcript.Segment`
+- [x] Obsolete types (`Segment`, `Word`) and functions (`ValidateSegmentTiming`, `RescaleWords`, `SplitSegments`) removed from `internal/transcriber`
+- [x] `./test.sh` passes across all server packages
+- [x] Zero backward-compatibility type aliases or legacy shims remain
 
 ## Blocked by
 

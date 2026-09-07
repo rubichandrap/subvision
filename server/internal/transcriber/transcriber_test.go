@@ -16,7 +16,7 @@ func TestWordsFromTokens(t *testing.T) {
 	cases := []struct {
 		name    string
 		seg     whisper.Segment
-		want    []Word
+		want    []transcript.Word
 		wantErr string
 	}{
 		{
@@ -32,7 +32,7 @@ func TestWordsFromTokens(t *testing.T) {
 					{Text: "!", Start: 12 * time.Second, End: 12 * time.Second},
 				},
 			},
-			want: []Word{
+			want: []transcript.Word{
 				{Text: "Hello,", Start: 10, End: 10.64},
 				{Text: "world!", Start: 10.7, End: 12},
 			},
@@ -47,7 +47,7 @@ func TestWordsFromTokens(t *testing.T) {
 					{Text: " hi", Start: 4900 * time.Millisecond, End: 61 * time.Second},
 				},
 			},
-			want: []Word{{Text: "hi", Start: 5, End: 6}},
+			want: []transcript.Word{{Text: "hi", Start: 5, End: 6}},
 		},
 		{
 			name: "skips special and empty tokens",
@@ -62,7 +62,7 @@ func TestWordsFromTokens(t *testing.T) {
 					{Text: "[_TT_5]", Start: 0, End: 0},
 				},
 			},
-			want: []Word{{Text: "go", Start: 1, End: 1.5}},
+			want: []transcript.Word{{Text: "go", Start: 1, End: 1.5}},
 		},
 		{
 			name: "errors when token timestamps are missing",
@@ -86,7 +86,7 @@ func TestWordsFromTokens(t *testing.T) {
 					{Text: "[_BEG_]", Start: 0, End: 0},
 				},
 			},
-			want: []Word{},
+			want: []transcript.Word{},
 		},
 	}
 
@@ -180,14 +180,6 @@ func TestTranscriberTranscribe(t *testing.T) {
 	})
 }
 
-func TestTranscribeWiring(t *testing.T) {
-	// One decode path: no silence-detection subprocess exists, so a valid
-	// wav always reaches model load.
-	_, err := Transcribe(Settings{ModelPath: "unused"}, writeTestWav(t, 1))
-	if err == nil || !strings.Contains(err.Error(), "failed to load whisper model") {
-		t.Fatalf("Transcribe() error = %v, want it to contain %q", err, "failed to load whisper model")
-	}
-}
 
 // writeTestWav writes a valid mono 16-bit PCM wav of silent audio at the
 // whisper sample rate, so the wiring tests exercise the real wav loader.

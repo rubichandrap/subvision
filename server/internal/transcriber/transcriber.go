@@ -10,8 +10,6 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
-type Word = transcript.Word
-type Segment = transcript.Segment
 
 // Transcriber transcribes audio using a whisper model and runtime settings.
 type Transcriber struct {
@@ -97,10 +95,6 @@ func (t *Transcriber) Transcribe(audioPath string) ([]transcript.Segment, error)
 	return transcript.Split(segments), nil
 }
 
-// Transcribe is a package-level helper that transcribes the audio file using settings.
-func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
-	return New(settings).Transcribe(audioPath)
-}
 
 // wordsFromTokens groups a segment's whisper tokens into Words carrying
 // per-word timings. A token whose text begins with a space begins a new word
@@ -111,10 +105,10 @@ func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
 // A segment that carries text but not a single non-zero token timestamp means
 // token timestamps were never computed — that is an error, because word
 // timings must come from whisper, they are never guessed.
-func wordsFromTokens(seg whisper.Segment) ([]Word, error) {
+func wordsFromTokens(seg whisper.Segment) ([]transcript.Word, error) {
 	segStart := seg.Start.Seconds()
 	segEnd := seg.End.Seconds()
-	words := []Word{}
+	words := []transcript.Word{}
 	seenText := false
 	timestamped := false
 
@@ -139,7 +133,7 @@ func wordsFromTokens(seg whisper.Segment) ([]Word, error) {
 		}
 
 		if strings.HasPrefix(token.Text, " ") || len(words) == 0 {
-			words = append(words, Word{Text: text, Start: start, End: end})
+			words = append(words, transcript.Word{Text: text, Start: start, End: end})
 		} else {
 			last := &words[len(words)-1]
 			last.Text += text

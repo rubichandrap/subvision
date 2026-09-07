@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
 func main() {
@@ -19,9 +20,12 @@ func main() {
 	}
 	modelPath, wavPath, outPath := os.Args[1], os.Args[2], os.Args[3]
 
-	segments, err := transcriber.Transcribe(transcriber.Settings{
+	trans := transcriber.New(transcriber.Settings{
 		ModelPath: modelPath,
-	}, wavPath)
+	})
+	var segments []transcript.Segment
+	var err error
+	segments, err = trans.Transcribe(wavPath)
 	if err != nil {
 		log.Fatalf("transcribe: %v", err)
 	}
