@@ -83,7 +83,7 @@ func main() {
 		Transcribe:       transcriber.Transcribe,
 		TmpDir:           env.TmpDir,
 		WhisperModelPath: env.WhisperModelPath,
-		VADGating:        env.VADGating,
+		SpeechGating:     env.SpeechGating,
 		Lifecycle:        jobs,
 	})
 	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)

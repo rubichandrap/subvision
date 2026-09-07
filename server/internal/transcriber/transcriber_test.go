@@ -311,8 +311,8 @@ func TestNoSpeechDetected(t *testing.T) {
 	}{
 		{"gating off: windows or not, no finding", Settings{}, nil, false},
 		{"gating off with windows", Settings{}, []speechWindow{{0, 1}}, false},
-		{"gating on with zero windows means no speech", Settings{VADGating: true}, nil, true},
-		{"gating on with windows", Settings{VADGating: true}, []speechWindow{{0, 1}}, false},
+		{"gating on with zero windows means no speech", Settings{SpeechGating: true}, nil, true},
+		{"gating on with windows", Settings{SpeechGating: true}, []speechWindow{{0, 1}}, false},
 	}
 	for _, tc := range cases {
 		if got := noSpeechDetected(tc.settings, tc.windows); got != tc.want {
@@ -372,7 +372,7 @@ func TestTranscribeWiring(t *testing.T) {
 		detectSilences = func(string) ([]silenceInterval, error) {
 			return []silenceInterval{{0, math.Inf(1)}}, nil
 		}
-		segments, err := Transcribe(Settings{ModelPath: "unused", VADGating: true}, writeTestWav(t, 5))
+		segments, err := Transcribe(Settings{ModelPath: "unused", SpeechGating: true}, writeTestWav(t, 5))
 		if err != nil {
 			t.Fatalf("Transcribe() error = %v, want a silent wav to transcribe empty", err)
 		}
@@ -383,7 +383,7 @@ func TestTranscribeWiring(t *testing.T) {
 
 	t.Run("gating on with speech proceeds to model load", func(t *testing.T) {
 		detectSilences = func(string) ([]silenceInterval, error) { return nil, nil }
-		_, err := Transcribe(Settings{ModelPath: "unused", VADGating: true}, writeTestWav(t, 1))
+		_, err := Transcribe(Settings{ModelPath: "unused", SpeechGating: true}, writeTestWav(t, 1))
 		if err == nil || !strings.Contains(err.Error(), "failed to load whisper model") {
 			t.Fatalf("Transcribe() error = %v, want it to contain %q", err, "failed to load whisper model")
 		}
@@ -393,7 +393,7 @@ func TestTranscribeWiring(t *testing.T) {
 		detectSilences = func(string) ([]silenceInterval, error) {
 			return nil, &silenceDetectionError{}
 		}
-		_, err := Transcribe(Settings{ModelPath: "unused", VADGating: true}, writeTestWav(t, 1))
+		_, err := Transcribe(Settings{ModelPath: "unused", SpeechGating: true}, writeTestWav(t, 1))
 		var want *silenceDetectionError
 		if !errors.As(err, &want) {
 			t.Fatalf("Transcribe() error = %v, want the detection failure propagated", err)

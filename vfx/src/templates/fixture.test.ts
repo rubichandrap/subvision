@@ -11,7 +11,7 @@ import { activePageWords, activeSegment, onsetStart } from "./shared";
 // Segments for a 24-second clip — leading silence, then speech (whisper.cpp's
 // jfk sample), then trailing silence — transcribed by the production
 // transcriber and stored in server/testdata/onset-fixture. Regenerate with
-// `VAD_GATING=true go run ./cmd/onsetfixture <model> <wav> <out>` when the
+// `SPEECH_GATING=true go run ./cmd/onsetfixture <model> <wav> <out>` when the
 // model or the vendored build changes.
 //
 // Measured finding baked into this fixture: the physical speech onset is

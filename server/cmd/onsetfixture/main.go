@@ -3,7 +3,7 @@
 // WAV through the production transcriber and writes the Transcription
 // Segments the onset gate is verified against (ADR-0006, issue #23).
 //
-// Speech gating comes from VAD_GATING — the same env the server reads
+// Speech gating comes from SPEECH_GATING — the same env the server reads
 // (ADR-0007). Set it to regenerate the fixture gated on detected speech;
 // unset regenerates the pre-gating behavior.
 package main
@@ -25,8 +25,8 @@ func main() {
 	modelPath, wavPath, outPath := os.Args[1], os.Args[2], os.Args[3]
 
 	segments, err := transcriber.Transcribe(transcriber.Settings{
-		ModelPath: modelPath,
-		VADGating: config.VADGatingFromEnv(),
+		ModelPath:    modelPath,
+		SpeechGating: config.SpeechGatingFromEnv(),
 	}, wavPath)
 	if err != nil {
 		log.Fatalf("transcribe: %v", err)

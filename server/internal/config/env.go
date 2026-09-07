@@ -19,7 +19,7 @@ type Env struct {
 	S3SecretKey      string
 	S3Bucket         string
 	WhisperModelPath string
-	VADGating        bool
+	SpeechGating     bool
 }
 
 func LoadEnv() *Env {
@@ -57,18 +57,24 @@ func LoadEnv() *Env {
 		S3Bucket:         os.Getenv("S3_BUCKET"),
 		WhisperModelPath: os.Getenv("WHISPER_MODEL_PATH"),
 		// Optional (ADR-0007): unset keeps gating off — the pre-gating behavior.
-		VADGating: VADGatingFromEnv(),
+		SpeechGating: SpeechGatingFromEnv(),
 	}
 }
 
-// VADGatingFromEnv parses the optional VAD_GATING flag shared by the server
-// and the onset fixture command. A set-but-invalid value fails loudly:
-// misconfiguration must never silently change what gets transcribed.
-func VADGatingFromEnv() bool {
+// SpeechGatingFromEnv parses the optional SPEECH_GATING flag shared by the
+// server and the onset fixture command. A set-but-invalid value fails loudly:
+// misconfiguration must never silently change what gets transcribed. The old
+// VAD_GATING name fails loudly too, so a stale .env cannot silently turn
+// gating off (renamed: the mechanism is ffmpeg silencedetect, not a VAD
+// model — ADR-0007).
+func SpeechGatingFromEnv() bool {
 	if raw := os.Getenv("VAD_GATING"); raw != "" {
+		log.Fatalf("VAD_GATING was renamed to SPEECH_GATING: update server/.env")
+	}
+	if raw := os.Getenv("SPEECH_GATING"); raw != "" {
 		parsed, err := strconv.ParseBool(raw)
 		if err != nil {
-			log.Fatalf("Invalid VAD_GATING value %q: use \"true\" or \"false\"", raw)
+			log.Fatalf("Invalid SPEECH_GATING value %q: use \"true\" or \"false\"", raw)
 		}
 		return parsed
 	}

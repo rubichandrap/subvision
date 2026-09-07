@@ -1,6 +1,17 @@
-# ADR-0007: Enable VAD and DTW word timestamps through the vendored binding
+# ADR-0007: Speech gating with ffmpeg silencedetect (not a VAD model)
 
 Date: 2026-09-06 · Status: accepted
+
+The name history is confusing, so the fact first: no VAD model is used
+anywhere. The mechanism is ffmpeg `silencedetect` (already a dependency)
+finding the speech windows, and whisper decoding only those windows. An
+earlier revision of this ADR proposed whisper.cpp's built-in VAD plus a
+Silero model download; that was reverted — the vendored code is never edited
+in place, and the stock Go binding cannot read the remapped token timestamps
+built-in VAD needs. The `ggml-silero` binary briefly present in the models
+folder was deleted as an orphan. The env flag was renamed from `VAD_GATING`
+to `SPEECH_GATING` to say what it is; a stale `VAD_GATING` fails loudly
+rather than silently turning gating off.
 
 ADR-0006 left VAD as the upgrade path believing it would mean a new cgo binding plus a model download. That premise was wrong: the vendored whisper.cpp (`d1f114da`) implements VAD natively — `whisper_full_params.vad` with `vad_model_path`, and `whisper_full` remaps decoded timestamps back onto the real timeline (`src/whisper.cpp:7804`) — and DTW token timestamps too (`whisper_context_params.dtw_token_timestamps`, with `WHISPER_AHEADS_BASE_EN` matching the `ggml-base.en` model we run). Only the vendored Go binding's cgo shim does not expose them, and extending that shim is a small change, not a new binding. With the onset gate verified sound but the reporter still seeing text before speech (at video start and mid-video), and the fixture proving whisper stamps first tokens inside leading silence ("And" reported 0.00 s vs measured 3.10 s — no caption-side code can fix that), we enable both mechanisms at once: VAD so silence and music never reach the decoder (killing clamped first tokens and mid-video hallucinations), and DTW so token timestamps align tightly to the frames that produced them (shrinking mid-speech drift).
 

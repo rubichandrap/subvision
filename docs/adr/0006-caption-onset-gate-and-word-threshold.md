@@ -1,6 +1,6 @@
 # ADR-0006: Gate captions on first-word onset; tune word timestamp threshold via existing binding
 
-Date: 2026-09-05 · Status: accepted (no-VAD stance superseded by ADR-0007)
+Date: 2026-09-05 · Status: accepted (no-VAD stance superseded by ADR-0007; onset gate and threshold constants stand)
 
 Caption pages in the karaoke and pop animations could appear during leading silence because rendering was gated on the segment start while the first word started later. We now gate every word-driven caption on the first word's start time, and we tune the word timestamp probability threshold through the setters the Go binding already exposes. No model change, no VAD: the vendored Go binding exposes zero VAD API, so VAD would mean a new cgo binding plus a model download, which is disproportionate to this fix. `max_initial_ts` stays at its upstream default for the same reason — the binding does not expose it.
 

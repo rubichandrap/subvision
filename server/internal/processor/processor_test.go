@@ -185,7 +185,7 @@ func TestProcessUploadedFilePassesTranscriptionSettings(t *testing.T) {
 		},
 		TmpDir:           "tmp",
 		WhisperModelPath: "model.bin",
-		VADGating:        true,
+		SpeechGating:     true,
 	})
 	proc.convert = func(inputPath, outputPath string, window [2]float64) error {
 		return os.WriteFile(outputPath, []byte("pcm"), 0o644)
@@ -195,7 +195,7 @@ func TestProcessUploadedFilePassesTranscriptionSettings(t *testing.T) {
 		t.Fatalf("ProcessUploadedFile: %v", err)
 	}
 
-	if gotSettings.ModelPath != "model.bin" || !gotSettings.VADGating {
+	if gotSettings.ModelPath != "model.bin" || !gotSettings.SpeechGating {
 		t.Errorf("transcription settings must reach the transcriber from config, got %+v", gotSettings)
 	}
 }
