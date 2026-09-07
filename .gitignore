@@ -1,0 +1,22 @@
+# AI agent artifacts
+.agents
+.claude/*
+!.claude/.gitkeep
+.codex/*
+!.codex/.gitkeep
+.commandcode/*
+!.commandcode/.gitkeep
+.cursor/*
+!.cursor/.gitkeep
+.gemini/*
+!.gemini/.gitkeep
+.opencode/*
+!.opencode/.gitkeep
+.kiro/*
+!.kiro/.gitkeep
+
+.mcp.json
+skills-lock.json
+
+# Graphifyy artifacts
+graphify-out
