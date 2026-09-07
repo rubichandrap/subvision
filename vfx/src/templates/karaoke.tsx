@@ -38,7 +38,11 @@ export const Karaoke: React.FC<{
           }}
         >
           {words.map((word: IWord, index) => {
-            const progress = interpolate(time, [word.start, word.end], [0, 1], {
+            // Zero-duration words crash interpolate (inputRange must rise
+            // strictly); floor the end at one frame — render-only nudge,
+            // whisper timings pass through untouched.
+            const end = Math.max(word.end, word.start + 1 / fps);
+            const progress = interpolate(time, [word.start, end], [0, 1], {
               extrapolateLeft: "clamp",
               extrapolateRight: "clamp",
             });
