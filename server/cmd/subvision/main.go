@@ -177,8 +177,8 @@ func main() {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{env.ClientURL},
 		AllowMethods:     []string{"POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "Upload-Length", "Tus-Resumable", "Upload-Metadata", "Upload-Offset"},
-		ExposeHeaders:    []string{"Location", "Upload-Offset", "Upload-Length", "Tus-Resumable"},
+		AllowHeaders:     []string{"Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "Upload-Length", "Tus-Resumable", "Upload-Metadata", "Upload-Offset", "Range"},
+		ExposeHeaders:    []string{"Location", "Upload-Offset", "Upload-Length", "Tus-Resumable", "Content-Range", "Accept-Ranges", "Content-Length"},
 		AllowCredentials: true,
 	}))
 	r.Use(gin.Recovery())

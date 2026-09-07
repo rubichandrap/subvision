@@ -414,6 +414,8 @@ export async function combineFramesWithFFmpeg(
     "fast",
     "-c:a",
     "aac",
+    "-movflags",
+    "+faststart",
     outputPath
   );
 

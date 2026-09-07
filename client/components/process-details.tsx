@@ -53,7 +53,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
 
   const handleDownload = () => {
     if (!process?.downloadUrl) return;
-    window.location.href = downloadUrl(process);
+    window.location.href = downloadUrl(process, { download: true });
   };
 
   if (notFound || (error && !process)) {

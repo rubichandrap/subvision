@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -22,11 +24,76 @@ type fakeOutputs struct {
 }
 
 func (f *fakeOutputs) Open(ctx context.Context, key string) (io.ReadCloser, int64, error) {
+	body, size, _, err := f.OpenRange(ctx, key, "")
+	return body, size, err
+}
+
+func (f *fakeOutputs) OpenRange(ctx context.Context, key, byteRange string) (io.ReadCloser, int64, string, error) {
 	if f.openErr != nil {
-		return nil, 0, f.openErr
+		return nil, 0, "", f.openErr
 	}
 	f.opened = append(f.opened, key)
-	return io.NopCloser(strings.NewReader(f.body)), int64(len(f.body)), nil
+	total := int64(len(f.body))
+	if byteRange == "" {
+		return io.NopCloser(strings.NewReader(f.body)), total, "", nil
+	}
+	start, end, err := parseByteRange(byteRange, total)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	chunk := f.body[start : end+1]
+	contentRange := fmt.Sprintf("bytes %d-%d/%d", start, end, total)
+	return io.NopCloser(strings.NewReader(chunk)), int64(len(chunk)), contentRange, nil
+}
+
+func parseByteRange(raw string, totalSize int64) (int64, int64, error) {
+	raw = strings.TrimSpace(raw)
+	if !strings.HasPrefix(raw, "bytes=") {
+		return 0, 0, errors.New("invalid range unit")
+	}
+	spec := strings.TrimPrefix(raw, "bytes=")
+	if strings.Contains(spec, ",") {
+		return 0, 0, errors.New("multiple ranges not supported")
+	}
+	parts := strings.SplitN(spec, "-", 2)
+	if len(parts) != 2 {
+		return 0, 0, errors.New("malformed range header")
+	}
+
+	if parts[0] == "" {
+		suffix, err := strconv.ParseInt(parts[1], 10, 64)
+		if err != nil || suffix <= 0 {
+			return 0, 0, errors.New("invalid suffix range")
+		}
+		if totalSize <= 0 {
+			return 0, 0, ErrRangeUnsatisfiable
+		}
+		if suffix > totalSize {
+			suffix = totalSize
+		}
+		return totalSize - suffix, totalSize - 1, nil
+	}
+
+	start, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil || start < 0 {
+		return 0, 0, errors.New("invalid range start")
+	}
+	if start >= totalSize {
+		return 0, 0, ErrRangeUnsatisfiable
+	}
+
+	if parts[1] == "" {
+		return start, totalSize - 1, nil
+	}
+
+	end, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil || end < start {
+		return 0, 0, errors.New("invalid range end")
+	}
+	if end >= totalSize {
+		end = totalSize - 1
+	}
+	return start, end, nil
 }
 
 type fakeCleaner struct {
@@ -74,6 +141,17 @@ func doGet(t *testing.T, router *gin.Engine, path string) *httptest.ResponseReco
 	router.ServeHTTP(rec, req)
 	return rec
 }
+func doGetWithHeaders(t *testing.T, router *gin.Engine, path string, headers map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
 
 func doDelete(t *testing.T, router *gin.Engine, path string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -353,5 +431,79 @@ func TestDeleteUnknownJobReturns404(t *testing.T) {
 	}
 	if len(cleaner.deleted) != 0 {
 		t.Errorf("unknown job must not touch object storage, cleaned %v", cleaner.deleted)
+	}
+}
+
+func TestDownloadSupportsRangeRequests(t *testing.T) {
+	router, store, _, _ := newJobsRouter(t)
+
+	if err := store.Create("u-range", "video.mp4"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if recorded, err := store.MarkDone("u-range", "outputs/u-range"); err != nil || !recorded {
+		t.Fatalf("mark done: %v", err)
+	}
+
+	// 1. Full request (no Range header) advertises Accept-Ranges: bytes and inline disposition
+	full := doGet(t, router, "/jobs/u-range/download")
+	if full.Code != http.StatusOK {
+		t.Fatalf("GET without range = %d, want 200: %s", full.Code, full.Body)
+	}
+	if full.Body.String() != "video bytes" {
+		t.Errorf("full body = %q, want 'video bytes'", full.Body.String())
+	}
+	if accept := full.Header().Get("Accept-Ranges"); accept != "bytes" {
+		t.Errorf("Accept-Ranges = %q, want 'bytes'", accept)
+	}
+	if disp := full.Header().Get("Content-Disposition"); !strings.Contains(disp, "inline") {
+		t.Errorf("Content-Disposition = %q, want inline for video playback", disp)
+	}
+
+	// 2. Explicit download query param gives attachment disposition
+	dl := doGet(t, router, "/jobs/u-range/download?download=true")
+	if disp := dl.Header().Get("Content-Disposition"); !strings.Contains(disp, "attachment") {
+		t.Errorf("Content-Disposition for ?download=true = %q, want attachment", disp)
+	}
+
+	// 3. Range request for first 5 bytes (0-4 of 11)
+	part1 := doGetWithHeaders(t, router, "/jobs/u-range/download", map[string]string{
+		"Range": "bytes=0-4",
+	})
+	if part1.Code != http.StatusPartialContent {
+		t.Fatalf("GET bytes=0-4 = %d, want 206 Partial Content: %s", part1.Code, part1.Body)
+	}
+	if part1.Body.String() != "video" {
+		t.Errorf("part1 body = %q, want 'video'", part1.Body.String())
+	}
+	if cr := part1.Header().Get("Content-Range"); cr != "bytes 0-4/11" {
+		t.Errorf("Content-Range = %q, want 'bytes 0-4/11'", cr)
+	}
+	if cl := part1.Header().Get("Content-Length"); cl != "5" {
+		t.Errorf("Content-Length = %q, want '5'", cl)
+	}
+
+	// 4. Range request from offset to end (bytes=6-)
+	part2 := doGetWithHeaders(t, router, "/jobs/u-range/download", map[string]string{
+		"Range": "bytes=6-",
+	})
+	if part2.Code != http.StatusPartialContent {
+		t.Fatalf("GET bytes=6- = %d, want 206 Partial Content: %s", part2.Code, part2.Body)
+	}
+	if part2.Body.String() != "bytes" {
+		t.Errorf("part2 body = %q, want 'bytes'", part2.Body.String())
+	}
+	if cr := part2.Header().Get("Content-Range"); cr != "bytes 6-10/11" {
+		t.Errorf("Content-Range = %q, want 'bytes 6-10/11'", cr)
+	}
+
+	// 5. Unsatisfiable range (bytes=50-100) returns 416
+	unsat := doGetWithHeaders(t, router, "/jobs/u-range/download", map[string]string{
+		"Range": "bytes=50-100",
+	})
+	if unsat.Code != http.StatusRequestedRangeNotSatisfiable {
+		t.Fatalf("GET bytes=50-100 = %d, want 416 Range Not Satisfiable: %s", unsat.Code, unsat.Body)
+	}
+	if cr := unsat.Header().Get("Content-Range"); cr != "bytes */11" {
+		t.Errorf("unsatisfiable Content-Range = %q, want 'bytes */11'", cr)
 	}
 }
