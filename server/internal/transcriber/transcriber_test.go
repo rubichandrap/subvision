@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
 func TestWordsFromTokens(t *testing.T) {
@@ -143,6 +144,40 @@ func TestApplyWordThresholdsReachesDecoderContext(t *testing.T) {
 	if defaults.token != 0.01 || defaults.tokenSum != 0.01 {
 		t.Errorf("defaults = (%v, %v), want (0.01, 0.01)", defaults.token, defaults.tokenSum)
 	}
+}
+
+func TestNew(t *testing.T) {
+	settings := Settings{ModelPath: "models/whisper.bin"}
+	tr := New(settings)
+	if tr == nil {
+		t.Fatal("New() returned nil")
+	}
+	if tr.settings != settings {
+		t.Errorf("tr.settings = %+v, want %+v", tr.settings, settings)
+	}
+}
+
+func TestTranscriberTranscribe(t *testing.T) {
+	tr := New(Settings{ModelPath: "unused"})
+
+	t.Run("fails when wav cannot be loaded", func(t *testing.T) {
+		_, err := tr.Transcribe("nonexistent.wav")
+		if err == nil || !strings.Contains(err.Error(), "failed to load wav") {
+			t.Fatalf("tr.Transcribe() error = %v, want 'failed to load wav'", err)
+		}
+	})
+
+	t.Run("fails when model cannot be loaded", func(t *testing.T) {
+		var segs []transcript.Segment
+		var err error
+		segs, err = tr.Transcribe(writeTestWav(t, 1))
+		if err == nil || !strings.Contains(err.Error(), "failed to load whisper model") {
+			t.Fatalf("tr.Transcribe() error = %v, want 'failed to load whisper model'", err)
+		}
+		if segs != nil {
+			t.Errorf("expected nil segments on error, got %v", segs)
+		}
+	})
 }
 
 func TestTranscribeWiring(t *testing.T) {

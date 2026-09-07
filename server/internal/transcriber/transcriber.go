@@ -7,19 +7,20 @@ import (
 
 	"github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
 	"github.com/go-audio/wav"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
-type Word struct {
-	Text  string  `json:"text"`
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
+type Word = transcript.Word
+type Segment = transcript.Segment
+
+// Transcriber transcribes audio using a whisper model and runtime settings.
+type Transcriber struct {
+	settings Settings
 }
 
-type Segment struct {
-	Start float64 `json:"start"`
-	End   float64 `json:"end"`
-	Text  string  `json:"text"`
-	Words []Word  `json:"words"`
+// New constructs a Transcriber configured with the given settings.
+func New(settings Settings) *Transcriber {
+	return &Transcriber{settings: settings}
 }
 
 // Word timestamp probability thresholds, defaulting to the upstream
@@ -43,17 +44,17 @@ func applyWordThresholds(ctx thresholdSetter, token, tokenSum float32) {
 	ctx.SetTokenSumThreshold(tokenSum)
 }
 
-// transcribes the audio file at audioPath using the whisper model and
-// options carried in settings: token timestamps with word thresholds,
-// decoded in one pass over the whole audio. Leading-silence captions are
-// handled by the onset gate on the render side (ADR-0006).
-func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
+// Transcribe decodes the audio file at audioPath using the whisper model and
+// options carried in settings: token timestamps with word thresholds, decoded
+// in one pass over the whole audio. Decoded segments are processed with
+// transcript.Split to enforce speech pause bounds before returning.
+func (t *Transcriber) Transcribe(audioPath string) ([]transcript.Segment, error) {
 	data, err := loadWavToFloat32(audioPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load wav: %w", err)
 	}
 
-	model, err := whisper.New(settings.ModelPath)
+	model, err := whisper.New(t.settings.ModelPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load whisper model: %w", err)
 	}
@@ -73,7 +74,7 @@ func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
 		return nil, fmt.Errorf("failed to process audio: %w", err)
 	}
 
-	segments := []Segment{}
+	segments := []transcript.Segment{}
 	for n := 0; ; n++ {
 		seg, err := ctx.NextSegment()
 		if err != nil {
@@ -83,7 +84,7 @@ func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
 		if err != nil {
 			return nil, fmt.Errorf("transcription segment %d: %w", n, err)
 		}
-		segments = append(segments, Segment{
+		segments = append(segments, transcript.Segment{
 			Start: seg.Start.Seconds(),
 			End:   seg.End.Seconds(),
 			Text:  seg.Text,
@@ -93,7 +94,12 @@ func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
 
 	// Whisper emits few long segments; the renderer needs short ones —
 	// split on speech pauses before publishing (see ADR-0005).
-	return SplitSegments(segments), nil
+	return transcript.Split(segments), nil
+}
+
+// Transcribe is a package-level helper that transcribes the audio file using settings.
+func Transcribe(settings Settings, audioPath string) ([]Segment, error) {
+	return New(settings).Transcribe(audioPath)
 }
 
 // wordsFromTokens groups a segment's whisper tokens into Words carrying

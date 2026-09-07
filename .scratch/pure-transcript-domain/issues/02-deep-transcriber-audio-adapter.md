@@ -10,11 +10,11 @@ Refactor `internal/transcriber` into a deep audio-decoding adapter. Define a `Tr
 
 ## Acceptance criteria
 
-- [ ] `transcriber.New(settings Settings) *Transcriber` constructor defined
-- [ ] `(t *Transcriber) Transcribe(audioPath string) ([]transcript.Segment, error)` returns pure domain segments
-- [ ] Decoded segments are processed with `transcript.Split` to enforce speech pause bounds
-- [ ] Whisper CGO bindings, model loading, and token grouping are encapsulated inside `transcriber`
-- [ ] Existing transcriber wiring tests and settings tests pass
+- [x] `transcriber.New(settings Settings) *Transcriber` constructor defined
+- [x] `(t *Transcriber) Transcribe(audioPath string) ([]transcript.Segment, error)` returns pure domain segments
+- [x] Decoded segments are processed with `transcript.Split` to enforce speech pause bounds
+- [x] Whisper CGO bindings, model loading, and token grouping are encapsulated inside `transcriber`
+- [x] Existing transcriber wiring tests and settings tests pass
 
 ## Blocked by
 
