@@ -210,11 +210,11 @@ function GalleryCard({ process }: { process: Process }) {
               </div>
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-2.5 p-4 text-center bg-accent/20">
-                <div className="relative flex h-10 w-10 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
+                <div className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-emerald-300">
                   <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-foreground">
+                  <p className="text-xs font-medium text-neutral-100">
                     {process.stage === 'transcribing'
                       ? 'Transcribing audio…'
                       : 'Rendering captions…'}
