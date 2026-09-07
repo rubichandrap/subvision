@@ -206,13 +206,9 @@ func respondWithError(c *gin.Context, id string, err error) {
 		primitives.JSendFail(c, gin.H{"id": fmt.Sprintf("no job with id %q", id)}, http.StatusNotFound)
 		return
 	}
-	if errors.Is(err, job.ErrStageConflict) {
-		var sc *job.StageConflictError
-		if errors.As(err, &sc) {
-			primitives.JSendFail(c, gin.H{"id": sc.Error()}, http.StatusConflict)
-		} else {
-			primitives.JSendFail(c, gin.H{"id": err.Error()}, http.StatusConflict)
-		}
+	var sc *job.StageConflictError
+	if errors.As(err, &sc) {
+		primitives.JSendFail(c, gin.H{"id": sc.Error()}, http.StatusConflict)
 		return
 	}
 	var valErr *transcriber.ValidationError
@@ -220,8 +216,8 @@ func respondWithError(c *gin.Context, id string, err error) {
 		primitives.JSendFail(c, gin.H{"segments": valErr.Error()}, http.StatusBadRequest)
 		return
 	}
-	log.Printf("[Jobs] Failed to read job %s: %v", id, err)
-	primitives.JSendError(c, "failed to read job", http.StatusInternalServerError, nil)
+	log.Printf("[Jobs] Unexpected error for job %s: %v", id, err)
+	primitives.JSendError(c, "internal server error", http.StatusInternalServerError, nil)
 }
 
 // downloadFilename derives a friendly attachment name from the original
