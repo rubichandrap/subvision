@@ -2,10 +2,6 @@
 // segments.json (server/testdata/onset-fixture): it transcribes the fixture
 // WAV through the production transcriber and writes the Transcription
 // Segments the onset gate is verified against (ADR-0006, issue #23).
-//
-// Speech gating comes from SPEECH_GATING — the same env the server reads
-// (ADR-0007). Set it to regenerate the fixture gated on detected speech;
-// unset regenerates the pre-gating behavior.
 package main
 
 import (
@@ -14,7 +10,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
 )
 
@@ -25,8 +20,7 @@ func main() {
 	modelPath, wavPath, outPath := os.Args[1], os.Args[2], os.Args[3]
 
 	segments, err := transcriber.Transcribe(transcriber.Settings{
-		ModelPath:    modelPath,
-		SpeechGating: config.SpeechGatingFromEnv(),
+		ModelPath: modelPath,
 	}, wavPath)
 	if err != nil {
 		log.Fatalf("transcribe: %v", err)

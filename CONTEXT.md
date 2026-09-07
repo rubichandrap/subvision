@@ -54,10 +54,6 @@ the Next.js client uploads videos with tus.
   (`GET /jobs`, `GET /jobs/:id`); the client polls it and never invents state.
 - **Timing Drift** — a Timed Word appearing before it is spoken, or late by a
   fraction of a second. A decode-timing miss, not a missing word or wrong text.
-- **Speech Gating** — decoding only the speech windows ffmpeg `silencedetect`
-  finds, so silence and music never reach the whisper decoder. Enabled by
-  `SPEECH_GATING`; unset decodes the whole audio in one pass. No VAD model is
-  involved (ADR-0007).
 
 ## Invariants
 

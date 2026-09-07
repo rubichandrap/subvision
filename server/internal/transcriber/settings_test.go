@@ -2,17 +2,9 @@ package transcriber
 
 import "testing"
 
-func TestGatingEnabled(t *testing.T) {
-	cases := []struct {
-		settings Settings
-		want     bool
-	}{
-		{Settings{}, false},
-		{Settings{SpeechGating: true}, true},
-	}
-	for _, tc := range cases {
-		if got := tc.settings.GatingEnabled(); got != tc.want {
-			t.Errorf("Settings{SpeechGating: %v}.GatingEnabled() = %v, want %v", tc.settings.SpeechGating, got, tc.want)
-		}
+func TestSettingsCarriesModelPath(t *testing.T) {
+	s := Settings{ModelPath: "model.bin"}
+	if s.ModelPath != "model.bin" {
+		t.Errorf("Settings.ModelPath = %q, want %q", s.ModelPath, "model.bin")
 	}
 }

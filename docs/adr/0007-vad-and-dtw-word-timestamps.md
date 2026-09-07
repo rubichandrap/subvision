@@ -1,6 +1,6 @@
 # ADR-0007: Speech gating with ffmpeg silencedetect (not a VAD model)
 
-Date: 2026-09-06 · Status: accepted
+Date: 2026-09-06 · Status: SUPERSEDED (removed 2026-09-07 — failed XY experiment for Timing Drift, did not fix drift on the reporter's video; see the drop-speech-gating spec in `.scratch/drop-speech-gating/spec.md`. Every transcription decodes the whole audio in one pass; the ADR-0006 onset gate stands.)
 
 The name history is confusing, so the fact first: no VAD model is used
 anywhere. The mechanism is ffmpeg `silencedetect` (already a dependency)

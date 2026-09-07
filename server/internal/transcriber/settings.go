@@ -1,17 +1,8 @@
 package transcriber
 
 // Settings carries the transcription inputs threaded from server config: the
-// whisper model to transcribe with and, optionally, speech gating before
-// decoding (ADR-0007). Gating off keeps the pre-gating behavior: the whole
-// audio is decoded in one pass.
+// whisper model to transcribe with. Decoding is always one pass over the
+// whole audio; the onset gate (ADR-0006) lives on the render side.
 type Settings struct {
-	ModelPath    string
-	SpeechGating bool
-}
-
-// GatingEnabled reports whether these settings gate decoding on detected
-// speech: ffmpeg silencedetect finds the silence, the transcriber derives the
-// speech windows, and only those windows are decoded (ADR-0007).
-func (s Settings) GatingEnabled() bool {
-	return s.SpeechGating
+	ModelPath string
 }

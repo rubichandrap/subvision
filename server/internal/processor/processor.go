@@ -40,7 +40,6 @@ type Options struct {
 	Transcribe       TranscribeFunc
 	TmpDir           string
 	WhisperModelPath string
-	SpeechGating     bool
 	Lifecycle        job.Tracker // optional
 }
 
@@ -65,8 +64,7 @@ func New(opts Options) *Processor {
 		videoTmpDir: filepath.Join(opts.TmpDir, "videos"),
 		audioTmpDir: filepath.Join(opts.TmpDir, "audios"),
 		whisperSettings: transcriber.Settings{
-			ModelPath:    opts.WhisperModelPath,
-			SpeechGating: opts.SpeechGating,
+			ModelPath: opts.WhisperModelPath,
 		},
 	}
 }

@@ -2,11 +2,8 @@ package transcriber
 
 import (
 	"encoding/binary"
-	"errors"
-	"math"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -148,176 +145,12 @@ func TestApplyWordThresholdsReachesDecoderContext(t *testing.T) {
 	}
 }
 
-func TestParseSilencedetect(t *testing.T) {
-	cases := []struct {
-		name   string
-		output string
-		want   []silenceInterval
-	}{
-		{
-			name: "parses start and end pairs",
-			output: "[silencedetect @ 0x55f] silence_start: 3.103\n" +
-				"[silencedetect @ 0x55f] silence_end: 13.5 | silence_duration: 10.397",
-			want: []silenceInterval{{3.103, 13.5}},
-		},
-		{
-			name:   "a dangling start means the audio ends inside the silence",
-			output: "[silencedetect @ 0x55f] silence_start: 20.0\n",
-			want:   []silenceInterval{{20, math.Inf(1)}},
-		},
-		{
-			name:   "multiple intervals come out in order",
-			output: "silence_start: 1\nsilence_end: 2 | silence_duration: 1\nnoise\nsilence_start: 5\nsilence_end: 6 | silence_duration: 1\n",
-			want:   []silenceInterval{{1, 2}, {5, 6}},
-		},
-		{
-			name:   "unrelated output yields no silences",
-			output: "Input #0, wav, 'audio.wav':\n  Duration: 00:00:24.00\n",
-			want:   nil,
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := parseSilencedetect(tc.output)
-			if len(got) != len(tc.want) {
-				t.Fatalf("parseSilencedetect() = %+v, want %+v", got, tc.want)
-			}
-			for i := range tc.want {
-				if got[i] != tc.want[i] {
-					t.Errorf("silences[%d] = %+v, want %+v", i, got[i], tc.want[i])
-				}
-			}
-		})
-	}
-}
-
-func TestSpeechWindows(t *testing.T) {
-	cases := []struct {
-		name     string
-		audioDur float64
-		silences []silenceInterval
-		want     []speechWindow
-	}{
-		{
-			name:     "no silence: one window over the whole audio",
-			audioDur: 10,
-			silences: nil,
-			want:     []speechWindow{{0, 10}},
-		},
-		{
-			name:     "leading and trailing silence are dropped",
-			audioDur: 10,
-			silences: []silenceInterval{{0, 2}, {8, 10}},
-			want:     []speechWindow{{2, 8}},
-		},
-		{
-			name:     "silences shorter than the split threshold stay inside the window",
-			audioDur: 10,
-			silences: []silenceInterval{{2, 3}, {6, 7}},
-			want:     []speechWindow{{0, 10}},
-		},
-		{
-			name:     "only silences at or past the split threshold become boundaries",
-			audioDur: 10,
-			silences: []silenceInterval{{0, 2.5}, {4, 4.8}, {6, 9}},
-			want:     []speechWindow{{2.5, 6}, {9, 10}},
-		},
-		{
-			name:     "all silence: no windows",
-			audioDur: 10,
-			silences: []silenceInterval{{0, math.Inf(1)}},
-			want:     nil,
-		},
-		{
-			name:     "speech blips below the minimum window are dropped",
-			audioDur: 10,
-			silences: []silenceInterval{{0, 4.95}, {5.05, 10}},
-			want:     nil,
-		},
-		{
-			name:     "silences are clamped, sorted, and merged",
-			audioDur: 10,
-			silences: []silenceInterval{{5, 9}, {-2, 5.5}, {9.5, 20}},
-			// {5,9} overlaps {0,5.5} and merges into it: [0,9] is all silence;
-			// {9.5,20} clamps to a 0.5 s silence — below the split threshold.
-			want: []speechWindow{{9, 10}},
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			got := speechWindows(tc.audioDur, tc.silences)
-			if len(got) != len(tc.want) {
-				t.Fatalf("speechWindows() = %+v, want %+v", got, tc.want)
-			}
-			for i := range tc.want {
-				if got[i] != tc.want[i] {
-					t.Errorf("windows[%d] = %+v, want %+v", i, got[i], tc.want[i])
-				}
-			}
-		})
-	}
-}
-
-func TestClampSegmentsToWindow(t *testing.T) {
-	w := speechWindow{start: 3, end: 10}
-	got := clampSegmentsToWindow([]Segment{
-		{
-			Start: 3.3, End: 12, Text: "hello world",
-			Words: []Word{
-				{Text: "hello", Start: 3.3, End: 4},
-				{Text: "world", Start: 9.5, End: 12},
-			},
-		},
-		{
-			Start: 10.5, End: 11.5, Text: "leak",
-			Words: []Word{{Text: "leak", Start: 10.5, End: 11.5}},
-		},
-		{
-			Start: 2, End: 3.2, Text: "early",
-			Words: []Word{{Text: "early", Start: 2, End: 3.2}},
-		},
-		{
-			Start: 1, End: 1.5, Text: "wholly before",
-			Words: []Word{{Text: "wholly before", Start: 1, End: 1.5}},
-		},
-	}, w)
-
-	want := []Segment{
-		{
-			Start: 3.3, End: 10, Text: "hello world",
-			Words: []Word{
-				{Text: "hello", Start: 3.3, End: 4},
-				{Text: "world", Start: 9.5, End: 10},
-			},
-		},
-		{
-			Start: 3, End: 3.2, Text: "early",
-			Words: []Word{{Text: "early", Start: 3, End: 3.2}},
-		},
-	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("clampSegmentsToWindow() = %+v, want %+v", got, want)
-	}
-}
-
-func TestNoSpeechDetected(t *testing.T) {
-	cases := []struct {
-		name     string
-		settings Settings
-		windows  []speechWindow
-		want     bool
-	}{
-		{"gating off: windows or not, no finding", Settings{}, nil, false},
-		{"gating off with windows", Settings{}, []speechWindow{{0, 1}}, false},
-		{"gating on with zero windows means no speech", Settings{SpeechGating: true}, nil, true},
-		{"gating on with windows", Settings{SpeechGating: true}, []speechWindow{{0, 1}}, false},
-	}
-	for _, tc := range cases {
-		if got := noSpeechDetected(tc.settings, tc.windows); got != tc.want {
-			t.Errorf("%s: noSpeechDetected() = %v, want %v", tc.name, got, tc.want)
-		}
+func TestTranscribeWiring(t *testing.T) {
+	// One decode path: no silence-detection subprocess exists, so a valid
+	// wav always reaches model load.
+	_, err := Transcribe(Settings{ModelPath: "unused"}, writeTestWav(t, 1))
+	if err == nil || !strings.Contains(err.Error(), "failed to load whisper model") {
+		t.Fatalf("Transcribe() error = %v, want it to contain %q", err, "failed to load whisper model")
 	}
 }
 
@@ -345,58 +178,4 @@ func writeTestWav(t *testing.T, seconds float64) string {
 		t.Fatalf("write test wav: %v", err)
 	}
 	return path
-}
-
-// silenceDetectionError is a sentinel so the wiring test can assert the
-// detection failure propagates unwrapped.
-type silenceDetectionError struct{}
-
-func (*silenceDetectionError) Error() string { return "silence detection failed" }
-
-func TestTranscribeWiring(t *testing.T) {
-	realDetect := detectSilences
-	t.Cleanup(func() { detectSilences = realDetect })
-
-	t.Run("gating off never runs silence detection", func(t *testing.T) {
-		detectSilences = func(string) ([]silenceInterval, error) {
-			t.Error("silence detection ran with gating disabled")
-			return nil, nil
-		}
-		_, err := Transcribe(Settings{ModelPath: "unused"}, writeTestWav(t, 1))
-		if err == nil || !strings.Contains(err.Error(), "failed to load whisper model") {
-			t.Fatalf("Transcribe() error = %v, want it to contain %q", err, "failed to load whisper model")
-		}
-	})
-
-	t.Run("gating on with no detected speech transcribes empty without the model", func(t *testing.T) {
-		detectSilences = func(string) ([]silenceInterval, error) {
-			return []silenceInterval{{0, math.Inf(1)}}, nil
-		}
-		segments, err := Transcribe(Settings{ModelPath: "unused", SpeechGating: true}, writeTestWav(t, 5))
-		if err != nil {
-			t.Fatalf("Transcribe() error = %v, want a silent wav to transcribe empty", err)
-		}
-		if len(segments) != 0 {
-			t.Errorf("Transcribe() = %+v, want no segments", segments)
-		}
-	})
-
-	t.Run("gating on with speech proceeds to model load", func(t *testing.T) {
-		detectSilences = func(string) ([]silenceInterval, error) { return nil, nil }
-		_, err := Transcribe(Settings{ModelPath: "unused", SpeechGating: true}, writeTestWav(t, 1))
-		if err == nil || !strings.Contains(err.Error(), "failed to load whisper model") {
-			t.Fatalf("Transcribe() error = %v, want it to contain %q", err, "failed to load whisper model")
-		}
-	})
-
-	t.Run("gating on with a failing detection fails loudly", func(t *testing.T) {
-		detectSilences = func(string) ([]silenceInterval, error) {
-			return nil, &silenceDetectionError{}
-		}
-		_, err := Transcribe(Settings{ModelPath: "unused", SpeechGating: true}, writeTestWav(t, 1))
-		var want *silenceDetectionError
-		if !errors.As(err, &want) {
-			t.Fatalf("Transcribe() error = %v, want the detection failure propagated", err)
-		}
-	})
 }

@@ -6,21 +6,17 @@ import { describe, it } from "node:test";
 import { ISegment, IWord } from "../types";
 import { activePageWords, activeSegment, onsetStart } from "./shared";
 
-// The acceptance fixture (issue #23, ADR-0006; gated on detected speech per
-// ADR-0007, #27 reverted to stock third-party code): real Transcription
-// Segments for a 24-second clip — leading silence, then speech (whisper.cpp's
-// jfk sample), then trailing silence — transcribed by the production
-// transcriber and stored in server/testdata/onset-fixture. Regenerate with
-// `SPEECH_GATING=true go run ./cmd/onsetfixture <model> <wav> <out>` when the
-// model or the vendored build changes.
+// The acceptance fixture (issue #23, ADR-0006): real Transcription Segments
+// for a 24-second clip — leading silence, then speech (whisper.cpp's jfk
+// sample), then trailing silence — transcribed by the production transcriber
+// in one pass over the whole audio and stored in
+// server/testdata/onset-fixture. Regenerate with
+// `go run ./cmd/onsetfixture <model> <wav> <out>` when the model or the
+// vendored build changes.
 //
-// Measured finding baked into this fixture: the physical speech onset is
-// 3.33 s (ffmpeg silencedetect −30 dB on the fixture wav — the −35 dB
-// crossing at 3.10 s is the sample's room-tone ramp, not speech), and the
-// first reported word sits at 3.34 s. The transcriber runs ffmpeg
-// silencedetect itself and decodes only the speech windows, so the decoder
-// never sees the leading silence (no first-token clamping into it) and the
-// reported timings stay on the real timeline.
+// Ungated decode hallucinates "And so my" over the leading silence (0–1.75 s)
+// — the known one-pass behavior the onset gate (ADR-0006) covers on the render
+// side: captions stay hidden until each segment's first word starts.
 const segments: ISegment[] = JSON.parse(
   readFileSync(
     resolve(process.cwd(), "../server/testdata/onset-fixture/segments.json"),
