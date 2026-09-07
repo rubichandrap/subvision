@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"net/http"
 	"path"
 	"strings"
@@ -165,7 +164,7 @@ func RegisterJobs(r *gin.Engine, jobs JobReader, writer JobWriter, deleter JobDe
 			primitives.JSendFail(c, gin.H{"segments": "segments must decode as timed text"}, http.StatusBadRequest)
 			return
 		}
-		if err := validateSegmentTiming(segments); err != nil {
+		if err := transcriber.ValidateSegmentTiming(segments); err != nil {
 			primitives.JSendFail(c, gin.H{"segments": err.Error()}, http.StatusBadRequest)
 			return
 		}
@@ -180,7 +179,7 @@ func RegisterJobs(r *gin.Engine, jobs JobReader, writer JobWriter, deleter JobDe
 						break
 					}
 					if segments[i].Start != original[i].Start || segments[i].End != original[i].End {
-						segments[i].Words = rescaleWords(original[i], segments[i])
+						segments[i].Words = transcriber.RescaleWords(original[i], segments[i])
 					} else {
 						segments[i].Words = original[i].Words
 					}
@@ -335,52 +334,6 @@ func RegisterJobs(r *gin.Engine, jobs JobReader, writer JobWriter, deleter JobDe
 	})
 }
 
-// validateSegmentTiming rejects edited segments the render cannot use:
-// non-finite times, negative starts, ends at or before their start, and
-// segments that start before the previous one ends.
-func validateSegmentTiming(segments []transcriber.Segment) error {
-	for i, seg := range segments {
-		if !finiteTime(seg.Start) || !finiteTime(seg.End) {
-			return fmt.Errorf("segment %d must carry finite start and end times", i+1)
-		}
-		if seg.Start < 0 {
-			return fmt.Errorf("segment %d start must not be negative", i+1)
-		}
-		if seg.End <= seg.Start {
-			return fmt.Errorf("segment %d end must be after its start", i+1)
-		}
-		if i > 0 && seg.Start < segments[i-1].End {
-			return fmt.Errorf("segment %d must not start before segment %d ends", i+1, i)
-		}
-	}
-	return nil
-}
-
-// rescaleWords keeps a segment's whisper-original word timings at their
-// relative offsets, scaled into the edited window. Word timings are never
-// re-derived from scratch; a degenerate original window leaves words alone.
-func rescaleWords(original, edited transcriber.Segment) []transcriber.Word {
-	if len(original.Words) == 0 {
-		return original.Words
-	}
-	span := original.End - original.Start
-	if span <= 0 {
-		return original.Words
-	}
-	words := make([]transcriber.Word, len(original.Words))
-	for i, w := range original.Words {
-		words[i] = transcriber.Word{
-			Text:  w.Text,
-			Start: edited.Start + (w.Start-original.Start)/span*(edited.End-edited.Start),
-			End:   edited.Start + (w.End-original.Start)/span*(edited.End-edited.Start),
-		}
-	}
-	return words
-}
-
-func finiteTime(value float64) bool {
-	return !math.IsNaN(value) && !math.IsInf(value, 0)
-}
 
 func respondWithError(c *gin.Context, id string, err error) {
 	if errors.Is(err, job.ErrNotFound) {
