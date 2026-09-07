@@ -90,7 +90,7 @@ func TestSaveSegmentsReturns409ForUneditableStage(t *testing.T) {
 }
 
 // TestSaveSegmentsReturns400ForBadTiming verifies the handler maps
-// transcriber.ValidationError → 400 Bad Request.
+// transcript.ValidationError → 400 Bad Request.
 func TestSaveSegmentsReturns400ForBadTiming(t *testing.T) {
 	router, store := newRerenderRouter(t)
 	if err := store.Create("u1", "clip.mp4"); err != nil {

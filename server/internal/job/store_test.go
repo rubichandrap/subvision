@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/rubichandrap/subvision/server/internal/db"
-	"github.com/rubichandrap/subvision/server/internal/transcriber"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
 
@@ -87,7 +87,7 @@ func TestSaveSegmentsRejectsUneditableStages(t *testing.T) {
 			id := "job-" + string(stage)
 			createJobWithStage(t, store, id, stage)
 
-			segments := []transcriber.Segment{
+			segments := []transcript.Segment{
 				{Start: 1.0, End: 2.0, Text: "hello"},
 			}
 			_, err := store.SaveSegments(id, segments)
@@ -115,7 +115,7 @@ func TestSaveSegmentsAllowsRenderingAndDone(t *testing.T) {
 			id := "job-" + string(stage)
 			createJobWithStage(t, store, id, stage)
 
-			segments := []transcriber.Segment{
+			segments := []transcript.Segment{
 				{Start: 1.0, End: 2.5, Text: "valid segment"},
 			}
 			saved, err := store.SaveSegments(id, segments)
@@ -135,16 +135,16 @@ func TestSaveSegmentsValidatesTimings(t *testing.T) {
 	createJobWithStage(t, store, id, StageDone)
 
 	// End before Start violates timing invariants
-	segments := []transcriber.Segment{
+	segments := []transcript.Segment{
 		{Start: 2.5, End: 1.0, Text: "backward time"},
 	}
 	_, err := store.SaveSegments(id, segments)
 	if err == nil {
 		t.Fatal("expected validation error for invalid timing, got nil")
 	}
-	var valErr *transcriber.TimingValidationError
+	var valErr *transcript.ValidationError
 	if !errors.As(err, &valErr) {
-		t.Fatalf("expected TimingValidationError, got %T (%v)", err, err)
+		t.Fatalf("expected *transcript.ValidationError, got %T (%v)", err, err)
 	}
 }
 
@@ -160,7 +160,7 @@ func TestSaveSegmentsRescalesWordsAgainstWhisperOriginals(t *testing.T) {
 	}
 
 	// Edit segment bounds from [1.0, 2.0] to [2.0, 4.0] (stretched 2x, shifted +1.0)
-	edited := []transcriber.Segment{
+	edited := []transcript.Segment{
 		{Start: 2.0, End: 4.0, Text: "hello world"},
 	}
 	saved, err := store.SaveSegments(id, edited)
