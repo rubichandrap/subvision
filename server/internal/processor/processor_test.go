@@ -206,7 +206,7 @@ func (f *fakeLifecycle) MarkRendering(uploadID string) (bool, error) {
 	return true, nil
 }
 
-func (f *fakeLifecycle) SaveSegments(uploadID, segmentsJSON string) error {
+func (f *fakeLifecycle) SaveOriginalSegments(uploadID, segmentsJSON string) error {
 	if f.segments == nil {
 		f.segments = map[string]string{}
 	}

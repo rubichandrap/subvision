@@ -50,8 +50,12 @@ the Next.js client uploads videos with tus.
   is Cancel, a separate concept not yet built (see ADR-0004).
 - **Process** — the client-facing lifecycle of a job (uploaded →
   transcribing → rendering → done/failed). Real server-side state, owned by
-  the server's job module, exposed read-only by the status API
-  (`GET /jobs`, `GET /jobs/:id`); the client polls it and never invents state.
+  the server's job module; the client polls its status, edits its
+  Transcription Segments, and can trigger a Re-render.
+- **Re-render** — republishing a fresh VFX Job for a completed Process using
+  edited Transcription Segments and the stored original Edit Spec,
+  transitioning the Process from done back to rendering. The rendered Output
+  replaces `outputs/<id>` in place.
 - **Timing Drift** — a Timed Word appearing before it is spoken, or late by a
   fraction of a second. A decode-timing miss, not a missing word or wrong text.
 

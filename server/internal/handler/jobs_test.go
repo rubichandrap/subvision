@@ -56,14 +56,14 @@ func newJobsRouter(t *testing.T) (*gin.Engine, *job.Store, *fakeOutputs, *fakeCl
 	}
 	t.Cleanup(func() { database.Close() })
 
-	store, err := job.NewStore(database)
+	outputs := &fakeOutputs{body: "video bytes"}
+	cleaner := &fakeCleaner{}
+	store, err := job.NewStore(database, nilPublisher{}, cleaner)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
-	outputs := &fakeOutputs{body: "video bytes"}
-	cleaner := &fakeCleaner{}
 	router := gin.New()
-	RegisterJobs(router, store, store, store, nilPublisher{}, outputs, cleaner)
+	RegisterJobs(router, store, outputs)
 	return router, store, outputs, cleaner
 }
 
@@ -78,6 +78,23 @@ func doGet(t *testing.T, router *gin.Engine, path string) *httptest.ResponseReco
 func doDelete(t *testing.T, router *gin.Engine, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodDelete, path, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func doPut(t *testing.T, router *gin.Engine, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func doPost(t *testing.T, router *gin.Engine, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, path, nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
@@ -180,7 +197,7 @@ func TestSegmentsEndpointServesStoredTranscript(t *testing.T) {
 	}
 
 	const stored = `[{"start":1.5,"end":2.5,"text":"hello","words":[{"text":"hello","start":1.6,"end":2.4}]}]`
-	if err := store.SaveSegments("u1", stored); err != nil {
+	if err := store.SaveOriginalSegments("u1", stored); err != nil {
 		t.Fatalf("save segments: %v", err)
 	}
 	if recorded, err := store.MarkRendering("u1"); err != nil || !recorded {

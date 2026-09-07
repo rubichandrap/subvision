@@ -57,17 +57,6 @@ func main() {
 	s3Client := s3.NewFromConfig(awsCfg)
 	objectStore := storage.New(s3Client, env.S3Bucket)
 
-	// Job state: the Process lifecycle, persisted so restarts don't lose it.
-	database, err := db.Open("data/subvision.db")
-	if err != nil {
-		log.Fatalf("Failed to open job database: %v", err)
-	}
-	defer database.Close()
-	jobs, err := job.NewStore(database)
-	if err != nil {
-		log.Fatalf("Failed to prepare job store: %v", err)
-	}
-
 	// Init RabbitMQ connection, publisher, and consumer
 	conn := rabbitmq.Connect(env.AmqpURL)
 	defer conn.Close()
@@ -76,6 +65,16 @@ func main() {
 	uploadJobPublisher := rabbitmq.NewUploadJobPublisher(conn)
 	vfxJobPublisher := rabbitmq.NewVfxJobPublisher(conn)
 
+	// Job state: the Process lifecycle, persisted so restarts don't lose it.
+	database, err := db.Open("data/subvision.db")
+	if err != nil {
+		log.Fatalf("Failed to open job database: %v", err)
+	}
+	defer database.Close()
+	jobs, err := job.NewStore(database, vfxJobPublisher, objectStore)
+	if err != nil {
+		log.Fatalf("Failed to prepare job store: %v", err)
+	}
 	// consumers
 	proc := processor.New(processor.Options{
 		Publisher:        vfxJobPublisher,
@@ -187,7 +186,7 @@ func main() {
 	handler.RegisterTusd(r, tusdHandler)
 
 	// Register the status API over the Process lifecycle plus Process deletion
-	handler.RegisterJobs(r, jobs, jobs, jobs, vfxJobPublisher, objectStore, objectStore)
+	handler.RegisterJobs(r, jobs, objectStore)
 
 	log.Println("Starting Subvision backend on port", env.Port)
 	if err := r.Run(":" + env.Port); err != nil {

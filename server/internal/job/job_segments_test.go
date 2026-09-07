@@ -13,7 +13,7 @@ func newSegmentsTestStore(t *testing.T) *Store {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() { handle.Close() })
-	store, err := NewStore(handle)
+	store, err := NewStore(handle, nil, nil)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
@@ -28,7 +28,7 @@ func TestSegmentsRoundTrip(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	if err := store.SaveSegments("u1", segmentsFixture); err != nil {
+	if err := store.SaveOriginalSegments("u1", segmentsFixture); err != nil {
 		t.Fatalf("save segments: %v", err)
 	}
 
@@ -73,7 +73,7 @@ func TestDeleteRemovesSegments(t *testing.T) {
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if err := store.SaveSegments("u1", segmentsFixture); err != nil {
+	if err := store.SaveOriginalSegments("u1", segmentsFixture); err != nil {
 		t.Fatalf("save segments: %v", err)
 	}
 

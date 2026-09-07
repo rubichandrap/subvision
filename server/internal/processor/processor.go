@@ -143,7 +143,7 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 	if p.lifecycle != nil {
 		if payload, err := json.Marshal(segments); err != nil {
 			log.Printf("[Processor] Failed to encode segments for upload %s: %v", uploadID, err)
-		} else if err := p.lifecycle.SaveSegments(uploadID, string(payload)); err != nil {
+		} else if err := p.lifecycle.SaveOriginalSegments(uploadID, string(payload)); err != nil {
 			log.Printf("[Processor] %v", err)
 		}
 		// Persist the original Edit Spec alongside, so a later re-render
