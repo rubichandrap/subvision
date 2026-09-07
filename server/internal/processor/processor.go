@@ -146,6 +146,19 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 		} else if err := p.lifecycle.SaveSegments(uploadID, string(payload)); err != nil {
 			log.Printf("[Processor] %v", err)
 		}
+		// Persist the original Edit Spec alongside, so a later re-render
+		// reuses it. A missing spec stores empty ("no edit").
+		var raw []byte
+		if spec != nil {
+			var err error
+			raw, err = json.Marshal(spec)
+			if err != nil {
+				log.Printf("[Processor] Failed to encode edit spec for upload %s: %v", uploadID, err)
+			}
+		}
+		if err := p.lifecycle.SaveEditSpec(uploadID, string(raw)); err != nil {
+			log.Printf("[Processor] %v", err)
+		}
 	}
 	if err := p.publisher.Publish(job); err != nil {
 		return fmt.Errorf("failed to publish vfx job for upload %s: %w", uploadID, err)

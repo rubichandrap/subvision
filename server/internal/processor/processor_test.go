@@ -214,6 +214,14 @@ func (f *fakeLifecycle) SaveSegments(uploadID, segmentsJSON string) error {
 	return nil
 }
 
+func (f *fakeLifecycle) SaveEditSpec(uploadID, specJSON string) error {
+	return nil
+}
+
+func (f *fakeLifecycle) Reopen(uploadID string) (bool, error) {
+	return true, nil
+}
+
 func TestProcessUploadedFilePublishErrorSurfaces(t *testing.T) {
 	pub := &fakePublisher{err: errors.New("broker down")}
 	proc := newTestProcessor(pub, &fakeStore{}, func(transcriber.Settings, string) ([]transcriber.Segment, error) {

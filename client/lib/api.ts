@@ -113,6 +113,55 @@ export async function fetchSegments(id: string): Promise<Segment[]> {
   return data.segments;
 }
 
+type JSendFailBody = { status: 'fail'; data: Record<string, string> };
+
+function failMessage(body: string, fallback: string): string {
+  try {
+    const parsed = JSON.parse(body) as JSendFailBody;
+    const first = Object.values(parsed.data ?? {})[0];
+    return first ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// Save writes edited segments; the server validates timing and rejects bad
+// rows with a fail message.
+export async function saveSegments(
+  id: string,
+  segments: Segment[],
+): Promise<Segment[]> {
+  const res = await fetch(
+    `${env.serverUrl}/jobs/${encodeURIComponent(normalizeJobId(id))}/segments`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ segments }),
+    },
+  );
+  if (res.ok) {
+    const body = (await res.json()) as { status: 'success'; data: { segments: Segment[] } };
+    return body.data.segments;
+  }
+  throw new Error(failMessage(await res.text(), `save returned ${res.status}`));
+}
+
+// Re-render publishes a fresh render job with the saved edits plus the
+// original Edit Spec, moving the process back through rendering to done.
+export async function rerenderProcess(id: string): Promise<Process> {
+  const res = await fetch(
+    `${env.serverUrl}/jobs/${encodeURIComponent(normalizeJobId(id))}/rerender`,
+    { method: 'POST' },
+  );
+  if (res.ok) {
+    const body = (await res.json()) as { status: 'success'; data: Process };
+    return body.data;
+  }
+  throw new Error(
+    failMessage(await res.text(), `re-render returned ${res.status}`),
+  );
+}
+
 // The URL the API provides for the rendered Output; the server streams it as
 // an attachment.
 export function downloadUrl(process: Process): string {

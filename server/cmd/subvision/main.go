@@ -187,7 +187,7 @@ func main() {
 	handler.RegisterTusd(r, tusdHandler)
 
 	// Register the status API over the Process lifecycle plus Process deletion
-	handler.RegisterJobs(r, jobs, jobs, objectStore, objectStore)
+	handler.RegisterJobs(r, jobs, jobs, jobs, vfxJobPublisher, objectStore, objectStore)
 
 	log.Println("Starting Subvision backend on port", env.Port)
 	if err := r.Run(":" + env.Port); err != nil {
