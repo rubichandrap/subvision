@@ -63,7 +63,7 @@ func newJobsRouter(t *testing.T) (*gin.Engine, *job.Store, *fakeOutputs, *fakeCl
 		t.Fatalf("create job store: %v", err)
 	}
 	router := gin.New()
-	RegisterJobs(router, store, store, store, nilPublisher{}, outputs, cleaner)
+	RegisterJobs(router, store, outputs)
 	return router, store, outputs, cleaner
 }
 
@@ -78,6 +78,23 @@ func doGet(t *testing.T, router *gin.Engine, path string) *httptest.ResponseReco
 func doDelete(t *testing.T, router *gin.Engine, path string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodDelete, path, nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func doPut(t *testing.T, router *gin.Engine, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func doPost(t *testing.T, router *gin.Engine, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, path, nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	return rec
