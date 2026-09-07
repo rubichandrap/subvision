@@ -4,9 +4,16 @@ import * as React from 'react';
 import { Loader2 } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { fetchSegments, type ProcessStage, type Segment } from '@/lib/api';
+import {
+  fetchSegments,
+  rerenderProcess,
+  saveSegments,
+  type ProcessStage,
+  type Segment,
+} from '@/lib/api';
 
 // Transcript card on the Process detail page: every segment with its text
 // and start/end time. Readable only after transcription — while
@@ -101,6 +108,10 @@ export function TranscriptCard({
   const [segments, setSegments] = React.useState<Segment[] | null>(null);
   const [fetchError, setFetchError] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<DraftSegment[]>([]);
+  const [saving, setSaving] = React.useState(false);
+  const [rerendering, setRerendering] = React.useState(false);
+  const [savedNote, setSavedNote] = React.useState<string | null>(null);
+  const [actionError, setActionError] = React.useState<string | null>(null);
 
   // Refetch only when the polled stage moves (or the process changes) —
   // the existing per-process poll drives updates, nothing new polls here.
@@ -172,11 +183,68 @@ export function TranscriptCard({
   }
 
   const errors = validateSegments(draft);
+  const hasErrors = errors.some((e) => e.start ?? e.end ?? e.order);
 
   const updateRow = (index: number, patch: Partial<DraftSegment>) => {
     setDraft((prev) =>
       prev.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     );
+  };
+
+  // Edited rows merge back onto the fetched segments: text plus parsed
+  // times, words ride along untouched (the server rescales word offsets
+  // into the edited window on save).
+  const toPayload = (): Segment[] =>
+    (segments ?? []).map((seg, i) => ({
+      ...seg,
+      text: draft[i]?.text ?? seg.text,
+      start:
+        draft[i] !== undefined && draft[i].start.trim() !== ''
+          ? Number(draft[i].start)
+          : seg.start,
+      end:
+        draft[i] !== undefined && draft[i].end.trim() !== ''
+          ? Number(draft[i].end)
+          : seg.end,
+    }));
+
+  const persistEdits = async (): Promise<Segment[]> => {
+    const saved = await saveSegments(processId, toPayload());
+    setSegments(saved);
+    setDraft(toDraft(saved));
+    return saved;
+  };
+
+  const handleSave = async () => {
+    setActionError(null);
+    setSavedNote(null);
+    setSaving(true);
+    try {
+      await persistEdits();
+      setSavedNote('Edits saved. Reloading the page shows them.');
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRerender = async () => {
+    setActionError(null);
+    setSavedNote(null);
+    setRerendering(true);
+    try {
+      // Save first so the re-render carries exactly what is on screen;
+      // the poll then moves the process through rendering to done.
+      await persistEdits();
+      await rerenderProcess(processId);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Re-render failed',
+      );
+    } finally {
+      setRerendering(false);
+    }
   };
 
   return (
@@ -248,6 +316,47 @@ export function TranscriptCard({
           );
         })}
       </ol>
+      {savedNote && (
+        <p className="mt-4 border-2 border-border bg-[#7df29a] p-2 text-sm font-bold text-[#141414]">
+          {savedNote}
+        </p>
+      )}
+      {actionError && (
+        <p
+          className="mt-4 border-2 border-border bg-destructive p-2 text-sm font-bold text-destructive-foreground"
+          role="alert"
+        >
+          {actionError}
+        </p>
+      )}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button
+          onClick={() => {
+            void handleSave();
+          }}
+          disabled={saving || rerendering || hasErrors}
+        >
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          Save edits
+        </Button>
+        {stage === 'done' && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              void handleRerender();
+            }}
+            disabled={saving || rerendering || hasErrors}
+          >
+            {rerendering && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save and re-render
+          </Button>
+        )}
+      </div>
+      {hasErrors && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Fix the timing errors above before saving.
+        </p>
+      )}
     </Card>
   );
 }

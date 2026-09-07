@@ -54,9 +54,15 @@ type Process struct {
 type Tracker interface {
 	MarkTranscribing(uploadID string) (bool, error)
 	MarkRendering(uploadID string) (bool, error)
+	// Reopen moves a done job back to rendering for a re-render, bypassing
+	// the terminal-stage guard that mark enforces for the normal pipeline.
+	Reopen(uploadID string) (bool, error)
 	// SaveSegments persists the whisper-original Transcription Segments for
 	// an upload as JSON, so they outlive the queue message.
 	SaveSegments(uploadID, segmentsJSON string) error
+	// SaveEditSpec persists the upload's original Edit Spec as JSON, so a
+	// re-render reuses it. Empty when the upload carried no spec.
+	SaveEditSpec(uploadID, specJSON string) error
 }
 
 type Store struct {
@@ -87,6 +93,16 @@ func NewStore(db *sql.DB) (*Store, error) {
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job_segments table: %w", err)
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS job_edit_specs (
+			job_id     TEXT PRIMARY KEY,
+			spec       TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL
+		)
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create job_edit_specs table: %w", err)
 	}
 	return &Store{db: db}, nil
 }
@@ -137,6 +153,26 @@ func (s *Store) MarkRendering(uploadID string) (bool, error) {
 	return s.mark(uploadID, StageRendering, "", "")
 }
 
+// Reopen moves a done job back to rendering for a re-render. The normal
+// mark refuses terminal stages, so this runs its own statement: only done
+// reopens, failed stays failed, unknown ids report false.
+func (s *Store) Reopen(uploadID string) (bool, error) {
+	res, err := s.db.Exec(
+		`UPDATE jobs SET stage = ?, reason = ?, updated_at = ?
+		 WHERE id = ? AND stage = ?`,
+		string(StageRendering), "", time.Now().UTC().Format(time.RFC3339), uploadID,
+		string(StageDone),
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to reopen job %s: %w", uploadID, err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to reopen job %s: %w", uploadID, err)
+	}
+	return affected > 0, nil
+}
+
 // MarkDone records the completed Output of a rendered job.
 func (s *Store) MarkDone(uploadID, outputKey string) (bool, error) {
 	return s.mark(uploadID, StageDone, "", outputKey)
@@ -147,11 +183,15 @@ func (s *Store) MarkFailed(uploadID, reason string) (bool, error) {
 	return s.mark(uploadID, StageFailed, reason, "")
 }
 
-// Delete removes the process row entirely, with its stored segments. It
+// Delete removes the process row entirely, with its stored segments and
+// edit spec. It
 // reports whether a row was deleted; deleting an unknown id is not an error.
 func (s *Store) Delete(id string) (bool, error) {
 	if _, err := s.db.Exec(`DELETE FROM job_segments WHERE job_id = ?`, id); err != nil {
 		return false, fmt.Errorf("failed to delete segments for job %s: %w", id, err)
+	}
+	if _, err := s.db.Exec(`DELETE FROM job_edit_specs WHERE job_id = ?`, id); err != nil {
+		return false, fmt.Errorf("failed to delete edit spec for job %s: %w", id, err)
 	}
 	res, err := s.db.Exec(`DELETE FROM jobs WHERE id = ?`, id)
 	if err != nil {
@@ -177,6 +217,35 @@ func (s *Store) SaveSegments(uploadID, segmentsJSON string) error {
 		return fmt.Errorf("failed to save segments for job %s: %w", uploadID, err)
 	}
 	return nil
+}
+
+// SaveEditSpec stores the upload's original Edit Spec as raw JSON, so a
+// re-render reuses it. An empty raw means "no edit" and clears any stored
+// copy.
+func (s *Store) SaveEditSpec(uploadID, specJSON string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO job_edit_specs (job_id, spec, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT(job_id) DO UPDATE SET spec = excluded.spec, updated_at = excluded.updated_at`,
+		uploadID, specJSON, time.Now().UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to save edit spec for job %s: %w", uploadID, err)
+	}
+	return nil
+}
+
+// EditSpec returns the stored original Edit Spec JSON, or empty when the
+// upload carried none. Reading an unknown id is not an error.
+func (s *Store) EditSpec(uploadID string) (string, error) {
+	var spec string
+	err := s.db.QueryRow(`SELECT spec FROM job_edit_specs WHERE job_id = ?`, uploadID).Scan(&spec)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to read edit spec for job %s: %w", uploadID, err)
+	}
+	return spec, nil
 }
 
 // Segments returns the stored Transcription Segments JSON for an upload, or

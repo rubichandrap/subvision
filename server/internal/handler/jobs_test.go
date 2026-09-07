@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rubichandrap/subvision/server/internal/db"
 	"github.com/rubichandrap/subvision/server/internal/job"
+	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
 
 type fakeOutputs struct {
@@ -29,6 +31,14 @@ func (f *fakeOutputs) Open(ctx context.Context, key string) (io.ReadCloser, int6
 
 type fakeCleaner struct {
 	deleted []string
+}
+
+// nilPublisher refuses every re-render publish; for routers whose tests
+// never touch the re-render endpoint.
+type nilPublisher struct{}
+
+func (nilPublisher) Publish(job vfxjob.Job) error {
+	return errors.New("re-render not wired in this test router")
 }
 
 func (f *fakeCleaner) Delete(ctx context.Context, prefix string) error {
@@ -53,7 +63,7 @@ func newJobsRouter(t *testing.T) (*gin.Engine, *job.Store, *fakeOutputs, *fakeCl
 	outputs := &fakeOutputs{body: "video bytes"}
 	cleaner := &fakeCleaner{}
 	router := gin.New()
-	RegisterJobs(router, store, store, outputs, cleaner)
+	RegisterJobs(router, store, store, store, nilPublisher{}, outputs, cleaner)
 	return router, store, outputs, cleaner
 }
 
