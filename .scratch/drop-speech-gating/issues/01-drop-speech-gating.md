@@ -6,7 +6,7 @@ Promoted: #36
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** closed 2026-09-07 — shipped (GitHub: #36 closed)
 
 - [ ] Single decode path; no gating flag or silence detection anywhere
 - [ ] Onset gate still holds on the re-recorded fixture
