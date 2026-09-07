@@ -1,5 +1,7 @@
 # Spec — make the subtitle pipeline real
 
+**Status:** closed 2026-09-06 — all tickets shipped (GitHub: #1 closed; #2-7 closed).
+
 **GitHub issue:** #1 (label: ready-for-agent)
 
 **Tickets:** #2 → #3 → #4 → #5 · #6 · #7 (blocking edges set natively on GitHub)

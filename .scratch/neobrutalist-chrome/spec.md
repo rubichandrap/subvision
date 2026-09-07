@@ -1,5 +1,9 @@
 # Spec: Neobrutalist Chrome UI (light + dark)
 
+**GitHub issue:** #37
+
+**Status:** closed 2026-09-07 — shipped (GitHub: #37 closed).
+
 Scope: chrome UI client saja. Subtitle Style (output render, bagian Edit Spec)
 tidak disentuh.
 

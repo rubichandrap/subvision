@@ -1,5 +1,9 @@
 # Editor + styling: settled spec (grilling session 2026-09-03)
 
+**GitHub issue:** #24
+
+**Status:** closed 2026-09-06 — shipped (GitHub: #24 closed).
+
 Decisions from the interview, in force for this implementation. Glossary terms
 live in `CONTEXT.md` (Edit Spec, Frame, Frame Preset, Subtitle Style); the
 architecture decision is recorded in `docs/adr/0003-edit-spec-via-tus-metadata.md`.
