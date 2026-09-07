@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -135,6 +136,16 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 		ObjectKey: objectKey,
 		Segments:  segments,
 		EditSpec:  spec,
+	}
+	// Persist the whisper-original segments so they outlive the queue
+	// message; later edits overwrite them. A save failure is loud but never
+	// blocks the render — the published job carries the same segments.
+	if p.lifecycle != nil {
+		if payload, err := json.Marshal(segments); err != nil {
+			log.Printf("[Processor] Failed to encode segments for upload %s: %v", uploadID, err)
+		} else if err := p.lifecycle.SaveSegments(uploadID, string(payload)); err != nil {
+			log.Printf("[Processor] %v", err)
+		}
 	}
 	if err := p.publisher.Publish(job); err != nil {
 		return fmt.Errorf("failed to publish vfx job for upload %s: %w", uploadID, err)

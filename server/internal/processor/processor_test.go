@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -144,6 +145,73 @@ func TestProcessUploadedFilePublishesVfxJob(t *testing.T) {
 	} else if filepath.Dir(dest) != filepath.Join("tmp", "videos") {
 		t.Errorf("video downloaded to %q, want it under the videos temp dir", dest)
 	}
+}
+
+func TestProcessUploadedFilePersistsWhisperOriginalSegments(t *testing.T) {
+	segments := []transcriber.Segment{
+		{
+			Start: 30.2, End: 31.4, Text: "hello",
+			Words: []transcriber.Word{{Text: "hello", Start: 30.3, End: 31.3}},
+		},
+		{Start: 31.6, End: 32.9, Text: "there"},
+	}
+	pub := &fakePublisher{}
+	lifecycle := &fakeLifecycle{}
+	proc := New(Options{
+		Publisher: pub,
+		Store:     &fakeStore{},
+		Transcribe: func(transcriber.Settings, string) ([]transcriber.Segment, error) {
+			return segments, nil
+		},
+		TmpDir:           "tmp",
+		WhisperModelPath: "model.bin",
+		Lifecycle:        lifecycle,
+	})
+	proc.convert = func(inputPath, outputPath string, window [2]float64) error {
+		return os.WriteFile(outputPath, []byte("pcm"), 0o644)
+	}
+
+	if err := proc.ProcessUploadedFile("u1", "uploads/u1", nil); err != nil {
+		t.Fatalf("ProcessUploadedFile: %v", err)
+	}
+
+	want, err := json.Marshal(segments)
+	if err != nil {
+		t.Fatalf("marshal fixture segments: %v", err)
+	}
+	if lifecycle.segments["u1"] != string(want) {
+		t.Errorf("saved segments = %q, want %q", lifecycle.segments["u1"], want)
+	}
+	if len(pub.jobs) != 1 {
+		t.Fatalf("expected one published vfx job, got %d", len(pub.jobs))
+	}
+	published, err := json.Marshal(pub.jobs[0].Segments)
+	if err != nil {
+		t.Fatalf("marshal published segments: %v", err)
+	}
+	if string(published) != string(want) {
+		t.Errorf("published segments = %s, want %s (unedited render must behave as today)", published, want)
+	}
+}
+
+type fakeLifecycle struct {
+	segments map[string]string
+}
+
+func (f *fakeLifecycle) MarkTranscribing(uploadID string) (bool, error) {
+	return true, nil
+}
+
+func (f *fakeLifecycle) MarkRendering(uploadID string) (bool, error) {
+	return true, nil
+}
+
+func (f *fakeLifecycle) SaveSegments(uploadID, segmentsJSON string) error {
+	if f.segments == nil {
+		f.segments = map[string]string{}
+	}
+	f.segments[uploadID] = segmentsJSON
+	return nil
 }
 
 func TestProcessUploadedFilePublishErrorSurfaces(t *testing.T) {

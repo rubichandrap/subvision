@@ -6,9 +6,9 @@ Promoted: #32
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** shipped 2026-09-07
 
-- [ ] Whisper-original segments stored per upload at transcribe time
-- [ ] Stored segments readable after the job reaches done (store-level round trip)
-- [ ] Delete removes a process's segments along with its record
-- [ ] Unedited renders behave exactly as today
+- [x] Whisper-original segments stored per upload at transcribe time
+- [x] Stored segments readable after the job reaches done (store-level round trip)
+- [x] Delete removes a process's segments along with its record
+- [x] Unedited renders behave exactly as today

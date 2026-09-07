@@ -54,6 +54,9 @@ type Process struct {
 type Tracker interface {
 	MarkTranscribing(uploadID string) (bool, error)
 	MarkRendering(uploadID string) (bool, error)
+	// SaveSegments persists the whisper-original Transcription Segments for
+	// an upload as JSON, so they outlive the queue message.
+	SaveSegments(uploadID, segmentsJSON string) error
 }
 
 type Store struct {
@@ -74,6 +77,16 @@ func NewStore(db *sql.DB) (*Store, error) {
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create jobs table: %w", err)
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS job_segments (
+			job_id     TEXT PRIMARY KEY,
+			segments   TEXT NOT NULL DEFAULT '',
+			updated_at TEXT NOT NULL
+		)
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create job_segments table: %w", err)
 	}
 	return &Store{db: db}, nil
 }
@@ -134,9 +147,12 @@ func (s *Store) MarkFailed(uploadID, reason string) (bool, error) {
 	return s.mark(uploadID, StageFailed, reason, "")
 }
 
-// Delete removes the process row entirely. It reports whether a row was
-// deleted; deleting an unknown id is not an error.
+// Delete removes the process row entirely, with its stored segments. It
+// reports whether a row was deleted; deleting an unknown id is not an error.
 func (s *Store) Delete(id string) (bool, error) {
+	if _, err := s.db.Exec(`DELETE FROM job_segments WHERE job_id = ?`, id); err != nil {
+		return false, fmt.Errorf("failed to delete segments for job %s: %w", id, err)
+	}
 	res, err := s.db.Exec(`DELETE FROM jobs WHERE id = ?`, id)
 	if err != nil {
 		return false, fmt.Errorf("failed to delete job %s: %w", id, err)
@@ -146,6 +162,35 @@ func (s *Store) Delete(id string) (bool, error) {
 		return false, fmt.Errorf("failed to delete job %s: %w", id, err)
 	}
 	return affected > 0, nil
+}
+
+// SaveSegments stores the whisper-original Transcription Segments for an
+// upload as JSON, replacing any earlier copy. It outlives the queue message
+// so the transcript stays readable after the job reaches done.
+func (s *Store) SaveSegments(uploadID, segmentsJSON string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO job_segments (job_id, segments, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT(job_id) DO UPDATE SET segments = excluded.segments, updated_at = excluded.updated_at`,
+		uploadID, segmentsJSON, time.Now().UTC().Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to save segments for job %s: %w", uploadID, err)
+	}
+	return nil
+}
+
+// Segments returns the stored Transcription Segments JSON for an upload, or
+// empty when nothing was stored yet. Reading an unknown id is not an error.
+func (s *Store) Segments(uploadID string) (string, error) {
+	var segments string
+	err := s.db.QueryRow(`SELECT segments FROM job_segments WHERE job_id = ?`, uploadID).Scan(&segments)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to read segments for job %s: %w", uploadID, err)
+	}
+	return segments, nil
 }
 
 // Get returns the process with the requested id, or ErrNotFound.
