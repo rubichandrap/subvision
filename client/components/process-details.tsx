@@ -98,8 +98,8 @@ export function ProcessDetails({ processId }: { processId: string }) {
       </Link>
 
       <Card className="border-2 p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div className="min-w-0 max-w-xl flex-1">
             <h2 className="truncate font-display text-xl font-semibold">
               {process.filename || process.id}
             </h2>

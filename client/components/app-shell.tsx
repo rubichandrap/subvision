@@ -80,15 +80,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1">{children}</main>
       <footer className="border-t-2 border-border bg-muted/40">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 text-center sm:flex-row sm:text-left sm:px-6">
-          <p className="text-xs text-muted-foreground">
-            Subvision. Video reframing and animated subtitles.
+          <p className="font-mono text-xs font-bold uppercase tracking-wide text-muted-foreground">
+            Subvision
           </p>
           <Link
             href="https://github.com/rubichandrap/subvision"
             target="_blank"
             rel="noreferrer"
             aria-label="Subvision on GitHub"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1.5 border-2 border-border bg-card px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wide text-foreground shadow-brutal-sm transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-primary hover:text-primary-foreground hover:shadow-brutal"
           >
             <Github className="h-4 w-4" />
             GitHub

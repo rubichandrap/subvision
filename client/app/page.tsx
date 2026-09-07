@@ -47,9 +47,6 @@ export default function Home() {
       <section className="mx-auto w-full max-w-6xl px-4 pb-24 pt-10 sm:px-6 md:pt-16">
         {/* Hero */}
         <div className="mx-auto max-w-3xl text-center">
-          <p className="mb-4 inline-flex items-center gap-1.5 border-2 border-border bg-secondary px-2.5 py-1 font-mono text-[11px] font-bold uppercase tracking-widest text-secondary-foreground shadow-brutal-sm">
-            Reframe · Caption · Export
-          </p>
           <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl md:text-6xl text-balance">
             Captions that look{' '}
             <span className="relative inline-block border-2 border-border bg-primary px-3 py-0.5 text-primary-foreground shadow-brutal">
