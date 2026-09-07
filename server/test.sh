@@ -13,4 +13,7 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 export CGO_ENABLED=1
 export C_INCLUDE_PATH="$ROOT/third_party/whisper.cpp/include:$ROOT/third_party/whisper.cpp/ggml/include"
 export LIBRARY_PATH="$ROOT/third_party/whisper.cpp/build_go/src:$ROOT/third_party/whisper.cpp/build_go/ggml/src"
-exec go test ./... "$@"
+if [ "$#" -eq 0 ]; then
+  set -- ./...
+fi
+exec go test "$@"
