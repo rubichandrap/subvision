@@ -41,13 +41,13 @@ func newRerenderRouter(t *testing.T) (*gin.Engine, *job.Store, *fakeRerenderPubl
 	}
 	t.Cleanup(func() { database.Close() })
 
-	store, err := job.NewStore(database)
-	if err != nil {
-		t.Fatalf("create job store: %v", err)
-	}
 	pub := &fakeRerenderPublisher{}
 	outputs := &fakeOutputs{body: "video bytes"}
 	cleaner := &fakeCleaner{}
+	store, err := job.NewStore(database, pub, cleaner)
+	if err != nil {
+		t.Fatalf("create job store: %v", err)
+	}
 	router := gin.New()
 	RegisterJobs(router, store, store, store, pub, outputs, cleaner)
 	return router, store, pub
@@ -76,7 +76,7 @@ func createDoneJob(t *testing.T, store *job.Store, id string) {
 		t.Fatalf("create: %v", err)
 	}
 	const stored = `[{"start":1.5,"end":2.5,"text":"hello","words":[{"text":"hello","start":1.6,"end":2.4}]}]`
-	if err := store.SaveSegments(id, stored); err != nil {
+	if err := store.SaveOriginalSegments(id, stored); err != nil {
 		t.Fatalf("save segments: %v", err)
 	}
 	if recorded, err := store.MarkRendering(id); err != nil || !recorded {

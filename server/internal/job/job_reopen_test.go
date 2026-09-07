@@ -12,7 +12,7 @@ func TestReopenMovesDoneToRendering(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() { handle.Close() })
-	store, err := NewStore(handle)
+	store, err := NewStore(handle, nil, nil)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestReopenRefusesNonDone(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() { handle.Close() })
-	store, err := NewStore(handle)
+	store, err := NewStore(handle, nil, nil)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
@@ -82,7 +82,7 @@ func TestEditSpecRoundTrip(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() { handle.Close() })
-	store, err := NewStore(handle)
+	store, err := NewStore(handle, nil, nil)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestEditSpecEmptyWhenNoneStored(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() { handle.Close() })
-	store, err := NewStore(handle)
+	store, err := NewStore(handle, nil, nil)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}

@@ -40,7 +40,7 @@ type JobDeleter interface {
 // Process for re-render, and fails it when the re-render never left;
 // implemented by the job store.
 type JobWriter interface {
-	SaveSegments(id, segmentsJSON string) error
+	SaveOriginalSegments(id, segmentsJSON string) error
 	Reopen(id string) (bool, error)
 	MarkFailed(id, reason string) (bool, error)
 }
@@ -192,7 +192,7 @@ func RegisterJobs(r *gin.Engine, jobs JobReader, writer JobWriter, deleter JobDe
 			primitives.JSendError(c, "failed to save segments", http.StatusInternalServerError, nil)
 			return
 		}
-		if err := writer.SaveSegments(id, string(raw)); err != nil {
+		if err := writer.SaveOriginalSegments(id, string(raw)); err != nil {
 			log.Printf("[Jobs] Failed to save segments for job %s: %v", id, err)
 			primitives.JSendError(c, "failed to save segments", http.StatusInternalServerError, nil)
 			return
