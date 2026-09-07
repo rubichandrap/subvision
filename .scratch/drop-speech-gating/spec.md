@@ -2,6 +2,10 @@ Promoted: #31
 
 # Spec: Drop SPEECH_GATING (failed XY experiment)
 
+**GitHub issue:** #31
+
+**Status:** closed 2026-09-07 — shipped via e59ef53 (GitHub: #31 closed).
+
 ## Problem Statement
 
 Speech gating (ffmpeg `silencedetect` finding speech windows, decoding only
