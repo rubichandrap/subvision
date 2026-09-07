@@ -1,22 +1,21 @@
-package transcriber
+package transcript
 
 import "strings"
 
-// Split tuning: a new segment starts at a word gap of at least this many
-// seconds; the word and duration caps force a cut when speech never pauses.
+// Split tuning per ADR-0005: a new segment starts at a natural speech pause
+// of at least 0.4 seconds; maximum word count (12) and duration (8.0s) caps
+// force a cut when speech never pauses.
 const (
-	splitPauseSeconds = 0.4
-	splitMaxWords     = 12
-	splitMaxSeconds   = 8.0
+	SplitPauseSeconds = 0.4
+	SplitMaxWords     = 12
+	SplitMaxSeconds   = 8.0
 )
 
-// SplitSegments cuts long Transcription Segments into shorter ones on natural
-// speech pauses: a word starting at least splitPauseSeconds after the previous
-// word ends begins a new segment. The word-count and duration caps force a cut
-// mid-flow when there is no pause. Word timestamps pass through verbatim and
-// each piece's text is rebuilt from its words; segments without words and
-// unsplittable ones pass through untouched.
-func SplitSegments(segments []Segment) []Segment {
+// Split cuts long Transcription Segments into shorter ones on natural
+// speech pauses (>= 0.4s), capping pieces at 12 words and 8.0s duration per ADR-0005.
+// Word timestamps pass through verbatim and each piece's text is rebuilt from
+// its words; segments without words and unsplittable ones pass through untouched.
+func Split(segments []Segment) []Segment {
 	if segments == nil {
 		return nil
 	}
@@ -26,7 +25,6 @@ func SplitSegments(segments []Segment) []Segment {
 	}
 	return out
 }
-
 func splitOne(segment Segment) []Segment {
 	if len(segment.Words) == 0 {
 		return []Segment{segment}
@@ -39,7 +37,7 @@ func splitOne(segment Segment) []Segment {
 		spanWithCandidate := segment.Words[i].End - anchor
 		// A cut starts a new piece at word i: caps keep every piece within
 		// bounds, a pause keeps pieces on natural speech breaks.
-		if inPiece >= splitMaxWords || spanWithCandidate >= splitMaxSeconds || gap >= splitPauseSeconds {
+		if inPiece >= SplitMaxWords || spanWithCandidate >= SplitMaxSeconds || gap >= SplitPauseSeconds {
 			boundaries = append(boundaries, i)
 			anchor = segment.Words[i].Start
 		}
@@ -56,7 +54,7 @@ func splitOne(segment Segment) []Segment {
 }
 
 // segmentFromWords rebuilds a Segment from its words: the text is the word
-// texts joined, the window is the first and last word's bounds.
+// texts joined with spaces, the window is the first and last word's bounds.
 func segmentFromWords(words []Word) Segment {
 	texts := make([]string, len(words))
 	for i, word := range words {

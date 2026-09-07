@@ -6,7 +6,7 @@ package vfxjob
 
 import (
 	"github.com/rubichandrap/subvision/server/internal/editspec"
-	"github.com/rubichandrap/subvision/server/internal/transcriber"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
 // QueueName is the queue the server publishes VFX Jobs to and the vfx service
@@ -44,7 +44,7 @@ const FailedQueueName = "job_failed"
 type Job struct {
 	UploadID  string                `json:"uploadId"`
 	ObjectKey string                `json:"objectKey"`
-	Segments  []transcriber.Segment `json:"segments"`
+	Segments  []transcript.Segment `json:"segments"`
 	EditSpec  *editspec.Spec        `json:"editSpec,omitempty"`
 }
 

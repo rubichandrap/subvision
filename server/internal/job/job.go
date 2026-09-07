@@ -13,7 +13,7 @@ import (
 
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/editspec"
-	"github.com/rubichandrap/subvision/server/internal/transcriber"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
 type Stage string
@@ -275,7 +275,7 @@ func (s *Store) Rerender(id string) (*Process, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read stored segments for job %s: %w", id, err)
 	}
-	var segments []transcriber.Segment
+	var segments []transcript.Segment
 	if len(stored) > 0 {
 		if err := json.Unmarshal([]byte(stored), &segments); err != nil {
 			return nil, fmt.Errorf("stored segments for job %s are corrupt: %w", id, err)
@@ -346,7 +346,7 @@ func (s *Store) SaveOriginalSegments(uploadID, segmentsJSON string) error {
 
 // SaveSegments enforces that the Process is in rendering or done stage, validates timings,
 // rescales words against whisper originals, and saves to job_segments.
-func (s *Store) SaveSegments(id string, segments []transcriber.Segment) ([]transcriber.Segment, error) {
+func (s *Store) SaveSegments(id string, segments []transcript.Segment) ([]transcript.Segment, error) {
 	proc, err := s.Get(id)
 	if err != nil {
 		return nil, err
@@ -358,20 +358,20 @@ func (s *Store) SaveSegments(id string, segments []transcriber.Segment) ([]trans
 			Op:    "editable",
 		}
 	}
-	if err := transcriber.ValidateSegmentTiming(segments); err != nil {
+	if err := transcript.ValidateTiming(segments); err != nil {
 		return nil, err
 	}
 
 	// Rescale word offsets against whisper originals if present
 	if stored, err := s.Segments(id); err == nil && len(stored) > 0 {
-		var original []transcriber.Segment
+		var original []transcript.Segment
 		if json.Unmarshal([]byte(stored), &original) == nil {
 			for i := range segments {
 				if i >= len(original) {
 					break
 				}
 				if segments[i].Start != original[i].Start || segments[i].End != original[i].End {
-					segments[i].Words = transcriber.RescaleWords(original[i], segments[i])
+					segments[i].Words = transcript.RescaleWords(original[i], segments[i])
 				} else {
 					segments[i].Words = original[i].Words
 				}

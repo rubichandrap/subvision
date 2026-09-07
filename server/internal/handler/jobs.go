@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rubichandrap/subvision/server/internal/job"
 	"github.com/rubichandrap/subvision/server/internal/primitives"
-	"github.com/rubichandrap/subvision/server/internal/transcriber"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
 // ProcessManager is the unified port the HTTP handler depends on: it covers
@@ -26,7 +26,7 @@ type ProcessManager interface {
 	List() ([]job.Process, error)
 	Get(id string) (*job.Process, error)
 	Segments(id string) (string, error)
-	SaveSegments(id string, segments []transcriber.Segment) ([]transcriber.Segment, error)
+	SaveSegments(id string, segments []transcript.Segment) ([]transcript.Segment, error)
 	Rerender(id string) (*job.Process, error)
 	Delete(id string) (bool, error)
 }
@@ -123,7 +123,7 @@ func RegisterJobs(r *gin.Engine, manager ProcessManager, outputs OutputOpener) {
 			primitives.JSendFail(c, gin.H{"segments": "request body must carry a segments array"}, http.StatusBadRequest)
 			return
 		}
-		var segments []transcriber.Segment
+		var segments []transcript.Segment
 		if err := json.Unmarshal(payload.Segments, &segments); err != nil {
 			primitives.JSendFail(c, gin.H{"segments": "segments must decode as timed text"}, http.StatusBadRequest)
 			return
@@ -211,7 +211,7 @@ func respondWithError(c *gin.Context, id string, err error) {
 		primitives.JSendFail(c, gin.H{"id": sc.Error()}, http.StatusConflict)
 		return
 	}
-	var valErr *transcriber.ValidationError
+	var valErr *transcript.ValidationError
 	if errors.As(err, &valErr) {
 		primitives.JSendFail(c, gin.H{"segments": valErr.Error()}, http.StatusBadRequest)
 		return

@@ -76,13 +76,15 @@ func main() {
 		log.Fatalf("Failed to prepare job store: %v", err)
 	}
 	// consumers
+	trans := transcriber.New(transcriber.Settings{
+		ModelPath: env.WhisperModelPath,
+	})
 	proc := processor.New(processor.Options{
-		Publisher:        vfxJobPublisher,
-		Store:            objectStore,
-		Transcribe:       transcriber.Transcribe,
-		TmpDir:           env.TmpDir,
-		WhisperModelPath: env.WhisperModelPath,
-		Lifecycle:        jobs,
+		Publisher:  vfxJobPublisher,
+		Store:      objectStore,
+		Transcribe: trans.Transcribe,
+		TmpDir:     env.TmpDir,
+		Lifecycle:  jobs,
 	})
 	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)
 	err = uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {

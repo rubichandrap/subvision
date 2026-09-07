@@ -13,7 +13,7 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/editspec"
 	"github.com/rubichandrap/subvision/server/internal/job"
-	"github.com/rubichandrap/subvision/server/internal/transcriber"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
 
@@ -29,7 +29,7 @@ type ObjectStore interface {
 
 // TranscribeFunc converts an audio file into Transcription Segments; the
 // whisper-backed implementation is wired in main.
-type TranscribeFunc func(settings transcriber.Settings, audioPath string) ([]transcriber.Segment, error)
+type TranscribeFunc func(audioPath string) ([]transcript.Segment, error)
 
 // ConvertFunc extracts a wav from a video file; the ffmpeg-backed
 // implementation is wired in New.
@@ -40,7 +40,6 @@ type Options struct {
 	Store            ObjectStore
 	Transcribe       TranscribeFunc
 	TmpDir           string
-	WhisperModelPath string
 	Lifecycle        job.Tracker // optional
 }
 
@@ -52,7 +51,6 @@ type Processor struct {
 	lifecycle       job.Tracker
 	videoTmpDir     string
 	audioTmpDir     string
-	whisperSettings transcriber.Settings
 }
 
 func New(opts Options) *Processor {
@@ -64,9 +62,6 @@ func New(opts Options) *Processor {
 		lifecycle:   opts.Lifecycle,
 		videoTmpDir: filepath.Join(opts.TmpDir, "videos"),
 		audioTmpDir: filepath.Join(opts.TmpDir, "audios"),
-		whisperSettings: transcriber.Settings{
-			ModelPath: opts.WhisperModelPath,
-		},
 	}
 }
 
@@ -114,7 +109,7 @@ func (p *Processor) ProcessUploadedFile(uploadID, objectKey string, spec *editsp
 	}
 	log.Printf("[Processor] Converted to WAV: %s (window %.3f-%.3f)", audioPath, window[0], window[1])
 
-	segments, err := p.transcribe(p.whisperSettings, audioPath)
+	segments, err := p.transcribe(audioPath)
 	if err != nil {
 		return fmt.Errorf("failed to transcribe audio: %w", err)
 	}

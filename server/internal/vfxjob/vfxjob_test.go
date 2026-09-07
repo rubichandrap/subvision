@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/rubichandrap/subvision/server/internal/editspec"
-	"github.com/rubichandrap/subvision/server/internal/transcriber"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
 // The wire shape is the contract: the vfx service parses exactly these JSON
@@ -15,8 +15,8 @@ func TestJobWireShape(t *testing.T) {
 	body, err := json.Marshal(Job{
 		UploadID:  "u1",
 		ObjectKey: "uploads/u1",
-		Segments: []transcriber.Segment{
-			{Start: 0, End: 1.5, Text: "hello", Words: []transcriber.Word{{Text: "hello", Start: 0, End: 1.5}}},
+		Segments: []transcript.Segment{
+			{Start: 0, End: 1.5, Text: "hello", Words: []transcript.Word{{Text: "hello", Start: 0, End: 1.5}}},
 		},
 	})
 	if err != nil {
@@ -35,8 +35,8 @@ func TestJobEditSpecWireShape(t *testing.T) {
 	body, err := json.Marshal(Job{
 		UploadID:  "u1",
 		ObjectKey: "uploads/u1",
-		Segments: []transcriber.Segment{
-			{Start: 0, End: 1.5, Text: "hello", Words: []transcriber.Word{{Text: "hello", Start: 0, End: 1.5}}},
+		Segments: []transcript.Segment{
+			{Start: 0, End: 1.5, Text: "hello", Words: []transcript.Word{{Text: "hello", Start: 0, End: 1.5}}},
 		},
 		EditSpec: &editspec.Spec{
 			Trim:      editspec.Trim{Start: 2, End: 9},

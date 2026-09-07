@@ -9,6 +9,9 @@ the Next.js client uploads videos with tus.
 
 - **Upload** — a video a user uploads through the tus endpoint. Stored in object
   storage under the key `uploads/<id>`, where `<id>` is the tus upload id.
+- **Transcript** — the ordered sequence of Transcription Segments representing
+  the spoken audio of an Upload. Produced during transcription, persisted in the
+  job store, and editable by the user before a Re-render.
 - **Transcription Segment** — one timed subtitle unit produced by whisper:
   start time, end time, text, and the Timed Words inside it. The unit that
   flows from transcription into rendering.
