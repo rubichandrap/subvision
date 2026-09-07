@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -21,6 +22,7 @@ import (
 type JobReader interface {
 	List() ([]job.Process, error)
 	Get(id string) (*job.Process, error)
+	Segments(id string) (string, error)
 }
 
 // JobDeleter removes a Process record entirely; implemented by the job store.
@@ -92,6 +94,28 @@ func RegisterJobs(r *gin.Engine, jobs JobReader, deleter JobDeleter, outputs Out
 			return
 		}
 		primitives.JSendSuccess(c, newProcessResponse(process))
+	})
+
+	// Read segments serves the stored transcript for one process, so any
+	// client can fetch it without touching the queue or the renderer. A
+	// process with nothing stored yet reads as an empty list.
+	r.GET("/jobs/:id/segments", func(c *gin.Context) {
+		id := c.Param("id")
+		if _, err := jobs.Get(id); err != nil {
+			respondWithError(c, id, err)
+			return
+		}
+		stored, err := jobs.Segments(id)
+		if err != nil {
+			log.Printf("[Jobs] Failed to read segments for job %s: %v", id, err)
+			primitives.JSendError(c, "failed to read segments", http.StatusInternalServerError, nil)
+			return
+		}
+		segments := json.RawMessage(stored)
+		if len(stored) == 0 {
+			segments = json.RawMessage("[]")
+		}
+		primitives.JSendSuccess(c, gin.H{"segments": segments})
 	})
 
 	r.GET("/jobs/:id/download", func(c *gin.Context) {

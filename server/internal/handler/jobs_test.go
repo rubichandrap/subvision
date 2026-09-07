@@ -153,10 +153,57 @@ func TestFailedJobSurfacesItsReason(t *testing.T) {
 	}
 }
 
+func TestSegmentsEndpointServesStoredTranscript(t *testing.T) {
+	router, store, _, _ := newJobsRouter(t)
+
+	if err := store.Create("u1", "clip.mp4"); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// Nothing stored yet: empty list, not an error.
+	rec := doGet(t, router, "/jobs/u1/segments")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /jobs/u1/segments = %d: %s", rec.Code, rec.Body)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `"segments":[]`) {
+		t.Errorf("unstored segments must read as an empty list: %s", body)
+	}
+
+	const stored = `[{"start":1.5,"end":2.5,"text":"hello","words":[{"text":"hello","start":1.6,"end":2.4}]}]`
+	if err := store.SaveSegments("u1", stored); err != nil {
+		t.Fatalf("save segments: %v", err)
+	}
+	if recorded, err := store.MarkRendering("u1"); err != nil || !recorded {
+		t.Fatalf("mark rendering: recorded=%v err=%v", recorded, err)
+	}
+
+	rec = doGet(t, router, "/jobs/u1/segments")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /jobs/u1/segments = %d: %s", rec.Code, rec.Body)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"status":"success"`) {
+		t.Errorf("segments body = %s, want a jsend success", body)
+	}
+	for _, want := range []string{`"start":1.5`, `"text":"hello"`, `"words":[{"text":"hello","start":1.6,"end":2.4}]`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("segments body must carry the render job shape (%s): %s", want, body)
+		}
+	}
+
+	// Segments outlive the queue message: still readable after done.
+	if recorded, err := store.MarkDone("u1", "outputs/u1"); err != nil || !recorded {
+		t.Fatalf("mark done: recorded=%v err=%v", recorded, err)
+	}
+	if rec := doGet(t, router, "/jobs/u1/segments"); !strings.Contains(rec.Body.String(), `"text":"hello"`) {
+		t.Errorf("segments must survive done: %s", rec.Body)
+	}
+}
+
 func TestUnknownJobIDReturns404(t *testing.T) {
 	router, _, _, _ := newJobsRouter(t)
 
-	for _, path := range []string{"/jobs/missing", "/jobs/missing/download"} {
+	for _, path := range []string{"/jobs/missing", "/jobs/missing/download", "/jobs/missing/segments"} {
 		rec := doGet(t, router, path)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("GET %s = %d, want 404", path, rec.Code)
