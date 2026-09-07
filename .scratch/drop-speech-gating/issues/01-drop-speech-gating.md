@@ -8,7 +8,7 @@ Promoted: #36
 
 **Status:** closed 2026-09-07 — shipped (GitHub: #36 closed)
 
-- [ ] Single decode path; no gating flag or silence detection anywhere
-- [ ] Onset gate still holds on the re-recorded fixture
-- [ ] Gating tests removed; remaining suite passes
-- [ ] No gating references left in README, env examples, glossary, or code comments
+- [x] Single decode path; no gating flag or silence detection anywhere
+- [x] Onset gate still holds on the re-recorded fixture
+- [x] Gating tests removed; remaining suite passes
+- [x] No gating references left in README, env examples, glossary, or code comments

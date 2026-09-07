@@ -14,10 +14,10 @@ The server and the vfx service agree on one VFX Job contract: the queue name and
 
 ## Acceptance criteria
 
-- [ ] Publishing a VFX Job from the server delivers it to the vfx service (visible in the queue's management UI)
-- [ ] Queue name and payload shape are each defined once per runtime and derived from that definition
-- [ ] A malformed payload produces a clear error log and is not silently dropped
-- [ ] The transcription's Transcription Segments reach the vfx service unchanged
+- [x] Publishing a VFX Job from the server delivers it to the vfx service (visible in the queue's management UI)
+- [x] Queue name and payload shape are each defined once per runtime and derived from that definition
+- [x] A malformed payload produces a clear error log and is not silently dropped
+- [x] The transcription's Transcription Segments reach the vfx service unchanged
 
 ## Blocked by
 

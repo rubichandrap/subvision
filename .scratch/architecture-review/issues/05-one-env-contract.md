@@ -14,10 +14,10 @@ One documented environment contract across the three services: the variable name
 
 ## Acceptance criteria
 
-- [ ] The full variable contract is documented in one place (README or a dedicated env doc)
-- [ ] All three loaders fail loudly on missing required variables with a clear message naming the variable
-- [ ] No loader silently falls back to default credentials or URLs
-- [ ] All services boot using only documented variables
+- [x] The full variable contract is documented in one place (README or a dedicated env doc)
+- [x] All three loaders fail loudly on missing required variables with a clear message naming the variable
+- [x] No loader silently falls back to default credentials or URLs
+- [x] All services boot using only documented variables
 
 ## Blocked by
 

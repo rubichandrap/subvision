@@ -14,12 +14,12 @@ The vfx service's render path becomes one module that owns everything render-rel
 
 ## Acceptance criteria
 
-- [ ] A synthetic VFX Job results in a rendered Output object at `outputs/<id>` in object storage
-- [ ] No caller passes directory paths where file paths are required; the module derives every path it uses
-- [ ] Render options (frame rate, dimensions) come from configuration, not hardcoded call sites
-- [ ] Failed jobs are requeued; repeated failures dead-letter after a bounded number of attempts
-- [ ] A successful render publishes a JobCompleted event carrying the upload id and output key
-- [ ] Consumer prefetch is configuration rather than a machine-specific constant
+- [x] A synthetic VFX Job results in a rendered Output object at `outputs/<id>` in object storage
+- [x] No caller passes directory paths where file paths are required; the module derives every path it uses
+- [x] Render options (frame rate, dimensions) come from configuration, not hardcoded call sites
+- [x] Failed jobs are requeued; repeated failures dead-letter after a bounded number of attempts
+- [x] A successful render publishes a JobCompleted event carrying the upload id and output key
+- [x] Consumer prefetch is configuration rather than a machine-specific constant
 
 ## Blocked by
 

@@ -14,10 +14,10 @@ The abandoned synchronous subtitle pipeline is deleted: the commented-out block 
 
 ## Acceptance criteria
 
-- [ ] Unused server packages, the commented-out processor block, and the dead parameter are removed
-- [ ] Duplicated client hooks are deduplicated
-- [ ] The server builds and the client typechecks after deletion
-- [ ] Nothing that remains references the deleted code
+- [x] Unused server packages, the commented-out processor block, and the dead parameter are removed
+- [x] Duplicated client hooks are deduplicated
+- [x] The server builds and the client typechecks after deletion
+- [x] Nothing that remains references the deleted code
 
 ## Blocked by
 

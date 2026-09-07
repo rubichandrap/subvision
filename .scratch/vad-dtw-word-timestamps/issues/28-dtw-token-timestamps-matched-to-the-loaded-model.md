@@ -17,15 +17,15 @@ expose, and the owner ruled vendored third-party code is never edited
 (#27's vendoring reverted; ADR-0007 second amendment). Within-speech
 heuristic drift is accepted; the onset gate stands.
 
-- [ ] With the configured model, model load enables DTW token timestamps with
+- [x] With the configured model, model load enables DTW token timestamps with
       the matching alignment-heads preset; the vendored shim change is minimal
       and localized.
-- [ ] An unrecognized model disables DTW with a warning and transcription
+- [x] An unrecognized model disables DTW with a warning and transcription
       still succeeds on heuristic timestamps.
-- [ ] Unit tests cover preset resolution for the known model, fallback for an
+- [x] Unit tests cover preset resolution for the known model, fallback for an
       unknown one, and the wiring through the threaded settings.
-- [ ] The onset fixture regen command runs with VAD+DTW enabled; the
+- [x] The onset fixture regen command runs with VAD+DTW enabled; the
       regenerated segments are recorded; mid-speech alignment is compared
       against the VAD-only numbers and the delta noted on the parent issue.
-- [ ] The vfx fixture suite is green on the regenerated segments (the onset
+- [x] The vfx fixture suite is green on the regenerated segments (the onset
       gate still locks).

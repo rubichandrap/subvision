@@ -19,17 +19,17 @@ stays stock). VAD gating survives, rebuilt in the transcriber's own code
 (ffmpeg silencedetect + windowed decode) behind `VAD_GATING`; see ADR-0007's
 second amendment and the regenerated onset fixture.
 
-- [ ] Setting the VAD model path env (named to mirror the whisper model path
+- [x] Setting the VAD model path env (named to mirror the whisper model path
       var) makes the decoder run with VAD enabled against the configured
       Silero model; the vendored shim change is minimal and localized.
-- [ ] Unset env preserves today's behavior exactly — no VAD fields touched.
-- [ ] Configured-but-unloadable VAD model fails transcription with a clear
+- [x] Unset env preserves today's behavior exactly — no VAD fields touched.
+- [x] Configured-but-unloadable VAD model fails transcription with a clear
       error; zero detected speech yields empty segments plus a warning log.
-- [ ] Unit tests at the transcriber seam with fakes: a configured VAD path
+- [x] Unit tests at the transcriber seam with fakes: a configured VAD path
       reaches the decoder context, an unset one leaves it untouched, and the
       policy decisions behave as specified.
-- [ ] The onset fixture regen command runs with VAD enabled; the regenerated
+- [x] The onset fixture regen command runs with VAD enabled; the regenerated
       segments are recorded; the first reported word is within ±100 ms of the
       measured speech onset (≈3.10 s); the vfx fixture suite is green on the
       regenerated segments.
-- [ ] Measured numbers posted as evidence on the parent issue.
+- [x] Measured numbers posted as evidence on the parent issue.

@@ -13,11 +13,11 @@ the shipped combination.
 
 **Status:** closed 2026-09-06 — docs shipped (GitHub: #29 closed)
 
-- [ ] The server env example gains the VAD model path var with a comment; the
+- [x] The server env example gains the VAD model path var with a comment; the
       README whisper setup documents the Silero download step and the unset/set
       semantics.
-- [ ] Final fixture numbers (VAD+DTW) are posted on the parent issue,
+- [x] Final fixture numbers (VAD+DTW) are posted on the parent issue,
       including the VAD-only vs VAD+DTW comparison.
-- [ ] Reporter ear check on the original videos passes: no caption visible
+- [x] Reporter ear check on the original videos passes: no caption visible
       before speech, anywhere.
-- [ ] The parent issue is closed with the acceptance evidence.
+- [x] The parent issue is closed with the acceptance evidence.

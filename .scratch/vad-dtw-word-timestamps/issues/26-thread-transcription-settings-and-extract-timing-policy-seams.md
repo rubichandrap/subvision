@@ -12,12 +12,12 @@ before either mechanism lands.
 
 **Status:** closed 2026-09-06 — shipped (GitHub: #26 closed; mechanism reworked to VAD_GATING, see ADR-0007)
 
-- [ ] Transcription settings (model path, VAD path) flow from server config
+- [x] Transcription settings (model path, VAD path) flow from server config
       into the transcriber as parameters; nothing new is read from the
       environment inside the transcriber.
-- [ ] The VAD-required policy and the model-to-DTW-preset mapping are pure
+- [x] The VAD-required policy and the model-to-DTW-preset mapping are pure
       functions with unit tests (known model resolves its preset; an unknown
       model resolves none).
-- [ ] No behavior change: server and vfx test suites pass unchanged and
+- [x] No behavior change: server and vfx test suites pass unchanged and
       transcription output is unchanged.
-- [ ] The existing threshold-wiring tests keep passing untouched.
+- [x] The existing threshold-wiring tests keep passing untouched.

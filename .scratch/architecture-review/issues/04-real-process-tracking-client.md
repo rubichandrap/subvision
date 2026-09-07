@@ -14,10 +14,10 @@ The client's processes list and detail pages read real Process state from the st
 
 ## Acceptance criteria
 
-- [ ] Uploading a video shows its real Process moving through the pipeline stages
-- [ ] The download button delivers the actual rendered video
-- [ ] No fabricated process ids, sample data, or timer-based simulated progress remain
-- [ ] The pages handle in-flight, done, and failed states from the API
+- [x] Uploading a video shows its real Process moving through the pipeline stages
+- [x] The download button delivers the actual rendered video
+- [x] No fabricated process ids, sample data, or timer-based simulated progress remain
+- [x] The pages handle in-flight, done, and failed states from the API
 
 ## Blocked by
 

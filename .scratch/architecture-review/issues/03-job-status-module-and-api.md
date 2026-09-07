@@ -14,10 +14,10 @@ A job's Process lifecycle (uploaded → transcribing → rendering → done/fail
 
 ## Acceptance criteria
 
-- [ ] An end-to-end run's status is queryable and reflects the real lifecycle stages
-- [ ] A done job's response includes a working download URL for its Output
-- [ ] Unknown job ids return a 404; malformed requests are rejected
-- [ ] The persistence choice is recorded as an ADR (or a decision note on this issue)
+- [x] An end-to-end run's status is queryable and reflects the real lifecycle stages
+- [x] A done job's response includes a working download URL for its Output
+- [x] Unknown job ids return a 404; malformed requests are rejected
+- [x] The persistence choice is recorded as an ADR (or a decision note on this issue)
 
 ## Blocked by
 
