@@ -3,79 +3,79 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Subvision theme — dark-first. All UI color goes through these
-   tokens; no component hardcodes a gray. Light mode is warm paper to sit
-   with the green primary; dark mode stays cool charcoal. */
+/* Subvision theme — neobrutalist chrome. Thick ink borders, solid offset
+   shadows, zero blur. Light mode is warm paper; dark mode is warm espresso
+   (never near-black) with paper borders. Aksen identik di dua mode. */
 
 :root {
-  --background: oklch(0.965 0.025 95);
-  --foreground: oklch(0.25 0.02 85);
-  --card: oklch(0.99 0.012 95);
-  --card-foreground: oklch(0.25 0.02 85);
-  --popover: oklch(0.99 0.012 95);
-  --popover-foreground: oklch(0.25 0.02 85);
-  --primary: oklch(0.44 0.17 142);
-  --primary-foreground: oklch(0.99 0.01 95);
-  --secondary: oklch(0.925 0.03 90);
-  --secondary-foreground: oklch(0.28 0.03 85);
-  --muted: oklch(0.92 0.03 90);
-  --muted-foreground: oklch(0.48 0.03 80);
-  --accent: oklch(0.925 0.045 125);
-  --accent-foreground: oklch(0.28 0.08 135);
-  --destructive: oklch(0.55 0.22 27);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.875 0.03 90);
-  --input: oklch(0.86 0.03 90);
-  --ring: oklch(0.44 0.17 142);
-  --chart-1: oklch(0.44 0.17 142);
-  --chart-2: oklch(0.60 0.15 200);
-  --chart-3: oklch(0.68 0.16 55);
-  --chart-4: oklch(0.60 0.18 330);
-  --chart-5: oklch(0.58 0.17 275);
-  --radius: 0.75rem;
-  --sidebar-background: oklch(0.95 0.028 95);
-  --sidebar-foreground: oklch(0.28 0.03 85);
-  --sidebar-primary: oklch(0.44 0.17 142);
-  --sidebar-primary-foreground: oklch(0.99 0.01 95);
-  --sidebar-accent: oklch(0.925 0.045 125);
-  --sidebar-accent-foreground: oklch(0.28 0.08 135);
-  --sidebar-border: oklch(0.875 0.03 90);
-  --sidebar-ring: oklch(0.44 0.17 142);
+  --background: #fff9ec;
+  --foreground: #141414;
+  --card: #ffffff;
+  --card-foreground: #141414;
+  --popover: #ffffff;
+  --popover-foreground: #141414;
+  --primary: #ffc900;
+  --primary-foreground: #141414;
+  --secondary: #ff90e8;
+  --secondary-foreground: #141414;
+  --muted: #f2e8cf;
+  --muted-foreground: #6b6250;
+  --accent: #90e8ff;
+  --accent-foreground: #141414;
+  --destructive: #ff5c5c;
+  --destructive-foreground: #141414;
+  --border: #141414;
+  --input: #141414;
+  --ring: #2e6bff;
+  --chart-1: #ffc900;
+  --chart-2: #2e6bff;
+  --chart-3: #ff90e8;
+  --chart-4: #00a84d;
+  --chart-5: #7f5cff;
+  --radius: 0.5rem;
+  --sidebar-background: #ffefc7;
+  --sidebar-foreground: #141414;
+  --sidebar-primary: #ffc900;
+  --sidebar-primary-foreground: #141414;
+  --sidebar-accent: #90e8ff;
+  --sidebar-accent-foreground: #141414;
+  --sidebar-border: #141414;
+  --sidebar-ring: #2e6bff;
 }
 
 .dark {
-  --background: oklch(0.125 0.006 250);
-  --foreground: oklch(0.97 0.004 250);
-  --card: oklch(0.165 0.008 250);
-  --card-foreground: oklch(0.97 0.004 250);
-  --popover: oklch(0.175 0.008 250);
-  --popover-foreground: oklch(0.97 0.004 250);
-  --primary: oklch(0.85 0.21 133);
-  --primary-foreground: oklch(0.16 0.05 133);
-  --secondary: oklch(0.22 0.01 250);
-  --secondary-foreground: oklch(0.97 0.004 250);
-  --muted: oklch(0.21 0.01 250);
-  --muted-foreground: oklch(0.66 0.012 250);
-  --accent: oklch(0.24 0.015 250);
-  --accent-foreground: oklch(0.97 0.004 250);
-  --destructive: oklch(0.62 0.22 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.24 0.01 250);
-  --input: oklch(0.26 0.01 250);
-  --ring: oklch(0.85 0.21 133);
-  --chart-1: oklch(0.85 0.21 133);
-  --chart-2: oklch(0.70 0.15 200);
-  --chart-3: oklch(0.75 0.17 55);
-  --chart-4: oklch(0.68 0.20 330);
-  --chart-5: oklch(0.66 0.19 275);
-  --sidebar-background: oklch(0.15 0.008 250);
-  --sidebar-foreground: oklch(0.97 0.004 250);
-  --sidebar-primary: oklch(0.85 0.21 133);
-  --sidebar-primary-foreground: oklch(0.16 0.05 133);
-  --sidebar-accent: oklch(0.24 0.015 250);
-  --sidebar-accent-foreground: oklch(0.97 0.004 250);
-  --sidebar-border: oklch(0.24 0.01 250);
-  --sidebar-ring: oklch(0.85 0.21 133);
+  --background: #2b241c;
+  --foreground: #fff6e5;
+  --card: #3a3128;
+  --card-foreground: #fff6e5;
+  --popover: #3a3128;
+  --popover-foreground: #fff6e5;
+  --primary: #ffc900;
+  --primary-foreground: #141414;
+  --secondary: #ff90e8;
+  --secondary-foreground: #141414;
+  --muted: #4a4034;
+  --muted-foreground: #d9cfb8;
+  --accent: #90e8ff;
+  --accent-foreground: #141414;
+  --destructive: #ff5c5c;
+  --destructive-foreground: #141414;
+  --border: #fff6e5;
+  --input: #fff6e5;
+  --ring: #90e8ff;
+  --chart-1: #ffc900;
+  --chart-2: #90e8ff;
+  --chart-3: #ff90e8;
+  --chart-4: #7df29a;
+  --chart-5: #b79bff;
+  --sidebar-background: #332b21;
+  --sidebar-foreground: #fff6e5;
+  --sidebar-primary: #ffc900;
+  --sidebar-primary-foreground: #141414;
+  --sidebar-accent: #90e8ff;
+  --sidebar-accent-foreground: #141414;
+  --sidebar-border: #fff6e5;
+  --sidebar-ring: #90e8ff;
 }
 
 @theme inline {
@@ -118,6 +118,21 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-space-grotesk), var(--font-inter), ui-sans-serif,
     sans-serif;
+  --font-mono: var(--font-space-mono), ui-monospace, monospace;
+}
+
+/* Solid offset shadows. Border color flips per mode (ink on paper, paper
+   on ink) so one definition serves both. */
+@utility shadow-brutal-sm {
+  box-shadow: 2px 2px 0 0 var(--border);
+}
+
+@utility shadow-brutal {
+  box-shadow: 4px 4px 0 0 var(--border);
+}
+
+@utility shadow-brutal-lg {
+  box-shadow: 6px 6px 0 0 var(--border);
 }
 
 @layer base {
@@ -128,7 +143,8 @@
     @apply bg-background text-foreground;
   }
   ::selection {
-    background: color-mix(in oklch, var(--primary) 30%, transparent);
+    background: var(--primary);
+    color: var(--primary-foreground);
   }
 }
 

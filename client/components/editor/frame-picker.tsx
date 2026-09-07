@@ -26,7 +26,7 @@ export function FramePicker({ frame, onChange, disabled }: FramePickerProps) {
         <p className="mt-0.5 text-xs text-muted-foreground">
           The canvas the video is cropped to fill.
         </p>
-        <div className="mt-3 grid grid-cols-5 gap-1.5">
+        <div className="mt-3 grid grid-cols-5 gap-2">
           {FRAME_PRESETS.map((preset) => {
             const active = frame.preset === preset.name;
             return (
@@ -38,10 +38,10 @@ export function FramePicker({ frame, onChange, disabled }: FramePickerProps) {
                 onClick={() =>
                   onChange({ ...frame, preset: preset.name, ratio: preset.ratio })
                 }
-                className={`flex flex-col items-center gap-1.5 rounded-lg border px-1 py-2.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+                className={`flex flex-col items-center gap-1.5 border-2 border-border px-1 py-2.5 text-xs font-bold shadow-brutal-sm transition-all duration-100 disabled:opacity-50 disabled:shadow-none ${
                   active
-                    ? 'border-primary bg-primary/15 text-primary'
-                    : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground -translate-x-0.5 -translate-y-0.5 shadow-brutal'
+                    : 'bg-card text-muted-foreground hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-brutal'
                 }`}
               >
                 <span
@@ -61,10 +61,10 @@ export function FramePicker({ frame, onChange, disabled }: FramePickerProps) {
             type="button"
             disabled={disabled}
             onClick={() => onChange({ ...frame, preset: 'free' })}
-            className={`flex flex-col items-center gap-1.5 rounded-lg border px-1 py-2.5 text-xs font-medium transition-colors disabled:opacity-50 ${
+            className={`flex flex-col items-center gap-1.5 border-2 border-border px-1 py-2.5 text-xs font-bold shadow-brutal-sm transition-all duration-100 disabled:opacity-50 disabled:shadow-none ${
               frame.preset === 'free'
-                ? 'border-primary bg-primary/15 text-primary'
-                : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                ? 'bg-primary text-primary-foreground -translate-x-0.5 -translate-y-0.5 shadow-brutal'
+                : 'bg-card text-muted-foreground hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-brutal'
             }`}
           >
             <svg viewBox="0 0 22 22" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.6">

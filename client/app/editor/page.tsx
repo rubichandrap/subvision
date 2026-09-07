@@ -205,12 +205,7 @@ function Editor() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-h-[420px] flex-col gap-4 lg:min-h-[560px]">
             <div
-              className="flex min-h-0 flex-1 items-center justify-center rounded-2xl border border-border/60 p-4 sm:p-6"
-              style={{
-                backgroundImage:
-                  'radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0)',
-                backgroundSize: '24px 24px',
-              }}
+              className="flex min-h-0 flex-1 items-center justify-center border-2 border-border bg-muted/30 p-4 shadow-brutal-sm sm:p-6"
             >
               <FramePreview
                 src={video.previewUrl}
@@ -263,7 +258,7 @@ function Editor() {
                   }
                   disabled={uploading}
                 />
-                <p className="mt-3 rounded-lg border border-border/60 bg-card/60 p-2.5 text-xs leading-relaxed text-muted-foreground">
+                <p className="mt-3 border-2 border-border bg-muted/50 p-2.5 font-mono text-xs leading-relaxed text-muted-foreground">
                   The preview shows your caption style. Words appear once transcription finishes.
                 </p>
               </TabsContent>
@@ -276,7 +271,7 @@ function Editor() {
                 />
               </TabsContent>
             </Tabs>
-            <div className="mt-4 flex items-center gap-2 border-t border-border/60 pt-3">
+            <div className="mt-4 flex items-center gap-2 border-t-2 border-border pt-3">
               <Badge variant="secondary" className="font-normal">
                 <FileVideo2 className="mr-1 h-3 w-3" />
                 {spec.frame.preset === 'free'

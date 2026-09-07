@@ -96,7 +96,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
         Back to the gallery
       </Link>
 
-      <Card className="border-border/70 bg-card/50 p-5">
+      <Card className="border-2 p-5">
         <div className="flex flex-wrap items-center gap-3">
           <div className="min-w-0 flex-1">
             <h2 className="truncate font-display text-xl font-semibold">
@@ -157,14 +157,14 @@ export function ProcessDetails({ processId }: { processId: string }) {
               <React.Fragment key={stage}>
                 <div className="flex flex-col items-center gap-1.5">
                   <div
-                    className={`flex h-8 w-8 items-center justify-center rounded-full border ${
+                    className={`flex h-8 w-8 items-center justify-center border-2 border-border ${
                       isCurrent && inFlight
-                        ? 'border-amber-400/60 bg-amber-400/10 text-amber-400'
+                        ? 'bg-primary text-primary-foreground shadow-brutal-sm'
                         : isCurrent && process.stage === 'failed'
-                          ? 'border-red-500/60 bg-red-500/10 text-red-500'
+                          ? 'bg-destructive text-destructive-foreground shadow-brutal-sm'
                           : reached
-                            ? 'border-primary/60 bg-primary/15 text-primary'
-                            : 'border-border bg-card text-muted-foreground/50'
+                            ? 'bg-[#7df29a] text-[#141414]'
+                            : 'bg-muted text-muted-foreground'
                     }`}
                   >
                     {isCurrent && inFlight ? (
@@ -187,8 +187,8 @@ export function ProcessDetails({ processId }: { processId: string }) {
                 </div>
                 {!isLast && (
                   <div
-                    className={`mx-2 mb-5 h-px flex-1 ${
-                      currentStageIndex > index ? 'bg-primary/60' : 'bg-border'
+                    className={`mx-2 mb-5 h-[3px] flex-1 ${
+                      currentStageIndex > index ? 'bg-primary border border-border' : 'bg-muted border border-border'
                     }`}
                   />
                 )}
@@ -198,16 +198,16 @@ export function ProcessDetails({ processId }: { processId: string }) {
         </div>
 
         {process.stage === 'failed' && process.reason && (
-          <div className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3.5 text-sm text-red-400">
+          <div className="mt-5 border-2 border-border bg-destructive p-3.5 text-sm font-bold text-destructive-foreground shadow-brutal-sm">
             This process failed: {process.reason}
           </div>
         )}
       </Card>
 
       {done ? (
-        <Card className="overflow-hidden border-border/70 bg-card/50 p-0">
-          <div className="flex items-center justify-between border-b border-border/60 px-5 py-3.5">
-            <p className="font-display text-sm font-semibold">Your captioned video</p>
+        <Card className="overflow-hidden border-2 p-0">
+          <div className="flex items-center justify-between border-b-2 border-border bg-primary px-5 py-3.5">
+            <p className="font-mono text-sm font-bold uppercase tracking-wide text-primary-foreground">Your captioned video</p>
           </div>
           <video
             src={downloadUrl(process)}

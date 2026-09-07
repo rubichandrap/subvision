@@ -15,12 +15,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isGallery = pathname.startsWith('/processes');
 
   return (
-    <div className="flex min-h-screen flex-col bg-background selection:bg-primary/20 selection:text-primary">
-      <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-md">
+    <div className="flex min-h-screen flex-col bg-background selection:bg-primary selection:text-primary-foreground">
+      <header className="sticky top-0 z-40 border-b-2 border-border bg-background">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-6">
             <Link href="/" className="group flex items-center gap-2.5">
-              <span className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 text-primary shadow-xs transition-colors group-hover:border-primary/50 group-hover:bg-primary/20">
+              <span className="flex h-9 w-9 items-center justify-center border-2 border-border bg-primary text-primary-foreground shadow-brutal-sm transition-all duration-100 group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-brutal">
                 <Captions className="h-4.5 w-4.5" />
               </span>
               <span className="font-display text-base font-semibold tracking-tight sm:text-lg">
@@ -28,14 +28,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </span>
             </Link>
 
-            <nav className="hidden items-center gap-1 sm:flex">
+            <nav className="hidden items-center gap-2 sm:flex">
               <Link
                 href="/"
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  'inline-flex items-center gap-1.5 border-2 px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wide transition-all duration-100',
                   isHome
-                    ? 'bg-accent/80 text-foreground font-semibold'
-                    : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'
+                    ? 'border-border bg-primary text-primary-foreground shadow-brutal-sm'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-accent-foreground'
                 )}
               >
                 <Film className="h-3.5 w-3.5" />
@@ -44,10 +44,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/processes"
                 className={cn(
-                  'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  'inline-flex items-center gap-1.5 border-2 px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wide transition-all duration-100',
                   isGallery
-                    ? 'bg-accent/80 text-foreground font-semibold'
-                    : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'
+                    ? 'border-border bg-primary text-primary-foreground shadow-brutal-sm'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-accent-foreground'
                 )}
               >
                 <FolderOpen className="h-3.5 w-3.5" />
@@ -59,12 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2">
             {/* Mobile nav links */}
             <nav className="flex items-center gap-1 sm:hidden">
-              <Button
-                variant={isGallery ? 'secondary' : 'ghost'}
-                size="sm"
-                asChild
-                className="h-8 px-2.5 text-xs"
-              >
+              <Button size="sm" asChild className="h-9 gap-1.5 border-2 px-3 text-xs sm:text-sm font-bold shadow-brutal-sm">
                 <Link href="/processes">Gallery</Link>
               </Button>
             </nav>
@@ -72,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
 
             {!isHome && (
-              <Button size="sm" asChild className="h-9 gap-1.5 px-3 text-xs sm:text-sm font-medium shadow-xs">
+              <Button size="sm" asChild className="h-9 gap-1.5 px-3 text-xs sm:text-sm font-bold">
                 <Link href="/">
                   <Plus className="h-3.5 w-3.5" />
                   <span>New video</span>
@@ -83,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="flex-1">{children}</main>
-      <footer className="border-t border-border/60 bg-background/50">
+      <footer className="border-t-2 border-border bg-muted/40">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 text-center sm:flex-row sm:text-left sm:px-6">
           <p className="text-xs text-muted-foreground">
             Subvision. Video reframing and animated subtitles.

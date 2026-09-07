@@ -75,7 +75,7 @@ export function DeleteProcessDialog({
             removed from the gallery and storage. This cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="border-2 border-border bg-destructive p-2 text-sm font-bold text-destructive-foreground">{error}</p>}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
@@ -84,7 +84,7 @@ export function DeleteProcessDialog({
               event.preventDefault();
               void handleDelete();
             }}
-            className="bg-red-600 text-white hover:bg-red-600/90"
+            className="bg-destructive text-destructive-foreground hover:bg-destructive"
           >
             {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
             Delete forever
@@ -139,11 +139,11 @@ function GalleryCard({ process }: { process: Process }) {
   const failed = process.stage === 'failed';
 
   return (
-    <div className="group relative transition-all duration-200 hover:-translate-y-0.5">
+    <div className="group relative transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5">
       <Link href={`/processes/${process.id}`} className="block focus-visible:outline-none">
-        <Card className="overflow-hidden rounded-xl border border-border/70 bg-card p-0 shadow-xs transition-all duration-200 group-hover:border-primary/50 group-hover:shadow-md">
-          {/* Video / Preview Stage */}
-          <div className="relative aspect-video overflow-hidden bg-neutral-900 dark:bg-neutral-950">
+        <Card className="overflow-hidden rounded-lg border-2 p-0 transition-all duration-100 group-hover:shadow-brutal-lg">
+          {/* Video / Preview Stage — stays neutral black, never brutal */}
+          <div className="relative aspect-video overflow-hidden border-b-2 border-border bg-neutral-900 dark:bg-neutral-950">
             {src ? (
               <>
                 {/* Ambient blurred backdrop fills pillarbox for vertical / 9:16 videos */}
@@ -177,7 +177,7 @@ function GalleryCard({ process }: { process: Process }) {
 
                 {/* Hover Play Hint Overlay */}
                 <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/25 opacity-0 backdrop-blur-[1px] transition-opacity duration-200 group-hover:opacity-100">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-black shadow-lg">
+                  <div className="flex h-10 w-10 items-center justify-center border-2 border-border bg-primary text-primary-foreground shadow-brutal-sm">
                     <Play className="h-4 w-4 fill-current ml-0.5" />
                   </div>
                 </div>
@@ -187,7 +187,7 @@ function GalleryCard({ process }: { process: Process }) {
                   href={src}
                   download={process.filename || 'captioned-video.mp4'}
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute bottom-2.5 left-2.5 z-30 inline-flex h-7 items-center gap-1.5 rounded-md border border-border/80 bg-background/90 px-2 text-xs font-medium text-foreground opacity-0 shadow-xs backdrop-blur-md transition-all duration-200 hover:bg-background group-hover:opacity-100"
+                  className="absolute bottom-2.5 left-2.5 z-30 inline-flex h-7 items-center gap-1.5 border-2 border-border bg-primary px-2 text-xs font-bold text-primary-foreground opacity-0 shadow-brutal-sm transition-all duration-100 group-hover:opacity-100"
                   title="Download MP4"
                 >
                   <Download className="h-3.5 w-3.5" />
@@ -195,26 +195,26 @@ function GalleryCard({ process }: { process: Process }) {
                 </a>
               </>
             ) : failed ? (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center bg-rose-500/5 dark:bg-rose-950/20">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-rose-500/30 bg-rose-500/10 text-rose-500">
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2 border-2 border-border bg-destructive p-4 text-center">
+                <div className="flex h-9 w-9 items-center justify-center border-2 border-border bg-background text-foreground">
                   <AlertTriangle className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  <p className="font-mono text-xs font-bold uppercase tracking-wide text-destructive-foreground">
                     Render Interrupted
                   </p>
-                  <p className="mt-1 max-w-[240px] truncate rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] text-rose-700 dark:text-rose-300">
+                  <p className="mt-1 max-w-[240px] truncate border-2 border-border bg-background px-2 py-0.5 font-mono text-[10px] font-bold text-foreground">
                     {process.reason || 'Process failed during execution'}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2.5 p-4 text-center bg-accent/20">
-                <div className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/25 bg-white/10 text-emerald-300">
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2.5 border-2 border-border bg-primary p-4 text-center">
+                <div className="flex h-10 w-10 items-center justify-center border-2 border-border bg-background text-foreground">
                   <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-neutral-100">
+                  <p className="font-mono text-xs font-bold uppercase tracking-wide text-primary-foreground">
                     {process.stage === 'transcribing'
                       ? 'Transcribing audio…'
                       : 'Rendering captions…'}
@@ -252,7 +252,7 @@ function GalleryCard({ process }: { process: Process }) {
       {/* Delete Process Button */}
       <DeleteProcessButton
         process={process}
-        className="absolute bottom-3 right-3 z-30 inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground/60 opacity-0 transition-all duration-200 hover:border-red-500/20 hover:bg-red-500/10 hover:text-red-500 focus-visible:opacity-100 group-hover:opacity-100"
+        className="absolute bottom-3 right-3 z-30 inline-flex h-8 w-8 items-center justify-center border-2 border-border bg-destructive text-destructive-foreground opacity-0 shadow-brutal-sm transition-all duration-100 hover:bg-destructive focus-visible:opacity-100 group-hover:opacity-100"
         label={`Delete ${process.filename || process.id}`}
       />
     </div>
@@ -274,8 +274,8 @@ export function ProcessGallery() {
 
   if (error && processes === null) {
     return (
-      <Card className="flex flex-col items-center justify-center rounded-2xl border-border/80 bg-card/60 py-16 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-destructive/30 bg-destructive/10 text-destructive">
+      <Card className="flex flex-col items-center justify-center border-2 py-16 text-center">
+        <div className="flex h-12 w-12 items-center justify-center border-2 border-border bg-destructive text-destructive-foreground shadow-brutal-sm">
           <AlertTriangle className="h-6 w-6" />
         </div>
         <h3 className="mt-4 font-display text-base font-semibold">Could not load gallery</h3>
@@ -286,8 +286,8 @@ export function ProcessGallery() {
 
   if (processes !== null && processes.length === 0) {
     return (
-      <Card className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-card/40 py-20 text-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border/80 bg-accent/60 text-muted-foreground">
+      <Card className="flex flex-col items-center justify-center border-2 border-dashed py-20 text-center">
+        <div className="flex h-14 w-14 items-center justify-center border-2 border-border bg-accent text-accent-foreground shadow-brutal-sm">
           <Film className="h-7 w-7" />
         </div>
         <h3 className="mt-4 font-display text-lg font-semibold">No captioned videos yet</h3>
@@ -319,8 +319,8 @@ export function ProcessGallery() {
   return (
     <div className="space-y-6">
       {/* Filter tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
-        <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-border pb-3">
+        <div className="flex flex-wrap items-center gap-2">
           {[
             { id: 'all', label: 'All', count: allProcesses.length },
             { id: 'done', label: 'Completed', count: doneCount },
@@ -331,19 +331,19 @@ export function ProcessGallery() {
               key={tab.id}
               onClick={() => setFilter(tab.id as typeof filter)}
               className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+                'inline-flex items-center gap-1.5 border-2 border-border px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wide shadow-brutal-sm transition-all duration-100',
                 filter === tab.id
-                  ? 'bg-accent font-semibold text-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
               <span>{tab.label}</span>
               <span
                 className={cn(
-                  'rounded-full px-1.5 py-0.2 text-[10px]',
+                  'border border-border px-1.5 py-0.2 text-[10px]',
                   filter === tab.id
-                    ? 'bg-primary/20 text-primary font-bold'
-                    : 'bg-muted text-muted-foreground'
+                    ? 'bg-background text-foreground font-bold'
+                    : 'bg-muted'
                 )}
               >
                 {tab.count}
