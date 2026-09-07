@@ -91,6 +91,28 @@ export async function deleteProcess(id: string): Promise<void> {
   throw new Error(String(body.data?.id ?? 'delete failed'));
 }
 
+// Segment shape matches what the render job carries (server
+// GET /jobs/:id/segments): timed text the transcript card edits.
+export type TimedWord = {
+  text: string;
+  start: number;
+  end: number;
+};
+
+export type Segment = {
+  start: number;
+  end: number;
+  text: string;
+  words: TimedWord[];
+};
+
+export async function fetchSegments(id: string): Promise<Segment[]> {
+  const data = await request<{ segments: Segment[] }>(
+    `/jobs/${encodeURIComponent(normalizeJobId(id))}/segments`,
+  );
+  return data.segments;
+}
+
 // The URL the API provides for the rendered Output; the server streams it as
 // an attachment.
 export function downloadUrl(process: Process): string {

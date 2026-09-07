@@ -17,6 +17,7 @@ import {
 
 import { STAGE_LABEL } from '@/components/process-stage';
 import { DeleteProcessDialog } from '@/components/process-gallery';
+import { TranscriptCard } from '@/components/transcript-card';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useRouter } from 'next/navigation';
@@ -203,6 +204,12 @@ export function ProcessDetails({ processId }: { processId: string }) {
           </div>
         )}
       </Card>
+
+      {(process.stage === 'transcribing' ||
+        process.stage === 'rendering' ||
+        process.stage === 'done') && (
+        <TranscriptCard processId={process.id} stage={process.stage} />
+      )}
 
       {done ? (
         <Card className="overflow-hidden border-2 p-0">
