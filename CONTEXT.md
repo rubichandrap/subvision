@@ -51,6 +51,10 @@ the Next.js client uploads videos with tus.
   objects (the Upload and, if rendered, the Output) are erased. Irreversible —
   no archive, no restore. A Delete never cancels work already in flight; that
   is Cancel, a separate concept not yet built (see ADR-0004).
+- **Ingestion** — the server-side pipeline that turns an Upload into a
+  Transcript: downloads the video, extracts audio for the trim window,
+  transcribes with whisper, records the Transcription Segments and Edit Spec
+  in the job store, and transitions the Process to rendering.
 - **Process** — the client-facing lifecycle of a job (uploaded →
   transcribing → rendering → done/failed). Real server-side state, owned by
   the server's job module; the client polls its status, edits its
