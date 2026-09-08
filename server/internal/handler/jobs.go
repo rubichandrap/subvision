@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,8 +11,6 @@ import (
 	"path"
 	"strings"
 	"time"
-
-	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rubichandrap/subvision/server/internal/job"
@@ -31,10 +30,14 @@ type ProcessManager interface {
 	Delete(id string) (bool, error)
 }
 
-// OutputOpener streams an Output object from storage.
+// OutputOpener streams an Output object from storage with optional byte-range support.
 type OutputOpener interface {
 	Open(ctx context.Context, key string) (io.ReadCloser, int64, error)
+	OpenRange(ctx context.Context, key, byteRange string) (io.ReadCloser, int64, string, error)
 }
+
+// ErrRangeUnsatisfiable indicates a requested byte range cannot be satisfied.
+var ErrRangeUnsatisfiable = errors.New("range not satisfiable")
 
 type processResponse struct {
 	ID          string `json:"id"`
@@ -161,6 +164,42 @@ func RegisterJobs(r *gin.Engine, manager ProcessManager, outputs OutputOpener) {
 			return
 		}
 
+		filename := downloadFilename(process)
+		c.Header("Accept-Ranges", "bytes")
+
+		// Attachment for explicit download action (?download=true / ?download=1);
+		// inline for in-browser <video> playback so media engines treat it as a stream.
+		if isDownloadRequest(c) {
+			c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+		} else {
+			c.Header("Content-Disposition", fmt.Sprintf("inline; filename=%q", filename))
+		}
+
+		rangeHeader := c.Request.Header.Get("Range")
+		if rangeHeader != "" {
+			body, chunkSize, contentRange, err := outputs.OpenRange(c.Request.Context(), process.OutputKey, rangeHeader)
+			if err != nil {
+				if errors.Is(err, ErrRangeUnsatisfiable) {
+					contentRange := "bytes */*"
+					if fullBody, size, errFull := outputs.Open(c.Request.Context(), process.OutputKey); errFull == nil {
+						fullBody.Close()
+						if size > 0 {
+							contentRange = fmt.Sprintf("bytes */%d", size)
+						}
+					}
+					c.Header("Content-Range", contentRange)
+					c.Status(http.StatusRequestedRangeNotSatisfiable)
+					return
+				}
+				log.Printf("[Jobs] Range %q could not be satisfied for job %s (%v), falling back to full stream", rangeHeader, id, err)
+			} else {
+				defer body.Close()
+				c.Header("Content-Range", contentRange)
+				c.DataFromReader(http.StatusPartialContent, chunkSize, "video/mp4", body, nil)
+				return
+			}
+		}
+
 		body, size, err := outputs.Open(c.Request.Context(), process.OutputKey)
 		if err != nil {
 			log.Printf("[Jobs] Failed to open output %s for job %s: %v", process.OutputKey, id, err)
@@ -169,7 +208,6 @@ func RegisterJobs(r *gin.Engine, manager ProcessManager, outputs OutputOpener) {
 		}
 		defer body.Close()
 
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%q", downloadFilename(process)))
 		if size > 0 {
 			c.DataFromReader(http.StatusOK, size, "video/mp4", body, nil)
 			return
@@ -232,4 +270,9 @@ func downloadFilename(p *job.Process) string {
 		return base
 	}
 	return strings.TrimSuffix(base, path.Ext(base)) + ".mp4"
+}
+
+func isDownloadRequest(c *gin.Context) bool {
+	dl := c.Query("download")
+	return dl == "true" || dl == "1"
 }

@@ -162,11 +162,18 @@ export async function rerenderProcess(id: string): Promise<Process> {
   );
 }
 
-// The URL the API provides for the rendered Output; the server streams it as
-// an attachment.
-export function downloadUrl(process: Process): string {
+// The URL the API provides for the rendered Output. By default streams for inline
+// playback; pass { download: true } to request a file attachment disposition.
+export function downloadUrl(
+  process: Process,
+  options?: { download?: boolean },
+): string {
   if (!process.downloadUrl) {
     throw new Error(`process ${process.id} has no download URL yet`);
   }
-  return `${env.serverUrl}${process.downloadUrl}`;
+  const base = `${env.serverUrl}${process.downloadUrl}`;
+  if (options?.download) {
+    return `${base}?download=true`;
+  }
+  return base;
 }

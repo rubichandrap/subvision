@@ -135,6 +135,7 @@ export function DeleteProcessButton({
 function GalleryCard({ process }: { process: Process }) {
   const done = process.stage === 'done' && Boolean(process.downloadUrl);
   const src = done ? downloadUrl(process) : null;
+  const downloadSrc = done ? downloadUrl(process, { download: true }) : undefined;
   const inFlight = IN_FLIGHT_STAGES.has(process.stage);
   const failed = process.stage === 'failed';
 
@@ -184,7 +185,7 @@ function GalleryCard({ process }: { process: Process }) {
 
                 {/* Direct Download Button */}
                 <a
-                  href={src}
+                  href={downloadSrc}
                   download={process.filename || 'captioned-video.mp4'}
                   onClick={(e) => e.stopPropagation()}
                   className="absolute bottom-2.5 left-2.5 z-30 inline-flex h-7 items-center gap-1.5 border-2 border-border bg-primary px-2 text-xs font-bold text-primary-foreground opacity-0 shadow-brutal-sm transition-all duration-100 group-hover:opacity-100"

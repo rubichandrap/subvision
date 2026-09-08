@@ -1,9 +1,9 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"testing"
-
 	"github.com/gin-gonic/gin"
 	"github.com/rubichandrap/subvision/server/internal/db"
 	"github.com/rubichandrap/subvision/server/internal/job"
@@ -96,8 +96,8 @@ func TestSaveSegmentsReturns400ForBadTiming(t *testing.T) {
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if _, err := store.MarkRendering("u1"); err != nil {
-		t.Fatalf("mark rendering: %v", err)
+	if err := store.CommitIngestion(context.Background(), "u1", nil, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
 	}
 	// negative start → ValidationError
 	const body = `{"segments":[{"start":-1,"end":2,"text":"x","words":[]}]}`

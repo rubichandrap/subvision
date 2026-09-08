@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
+	"github.com/rubichandrap/subvision/server/internal/handler"
 )
 
 // Client reads and deletes objects in the configured S3 bucket. Uploads
@@ -23,16 +27,37 @@ func New(s3Client *s3.Client, bucket string) *Client {
 	return &Client{s3: s3Client, bucket: bucket}
 }
 
-// Open streams the object at key; the caller closes the reader.
+// Open streams the full object at key; the caller closes the reader.
 func (c *Client) Open(ctx context.Context, key string) (io.ReadCloser, int64, error) {
-	out, err := c.s3.GetObject(ctx, &s3.GetObjectInput{
+	body, size, _, err := c.OpenRange(ctx, key, "")
+	return body, size, err
+}
+
+// OpenRange streams a byte range of the object at key; the caller closes the reader.
+// When byteRange is non-empty (e.g. "bytes=0-1024"), it is passed to S3's Range header,
+// returning the body, the slice content length, and the Content-Range string (e.g. "bytes 0-1024/1048576").
+// When byteRange is empty, it returns the full object with total size and an empty Content-Range string.
+func (c *Client) OpenRange(ctx context.Context, key, byteRange string) (io.ReadCloser, int64, string, error) {
+	input := &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
-	})
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get object: %w", err)
 	}
-	return out.Body, aws.ToInt64(out.ContentLength), nil
+	if byteRange != "" {
+		input.Range = aws.String(byteRange)
+	}
+	out, err := c.s3.GetObject(ctx, input)
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) && (apiErr.ErrorCode() == "InvalidRange" || apiErr.ErrorCode() == "416") {
+			return nil, 0, "", handler.ErrRangeUnsatisfiable
+		}
+		var respErr *smithyhttp.ResponseError
+		if errors.As(err, &respErr) && respErr.HTTPStatusCode() == 416 {
+			return nil, 0, "", handler.ErrRangeUnsatisfiable
+		}
+		return nil, 0, "", fmt.Errorf("failed to get object: %w", err)
+	}
+	return out.Body, aws.ToInt64(out.ContentLength), aws.ToString(out.ContentRange), nil
 }
 
 func (c *Client) Download(ctx context.Context, key, destPath string) error {

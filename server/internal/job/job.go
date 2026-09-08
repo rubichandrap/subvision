@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/rubichandrap/subvision/server/internal/config"
@@ -80,24 +81,6 @@ type Process struct {
 	UpdatedAt time.Time
 }
 
-// Tracker records lifecycle transitions as the pipeline crosses them. It
-// reports whether the transition took effect: false means the id is unknown
-// or the job already terminal — callers log that loudly but don't retry;
-// a non-nil error means the store itself failed and the transition should
-// be attempted again.
-type Tracker interface {
-	MarkTranscribing(uploadID string) (bool, error)
-	MarkRendering(uploadID string) (bool, error)
-	// Reopen moves a done job back to rendering for a re-render, bypassing
-	// the terminal-stage guard that mark enforces for the normal pipeline.
-	Reopen(uploadID string) (bool, error)
-	// SaveOriginalSegments persists the whisper-original Transcription Segments for
-	// an upload as JSON, so they outlive the queue message.
-	SaveOriginalSegments(uploadID, segmentsJSON string) error
-	// SaveEditSpec persists the upload's original Edit Spec as JSON, so a
-	// re-render reuses it. Empty when the upload carried no spec.
-	SaveEditSpec(uploadID, specJSON string) error
-}
 
 type Store struct {
 	db        *sql.DB
@@ -188,10 +171,11 @@ func (s *Store) MarkTranscribing(uploadID string) (bool, error) {
 	return s.mark(uploadID, StageTranscribing, "", "")
 }
 
-// MarkRendering records that the VFX Job was handed to the vfx service.
-func (s *Store) MarkRendering(uploadID string) (bool, error) {
-	return s.mark(uploadID, StageRendering, "", "")
+// StartTranscription records that the pipeline started working on the upload.
+func (s *Store) StartTranscription(uploadID string) (bool, error) {
+	return s.MarkTranscribing(uploadID)
 }
+
 
 // Reopen moves a done job back to rendering for a re-render. The normal
 // mark refuses terminal stages, so this runs its own statement: only done
@@ -246,7 +230,8 @@ func (s *Store) Delete(id string) (bool, error) {
 	}
 
 	if s.cleaner != nil {
-		for _, prefix := range []string{config.ObjectPrefix + id, config.OutputPrefix + id} {
+		objectID := objectIDFromJobID(id)
+		for _, prefix := range []string{config.ObjectPrefix + objectID, config.OutputPrefix + objectID} {
 			if err := s.cleaner.Delete(context.Background(), prefix); err != nil {
 				log.Printf("[Job] Failed to clean objects under %s for deleted job %s: %v", prefix, id, err)
 			}
@@ -307,19 +292,8 @@ func (s *Store) Rerender(id string) (*Process, error) {
 		}
 	}
 
-	job := vfxjob.Job{
-		UploadID:  id,
-		ObjectKey: config.ObjectPrefix + id,
-		Segments:  segments,
-		EditSpec:  spec,
-	}
-
-	if err := s.publisher.Publish(job); err != nil {
-		failReason := fmt.Sprintf("re-render publish failed: %v", err)
-		if _, markErr := s.MarkFailed(id, failReason); markErr != nil {
-			log.Printf("[Job] Failed to mark job %s failed after publish error: %v", id, markErr)
-		}
-		return nil, fmt.Errorf("failed to publish re-render: %w", err)
+	if err := s.publishVfxJob(id, segments, spec, "re-render"); err != nil {
+		return nil, err
 	}
 
 	fresh, err := s.Get(id)
@@ -329,10 +303,7 @@ func (s *Store) Rerender(id string) (*Process, error) {
 	return fresh, nil
 }
 
-// SaveOriginalSegments stores the whisper-original Transcription Segments for an
-// upload as JSON, replacing any earlier copy. It outlives the queue message
-// so the transcript stays readable after the job reaches done.
-func (s *Store) SaveOriginalSegments(uploadID, segmentsJSON string) error {
+func (s *Store) saveSegments(uploadID, segmentsJSON string) error {
 	_, err := s.db.Exec(
 		`INSERT INTO job_segments (job_id, segments, updated_at) VALUES (?, ?, ?)
 		 ON CONFLICT(job_id) DO UPDATE SET segments = excluded.segments, updated_at = excluded.updated_at`,
@@ -340,6 +311,138 @@ func (s *Store) SaveOriginalSegments(uploadID, segmentsJSON string) error {
 	)
 	if err != nil {
 		return fmt.Errorf("failed to save segments for job %s: %w", uploadID, err)
+	}
+	return nil
+}
+
+// objectIDFromJobID extracts the S3 object ID portion of a job ID.
+// Upload IDs from tusd's s3store are composite strings (<objectId>+<multipartId>),
+// while the uploaded video and rendered output in S3 are keyed by <objectId> alone.
+func objectIDFromJobID(id string) string {
+	if idx := strings.LastIndex(id, "+"); idx != -1 {
+		return id[:idx]
+	}
+	return id
+}
+
+// CommitIngestion atomically saves Transcription Segments, saves the Edit Spec,
+// transitions the Process to the rendering stage guarded against terminal stages,
+// and dispatches the VFX Job to the queue. If publishing fails, the Process
+// rolls to failed with the error cause recorded.
+func (s *Store) CommitIngestion(ctx context.Context, id string, segments []transcript.Segment, spec *editspec.Spec) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if s.publisher == nil {
+		return errors.New("vfx publisher not configured")
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction for job %s: %w", id, err)
+	}
+	defer tx.Rollback()
+
+	var currentStage string
+	err = tx.QueryRowContext(ctx, `SELECT stage FROM jobs WHERE id = ?`, id).Scan(&currentStage)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("failed to query job %s: %w", id, err)
+	}
+
+	stage := Stage(currentStage)
+	if stage == StageDone || stage == StageFailed {
+		return &StageConflictError{
+			ID:    id,
+			Stage: stage,
+			Op:    "ingest",
+		}
+	}
+
+	rawSegments, err := json.Marshal(segments)
+	if err != nil {
+		return fmt.Errorf("failed to marshal segments for job %s: %w", id, err)
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO job_segments (job_id, segments, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT(job_id) DO UPDATE SET segments = excluded.segments, updated_at = excluded.updated_at`,
+		id, string(rawSegments), now,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to save segments for job %s: %w", id, err)
+	}
+
+	if spec != nil {
+		rawSpec, err := json.Marshal(spec)
+		if err != nil {
+			return fmt.Errorf("failed to marshal edit spec for job %s: %w", id, err)
+		}
+		_, err = tx.ExecContext(ctx,
+			`INSERT INTO job_edit_specs (job_id, spec, updated_at) VALUES (?, ?, ?)
+			 ON CONFLICT(job_id) DO UPDATE SET spec = excluded.spec, updated_at = excluded.updated_at`,
+			id, string(rawSpec), now,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to save edit spec for job %s: %w", id, err)
+		}
+	} else {
+		_, err = tx.ExecContext(ctx, `DELETE FROM job_edit_specs WHERE job_id = ?`, id)
+		if err != nil {
+			return fmt.Errorf("failed to clear edit spec for job %s: %w", id, err)
+		}
+	}
+
+	res, err := tx.ExecContext(ctx,
+		`UPDATE jobs SET stage = ?, reason = '', output_key = '', updated_at = ?
+		 WHERE id = ? AND stage NOT IN (?, ?)`,
+		string(StageRendering), now, id, string(StageDone), string(StageFailed),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to transition job %s to rendering: %w", id, err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected for job %s: %w", id, err)
+	}
+	if affected == 0 {
+		return &StageConflictError{
+			ID:    id,
+			Stage: stage,
+			Op:    "ingest",
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction for job %s: %w", id, err)
+	}
+
+	return s.publishVfxJob(id, segments, spec, "ingestion")
+}
+
+// publishVfxJob dispatches a VFX Job to RabbitMQ with absolute object key,
+// transitioning the process to failed if publishing fails.
+func (s *Store) publishVfxJob(id string, segments []transcript.Segment, spec *editspec.Spec, failureContext string) error {
+	if s.publisher == nil {
+		return errors.New("vfx publisher not configured")
+	}
+
+	vfx := vfxjob.Job{
+		UploadID:  id,
+		ObjectKey: config.ObjectPrefix + objectIDFromJobID(id),
+		Segments:  segments,
+		EditSpec:  spec,
+	}
+
+	if err := s.publisher.Publish(vfx); err != nil {
+		failReason := fmt.Sprintf("%s publish failed: %v", failureContext, err)
+		if _, markErr := s.MarkFailed(id, failReason); markErr != nil {
+			log.Printf("[Job] Failed to mark job %s failed after publish error: %v", id, markErr)
+		}
+		return fmt.Errorf("failed to publish %s: %w", failureContext, err)
 	}
 	return nil
 }
@@ -384,27 +487,12 @@ func (s *Store) SaveSegments(id string, segments []transcript.Segment) ([]transc
 		return nil, fmt.Errorf("failed to marshal segments for job %s: %w", id, err)
 	}
 
-	if err := s.SaveOriginalSegments(id, string(raw)); err != nil {
+	if err := s.saveSegments(id, string(raw)); err != nil {
 		return nil, err
 	}
 	return segments, nil
 }
 
-
-// SaveEditSpec stores the upload's original Edit Spec as raw JSON, so a
-// re-render reuses it. An empty raw means "no edit" and clears any stored
-// copy.
-func (s *Store) SaveEditSpec(uploadID, specJSON string) error {
-	_, err := s.db.Exec(
-		`INSERT INTO job_edit_specs (job_id, spec, updated_at) VALUES (?, ?, ?)
-		 ON CONFLICT(job_id) DO UPDATE SET spec = excluded.spec, updated_at = excluded.updated_at`,
-		uploadID, specJSON, time.Now().UTC().Format(time.RFC3339),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to save edit spec for job %s: %w", uploadID, err)
-	}
-	return nil
-}
 
 // EditSpec returns the stored original Edit Spec JSON, or empty when the
 // upload carried none. Reading an unknown id is not an error.

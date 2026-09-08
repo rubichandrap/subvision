@@ -1,9 +1,11 @@
 package job
 
 import (
+	"context"
 	"testing"
 
 	"github.com/rubichandrap/subvision/server/internal/db"
+	"github.com/rubichandrap/subvision/server/internal/editspec"
 )
 
 func TestReopenMovesDoneToRendering(t *testing.T) {
@@ -82,7 +84,7 @@ func TestEditSpecRoundTrip(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() { handle.Close() })
-	store, err := NewStore(handle, nil, nil)
+	store, err := NewStore(handle, &fakePublisher{}, nil)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
@@ -92,15 +94,23 @@ func TestEditSpecRoundTrip(t *testing.T) {
 	}
 
 	const raw = `{"trim":{"start":2,"end":9},"frame":{"preset":"9:16","ratio":0.5625,"zoom":1,"panX":0,"panY":0},"animation":"karaoke"}`
-	if err := store.SaveEditSpec("u1", raw); err != nil {
-		t.Fatalf("save edit spec: %v", err)
+	spec, err := editspec.Parse(raw)
+	if err != nil {
+		t.Fatalf("parse spec: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), "u1", nil, spec); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
 	}
 	got, err := store.EditSpec("u1")
 	if err != nil {
 		t.Fatalf("read edit spec: %v", err)
 	}
-	if got != raw {
-		t.Errorf("edit spec = %q, want %q", got, raw)
+	parsedGot, err := editspec.Parse(got)
+	if err != nil {
+		t.Fatalf("parse got spec: %v", err)
+	}
+	if parsedGot.Animation != spec.Animation || parsedGot.Trim != spec.Trim {
+		t.Errorf("edit spec = %+v, want %+v", parsedGot, spec)
 	}
 }
 

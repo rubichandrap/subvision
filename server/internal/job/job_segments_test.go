@@ -1,9 +1,12 @@
 package job
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/rubichandrap/subvision/server/internal/db"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
 func newSegmentsTestStore(t *testing.T) *Store {
@@ -13,7 +16,7 @@ func newSegmentsTestStore(t *testing.T) *Store {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() { handle.Close() })
-	store, err := NewStore(handle, nil, nil)
+	store, err := NewStore(handle, &fakePublisher{}, nil)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
@@ -28,16 +31,24 @@ func TestSegmentsRoundTrip(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 
-	if err := store.SaveOriginalSegments("u1", segmentsFixture); err != nil {
-		t.Fatalf("save segments: %v", err)
+	var segs []transcript.Segment
+	if err := json.Unmarshal([]byte(segmentsFixture), &segs); err != nil {
+		t.Fatalf("unmarshal fixture: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), "u1", segs, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
 	}
 
 	got, err := store.Segments("u1")
 	if err != nil {
 		t.Fatalf("read segments: %v", err)
 	}
-	if got != segmentsFixture {
-		t.Errorf("segments = %q, want %q", got, segmentsFixture)
+	var gotSegs []transcript.Segment
+	if err := json.Unmarshal([]byte(got), &gotSegs); err != nil {
+		t.Fatalf("unmarshal got segments: %v", err)
+	}
+	if len(gotSegs) != len(segs) || gotSegs[0].Text != segs[0].Text {
+		t.Errorf("segments = %+v, want %+v", gotSegs, segs)
 	}
 
 	// Segments outlive the queue message: still readable after done.
@@ -48,8 +59,12 @@ func TestSegmentsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read segments after done: %v", err)
 	}
-	if got != segmentsFixture {
-		t.Errorf("segments after done = %q, want %q", got, segmentsFixture)
+	var gotSegsAfterDone []transcript.Segment
+	if err := json.Unmarshal([]byte(got), &gotSegsAfterDone); err != nil {
+		t.Fatalf("unmarshal got segments after done: %v", err)
+	}
+	if len(gotSegsAfterDone) != len(segs) || gotSegsAfterDone[0].Text != segs[0].Text {
+		t.Errorf("segments after done = %+v, want %+v", gotSegsAfterDone, segs)
 	}
 }
 
@@ -73,8 +88,12 @@ func TestDeleteRemovesSegments(t *testing.T) {
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if err := store.SaveOriginalSegments("u1", segmentsFixture); err != nil {
-		t.Fatalf("save segments: %v", err)
+	var segs []transcript.Segment
+	if err := json.Unmarshal([]byte(segmentsFixture), &segs); err != nil {
+		t.Fatalf("unmarshal fixture: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), "u1", segs, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
 	}
 
 	if deleted, err := store.Delete("u1"); err != nil || !deleted {
