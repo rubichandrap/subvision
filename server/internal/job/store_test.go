@@ -246,6 +246,41 @@ func TestRerenderPublishesFreshVfxJobAndTransitionsToRendering(t *testing.T) {
 		t.Errorf("unexpected published edit spec: %+v", job.EditSpec)
 	}
 }
+func TestRerenderPublishesObjectKeyWithCompositeTusdId(t *testing.T) {
+	pub := &fakePublisher{}
+	cleaner := &fakeCleaner{}
+	store := newTestStoreWithPorts(t, pub, cleaner)
+	// tusd s3store generates IDs formatted as objectId+multipartId
+	compositeID := "c031d87a4149fa8617ba8d8fecff003e+4_u8Gf0Vxyz"
+	expectedObjectID := "c031d87a4149fa8617ba8d8fecff003e"
+	createJobWithStage(t, store, compositeID, StageDone)
+
+	segmentsJSON := `[{"start":1.0,"end":2.0,"text":"caption","words":[]}]`
+	if err := store.SaveOriginalSegments(compositeID, segmentsJSON); err != nil {
+		t.Fatalf("save segments: %v", err)
+	}
+
+	proc, err := store.Rerender(compositeID)
+	if err != nil {
+		t.Fatalf("rerender: %v", err)
+	}
+	if proc.Stage != StageRendering {
+		t.Errorf("process stage = %q, want %q", proc.Stage, StageRendering)
+	}
+
+	if len(pub.published) != 1 {
+		t.Fatalf("expected 1 published VFX job, got %d", len(pub.published))
+	}
+	job := pub.published[0]
+	if job.UploadID != compositeID {
+		t.Errorf("published uploadID = %q, want %q", job.UploadID, compositeID)
+	}
+	wantObjectKey := "uploads/" + expectedObjectID
+	if job.ObjectKey != wantObjectKey {
+		t.Errorf("published objectKey = %q, want %q", job.ObjectKey, wantObjectKey)
+	}
+}
+
 
 func TestRerenderRollsBackToFailedOnPublishError(t *testing.T) {
 	publishErr := errors.New("rabbitmq down")
@@ -326,6 +361,32 @@ func TestDeleteRemovesDatabaseRowsThenCleansObjectsBestEffort(t *testing.T) {
 		}
 	}
 }
+func TestDeleteCleansObjectsWithCompositeTusdId(t *testing.T) {
+	cleaner := &fakeCleaner{}
+	store := newTestStoreWithPorts(t, &fakePublisher{}, cleaner)
+	compositeID := "c031d87a4149fa8617ba8d8fecff003e+4_u8Gf0Vxyz"
+	expectedObjectID := "c031d87a4149fa8617ba8d8fecff003e"
+	createJobWithStage(t, store, compositeID, StageDone)
+
+	deleted, err := store.Delete(compositeID)
+	if err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if !deleted {
+		t.Fatal("expected deleted=true")
+	}
+
+	wantCleaned := []string{"uploads/" + expectedObjectID, "outputs/" + expectedObjectID}
+	if len(cleaner.deleted) != 2 {
+		t.Fatalf("expected 2 deleted prefixes, got %d (%v)", len(cleaner.deleted), cleaner.deleted)
+	}
+	for i, want := range wantCleaned {
+		if cleaner.deleted[i] != want {
+			t.Errorf("cleaned[%d] = %q, want %q", i, cleaner.deleted[i], want)
+		}
+	}
+}
+
 
 func TestDeleteSucceedsEvenWhenObjectCleanerFails(t *testing.T) {
 	cleaner := &fakeCleaner{err: errors.New("s3 connection timeout")}

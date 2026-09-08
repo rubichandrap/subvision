@@ -6,12 +6,12 @@ Promoted: #58
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `job.Store.CommitIngestion(ctx, id, segments, spec)` persists Transcription Segments to `job_segments`.
-- [ ] `CommitIngestion` persists the Edit Spec to `job_edit_specs` (clearing any old copy if nil).
-- [ ] `CommitIngestion` updates `jobs.stage` to `rendering` within the same transaction, guarded against already-terminal jobs.
-- [ ] `CommitIngestion` dispatches the `vfxjob.Job` to RabbitMQ via the store's injected publisher.
-- [ ] If publishing fails, the Process rolls to `failed` with the error reason recorded, matching re-render error handling.
-- [ ] Calling `CommitIngestion` on an unknown or terminal job returns a conflict/error without corrupting state.
-- [ ] In-memory SQLite unit tests verify atomic success, conflict guards, and publish failure rollback.
+- [x] `job.Store.CommitIngestion(ctx, id, segments, spec)` persists Transcription Segments to `job_segments`.
+- [x] `CommitIngestion` persists the Edit Spec to `job_edit_specs` (clearing any old copy if nil).
+- [x] `CommitIngestion` updates `jobs.stage` to `rendering` within the same transaction, guarded against already-terminal jobs.
+- [x] `CommitIngestion` dispatches the `vfxjob.Job` to RabbitMQ via the store's injected publisher.
+- [x] If publishing fails, the Process rolls to `failed` with the error reason recorded, matching re-render error handling.
+- [x] Calling `CommitIngestion` on an unknown or terminal job returns a conflict/error without corrupting state.
+- [x] In-memory SQLite unit tests verify atomic success, conflict guards, and publish failure rollback.
