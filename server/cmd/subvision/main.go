@@ -7,10 +7,9 @@ import (
 
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/db"
-	"github.com/rubichandrap/subvision/server/internal/editspec"
 	"github.com/rubichandrap/subvision/server/internal/handler"
+	"github.com/rubichandrap/subvision/server/internal/ingest"
 	"github.com/rubichandrap/subvision/server/internal/job"
-	"github.com/rubichandrap/subvision/server/internal/processor"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
 	"github.com/rubichandrap/subvision/server/internal/storage"
 	"github.com/rubichandrap/subvision/server/internal/transcriber"
@@ -79,36 +78,22 @@ func main() {
 	trans := transcriber.New(transcriber.Settings{
 		ModelPath: env.WhisperModelPath,
 	})
-	proc := processor.New(processor.Options{
-		Publisher:  vfxJobPublisher,
-		Store:      objectStore,
-		Transcribe: trans.Transcribe,
-		TmpDir:     env.TmpDir,
-		Lifecycle:  jobs,
+	pipeline := ingest.New(ingest.Config{
+		VideoDownloader:  objectStore,
+		AudioExtractor:   ingest.NewFFmpegAudioExtractor(),
+		AudioTranscriber: trans,
+		ProcessLifecycle: jobs,
+		TmpDir:           env.TmpDir,
 	})
 	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)
 	err = uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
-		key := payload.Storage["Key"]
-		if key == "" {
-			log.Printf("[UploadJobConsumer] upload job %q carries no object key: %+v", payload.UploadID, payload)
-			failJob(jobs, payload.UploadID, "upload job carried no object key")
-			return
+		uploadJob := ingest.UploadJob{
+			UploadID:    payload.UploadID,
+			ObjectKey:   payload.Storage["Key"],
+			RawEditSpec: payload.Meta["editSpec"],
 		}
-		// The Edit Spec rides as the "editSpec" tus metadata key (tusd has
-		// already base64-decoded the value). A malformed spec fails the
-		// process loudly; an absent one means the vfx service renders with
-		// its defaults.
-		spec, err := editspec.Parse(payload.Meta["editSpec"])
-		if err != nil {
-			log.Printf("[UploadJobConsumer] upload %s carries an invalid edit spec: %v", payload.UploadID, err)
-			failJob(jobs, payload.UploadID, err.Error())
-			return
-		}
-		if err := proc.ProcessUploadedFile(payload.UploadID, key, spec); err != nil {
-			log.Printf("[Processor] Error: %v", err)
-			// A transcription that fails must surface as a failed process,
-			// not leave the job in-flight forever.
-			failJob(jobs, payload.UploadID, err.Error())
+		if err := pipeline.ProcessUpload(context.Background(), uploadJob); err != nil {
+			log.Printf("[UploadJobConsumer] Failed to process upload %s: %v", payload.UploadID, err)
 		}
 	})
 	if err != nil {
@@ -196,14 +181,3 @@ func main() {
 	}
 }
 
-// failJob records why an upload never made it past the server's own pipeline
-// stages. A job the store doesn't know (or that is already terminal) is
-// logged, not retried.
-func failJob(jobs *job.Store, uploadID, reason string) {
-	recorded, err := jobs.MarkFailed(uploadID, reason)
-	if err != nil {
-		log.Printf("[Job] Failed to mark job %s as failed: %v", uploadID, err)
-	} else if !recorded {
-		log.Printf("[Job] Job %s unknown or terminal, failure reason not recorded: %s", uploadID, reason)
-	}
-}

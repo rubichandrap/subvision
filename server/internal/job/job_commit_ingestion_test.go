@@ -117,11 +117,11 @@ func TestCommitIngestionClearsEditSpecWhenNil(t *testing.T) {
 	id := "u-commit-clears-spec"
 	createJobWithStage(t, store, id, StageTranscribing)
 
-	// Pre-populate an edit spec
-	specJSON := `{"animation":"karaoke"}`
-	if err := store.SaveEditSpec(id, specJSON); err != nil {
+	initialSpec := &editspec.Spec{Animation: "karaoke"}
+	if err := store.CommitIngestion(context.Background(), id, nil, initialSpec); err != nil {
 		t.Fatalf("save initial edit spec: %v", err)
 	}
+	pub.published = nil
 
 	segments := []transcript.Segment{
 		{Start: 0, End: 1, Text: "sample"},

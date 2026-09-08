@@ -6,12 +6,12 @@ Promoted: #60
 
 **Blocked by:** #59 — Deep Ingestion Pipeline with Failure Guard and Scratch File Cleanup.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `server/cmd/subvision/main.go` instantiates `ingest.New` with production adapters (S3 storage, ffmpeg command, whisper transcriber, and `job.Store`).
-- [ ] The upload consumer callback forwards `ingest.UploadJob` directly to `pipeline.ProcessUpload` without manual validation or error branching.
-- [ ] The `failJob` helper in `main.go` is deleted.
-- [ ] The shallow `server/internal/processor` package and its tests are completely deleted.
-- [ ] Obsolete micro-methods (`SaveOriginalSegments`, `SaveEditSpec`, `MarkRendering`) are retired from the Job store's public interface, migrating existing test setups to `CommitIngestion`.
-- [ ] Zero transitional shims, aliases, or dead code remain in the codebase.
-- [ ] Full server test suite (`./test.sh`) passes cleanly.
+- [x] `server/cmd/subvision/main.go` instantiates `ingest.New` with production adapters (S3 storage, ffmpeg command, whisper transcriber, and `job.Store`).
+- [x] The upload consumer callback forwards `ingest.UploadJob` directly to `pipeline.ProcessUpload` without manual validation or error branching.
+- [x] The `failJob` helper in `main.go` is deleted.
+- [x] The shallow `server/internal/processor` package and its tests are completely deleted.
+- [x] Obsolete micro-methods (`SaveOriginalSegments`, `SaveEditSpec`, `MarkRendering`) are retired from the Job store's public interface, migrating existing test setups to `CommitIngestion`.
+- [x] Zero transitional shims, aliases, or dead code remain in the codebase.
+- [x] Full server test suite (`./test.sh`) passes cleanly.

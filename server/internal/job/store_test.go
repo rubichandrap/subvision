@@ -2,11 +2,13 @@ package job
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/rubichandrap/subvision/server/internal/db"
+	"github.com/rubichandrap/subvision/server/internal/editspec"
 	"github.com/rubichandrap/subvision/server/internal/transcript"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
@@ -65,8 +67,8 @@ func createJobWithStage(t *testing.T, store *Store, id string, stage Stage) {
 			t.Fatalf("mark transcribing: %v", err)
 		}
 	case StageRendering:
-		if _, err := store.MarkRendering(id); err != nil {
-			t.Fatalf("mark rendering: %v", err)
+		if err := store.CommitIngestion(context.Background(), id, nil, nil); err != nil {
+			t.Fatalf("commit ingestion: %v", err)
 		}
 	case StageDone:
 		if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
@@ -151,12 +153,19 @@ func TestSaveSegmentsValidatesTimings(t *testing.T) {
 func TestSaveSegmentsRescalesWordsAgainstWhisperOriginals(t *testing.T) {
 	store := newTestStoreWithPorts(t, &fakePublisher{}, &fakeCleaner{})
 	id := "job-rescale"
-	createJobWithStage(t, store, id, StageDone)
+	createJobWithStage(t, store, id, StageTranscribing)
 
 	// Store whisper original segment with timed words
 	originalJSON := `[{"start":1.0,"end":2.0,"text":"hello world","words":[{"start":1.1,"end":1.5,"text":"hello"},{"start":1.6,"end":1.9,"text":"world"}]}]`
-	if err := store.SaveOriginalSegments(id, originalJSON); err != nil {
-		t.Fatalf("save original segments: %v", err)
+	var original []transcript.Segment
+	if err := json.Unmarshal([]byte(originalJSON), &original); err != nil {
+		t.Fatalf("unmarshal original segments: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), id, original, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+	if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
+		t.Fatalf("mark done: %v", err)
 	}
 
 	// Edit segment bounds from [1.0, 2.0] to [2.0, 4.0] (stretched 2x, shifted +1.0)
@@ -209,17 +218,26 @@ func TestRerenderPublishesFreshVfxJobAndTransitionsToRendering(t *testing.T) {
 	cleaner := &fakeCleaner{}
 	store := newTestStoreWithPorts(t, pub, cleaner)
 	id := "u-rerender"
-	createJobWithStage(t, store, id, StageDone)
+	createJobWithStage(t, store, id, StageTranscribing)
 
 	// Save segments and edit spec
 	segmentsJSON := `[{"start":1.0,"end":2.0,"text":"caption","words":[]}]`
-	if err := store.SaveOriginalSegments(id, segmentsJSON); err != nil {
-		t.Fatalf("save segments: %v", err)
-	}
 	specJSON := `{"trim":{"start":0,"end":10},"frame":{"preset":"9:16","ratio":0.5625,"zoom":1,"panX":0,"panY":0},"animation":"karaoke"}`
-	if err := store.SaveEditSpec(id, specJSON); err != nil {
-		t.Fatalf("save edit spec: %v", err)
+	spec, err := editspec.Parse(specJSON)
+	if err != nil {
+		t.Fatalf("parse spec: %v", err)
 	}
+	var segs []transcript.Segment
+	if err := json.Unmarshal([]byte(segmentsJSON), &segs); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), id, segs, spec); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+	if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+	pub.published = nil
 
 	proc, err := store.Rerender(id)
 	if err != nil {
@@ -253,12 +271,20 @@ func TestRerenderPublishesObjectKeyWithCompositeTusdId(t *testing.T) {
 	// tusd s3store generates IDs formatted as objectId+multipartId
 	compositeID := "c031d87a4149fa8617ba8d8fecff003e+4_u8Gf0Vxyz"
 	expectedObjectID := "c031d87a4149fa8617ba8d8fecff003e"
-	createJobWithStage(t, store, compositeID, StageDone)
+	createJobWithStage(t, store, compositeID, StageTranscribing)
 
 	segmentsJSON := `[{"start":1.0,"end":2.0,"text":"caption","words":[]}]`
-	if err := store.SaveOriginalSegments(compositeID, segmentsJSON); err != nil {
-		t.Fatalf("save segments: %v", err)
+	var segs []transcript.Segment
+	if err := json.Unmarshal([]byte(segmentsJSON), &segs); err != nil {
+		t.Fatalf("unmarshal: %v", err)
 	}
+	if err := store.CommitIngestion(context.Background(), compositeID, segs, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+	if _, err := store.MarkDone(compositeID, "outputs/"+compositeID); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+	pub.published = nil
 
 	proc, err := store.Rerender(compositeID)
 	if err != nil {
@@ -284,18 +310,27 @@ func TestRerenderPublishesObjectKeyWithCompositeTusdId(t *testing.T) {
 
 func TestRerenderRollsBackToFailedOnPublishError(t *testing.T) {
 	publishErr := errors.New("rabbitmq down")
-	pub := &fakePublisher{err: publishErr}
+	pub := &fakePublisher{}
 	cleaner := &fakeCleaner{}
 	store := newTestStoreWithPorts(t, pub, cleaner)
 	id := "u-rerender-fail"
-	createJobWithStage(t, store, id, StageDone)
+	createJobWithStage(t, store, id, StageUploaded)
 
 	specJSON := `{"trim":{"start":0,"end":10},"frame":{"preset":"9:16","ratio":0.5625,"zoom":1,"panX":0,"panY":0},"animation":"karaoke"}`
-	if err := store.SaveEditSpec(id, specJSON); err != nil {
-		t.Fatalf("save edit spec: %v", err)
+	spec, err := editspec.Parse(specJSON)
+	if err != nil {
+		t.Fatalf("parse spec: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), id, nil, spec); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+	if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
+		t.Fatalf("mark done: %v", err)
 	}
 
-	_, err := store.Rerender(id)
+	pub.err = publishErr
+
+	_, err = store.Rerender(id)
 	if err == nil {
 		t.Fatal("expected error on failed publish, got nil")
 	}
@@ -320,15 +355,19 @@ func TestDeleteRemovesDatabaseRowsThenCleansObjectsBestEffort(t *testing.T) {
 	cleaner := &fakeCleaner{}
 	store := newTestStoreWithPorts(t, &fakePublisher{}, cleaner)
 	id := "u-delete"
-	createJobWithStage(t, store, id, StageDone)
+	createJobWithStage(t, store, id, StageTranscribing)
 
 	segmentsJSON := `[{"start":1.0,"end":2.0,"text":"caption","words":[]}]`
-	if err := store.SaveOriginalSegments(id, segmentsJSON); err != nil {
-		t.Fatalf("save segments: %v", err)
+	spec := &editspec.Spec{Animation: "karaoke"}
+	var segs []transcript.Segment
+	if err := json.Unmarshal([]byte(segmentsJSON), &segs); err != nil {
+		t.Fatalf("unmarshal: %v", err)
 	}
-	specJSON := `{"animation":"karaoke"}`
-	if err := store.SaveEditSpec(id, specJSON); err != nil {
-		t.Fatalf("save edit spec: %v", err)
+	if err := store.CommitIngestion(context.Background(), id, segs, spec); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+	if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
+		t.Fatalf("mark done: %v", err)
 	}
 
 	deleted, err := store.Delete(id)

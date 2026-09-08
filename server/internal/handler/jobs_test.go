@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rubichandrap/subvision/server/internal/db"
 	"github.com/rubichandrap/subvision/server/internal/job"
+	"github.com/rubichandrap/subvision/server/internal/transcript"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
 
@@ -100,12 +102,12 @@ type fakeCleaner struct {
 	deleted []string
 }
 
-// nilPublisher refuses every re-render publish; for routers whose tests
-// never touch the re-render endpoint.
-type nilPublisher struct{}
+type fakePublisher struct {
+	err error
+}
 
-func (nilPublisher) Publish(job vfxjob.Job) error {
-	return errors.New("re-render not wired in this test router")
+func (f fakePublisher) Publish(job vfxjob.Job) error {
+	return f.err
 }
 
 func (f *fakeCleaner) Delete(ctx context.Context, prefix string) error {
@@ -125,7 +127,7 @@ func newJobsRouter(t *testing.T) (*gin.Engine, *job.Store, *fakeOutputs, *fakeCl
 
 	outputs := &fakeOutputs{body: "video bytes"}
 	cleaner := &fakeCleaner{}
-	store, err := job.NewStore(database, nilPublisher{}, cleaner)
+	store, err := job.NewStore(database, fakePublisher{}, cleaner)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
@@ -203,8 +205,8 @@ func TestLifecycleMovesThroughTheStatusAPI(t *testing.T) {
 	}
 	assertStage("transcribing")
 
-	if recorded, err := store.MarkRendering("u1"); err != nil || !recorded {
-		t.Fatalf("mark rendering: recorded=%v err=%v", recorded, err)
+	if err := store.CommitIngestion(context.Background(), "u1", nil, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
 	}
 	assertStage("rendering")
 
@@ -275,11 +277,12 @@ func TestSegmentsEndpointServesStoredTranscript(t *testing.T) {
 	}
 
 	const stored = `[{"start":1.5,"end":2.5,"text":"hello","words":[{"text":"hello","start":1.6,"end":2.4}]}]`
-	if err := store.SaveOriginalSegments("u1", stored); err != nil {
-		t.Fatalf("save segments: %v", err)
+	var segs []transcript.Segment
+	if err := json.Unmarshal([]byte(stored), &segs); err != nil {
+		t.Fatalf("unmarshal: %v", err)
 	}
-	if recorded, err := store.MarkRendering("u1"); err != nil || !recorded {
-		t.Fatalf("mark rendering: recorded=%v err=%v", recorded, err)
+	if err := store.CommitIngestion(context.Background(), "u1", segs, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
 	}
 
 	rec = doGet(t, router, "/jobs/u1/segments")
