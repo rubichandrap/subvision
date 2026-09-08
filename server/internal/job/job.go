@@ -189,6 +189,11 @@ func (s *Store) MarkTranscribing(uploadID string) (bool, error) {
 	return s.mark(uploadID, StageTranscribing, "", "")
 }
 
+// StartTranscription records that the pipeline started working on the upload.
+func (s *Store) StartTranscription(uploadID string) (bool, error) {
+	return s.MarkTranscribing(uploadID)
+}
+
 // MarkRendering records that the VFX Job was handed to the vfx service.
 func (s *Store) MarkRendering(uploadID string) (bool, error) {
 	return s.mark(uploadID, StageRendering, "", "")
