@@ -183,6 +183,31 @@ func TestReflowHoldsShortCuesWithoutOverlap(t *testing.T) {
 	}
 }
 
+func TestReflowMicroOverlapValidates(t *testing.T) {
+	words := []transcript.Word{
+		reflowWord("one", 0, 1),
+		// Parakeet can report adjacent word boundaries a few microseconds
+		// apart; one cue per word would otherwise inherit that overlap.
+		reflowWord("two", 0.999996, 2),
+	}
+	got := transcript.Reflow([]transcript.Segment{{
+		Start: words[0].Start,
+		End:   words[len(words)-1].End,
+		Text:  "one two",
+		Words: words,
+	}}, transcript.ReflowOptions{WordsPerPage: 1})
+	if len(got) != 2 {
+		t.Fatalf("Reflow() produced %d cues, want 2", len(got))
+	}
+	overlap := got[0].End - got[1].Start
+	if overlap <= 0 || overlap >= 0.002 {
+		t.Fatalf("fixture overlap = %v, want a positive overlap below the validation tolerance", overlap)
+	}
+	if err := transcript.ValidateTiming(got); err != nil {
+		t.Fatalf("ValidateTiming() rejected reflowed micro-overlap: %v", err)
+	}
+}
+
 func TestReflowOnParakeetFixture(t *testing.T) {
 	raw, err := os.ReadFile("../../testdata/parakeet-spike/fixture.json")
 	if err != nil {
