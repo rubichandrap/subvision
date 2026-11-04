@@ -103,6 +103,7 @@ function makeModule(
   const cleanCalls: CleanVideoRequest[] = [];
   const cleanVideo: CleanVideoRenderer = async (request) => {
     cleanCalls.push(request);
+    fs.writeFileSync(request.outputPath, "clean-video");
   };
   const module = new RenderModule(storage, renderFrames, combineFrames, config, probe, cleanVideo);
   return { module, renderCalls, combineCalls, cleanCalls };

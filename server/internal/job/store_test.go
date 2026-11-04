@@ -424,7 +424,6 @@ func TestRerenderPublishesObjectKeyWithCompositeTusdId(t *testing.T) {
 	}
 }
 
-
 func TestRerenderRollsBackToFailedOnPublishError(t *testing.T) {
 	publishErr := errors.New("rabbitmq down")
 	pub := &fakePublisher{}
@@ -542,7 +541,6 @@ func TestDeleteCleansObjectsWithCompositeTusdId(t *testing.T) {
 		}
 	}
 }
-
 
 func TestDeleteSucceedsEvenWhenObjectCleanerFails(t *testing.T) {
 	cleaner := &fakeCleaner{err: errors.New("s3 connection timeout")}

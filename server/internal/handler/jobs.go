@@ -132,6 +132,12 @@ func RegisterJobs(r *gin.Engine, manager ProcessManager, outputs OutputOpener) {
 			primitives.JSendFail(c, gin.H{"segments": "segments must decode as timed text"}, http.StatusBadRequest)
 			return
 		}
+		if segments == nil {
+			// A JSON null segments value unmarshals into a nil slice without
+			// error; treat it as "clear the transcript" rather than crashing
+			// the client on a null payload.
+			segments = []transcript.Segment{}
+		}
 		if payload.SourceIndices != nil && len(payload.SourceIndices) != len(segments) {
 			primitives.JSendFail(c, gin.H{"sourceIndices": "sourceIndices must carry one entry per segment"}, http.StatusBadRequest)
 			return

@@ -2,9 +2,22 @@ package transcript
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"unicode/utf8"
 )
+
+// Timestamp comparisons tolerate float noise and (more importantly) the
+// millisecond rounding the editor applies before sending values back. Anything
+// within syncTimeEpsilon is treated as "unchanged" so a no-op save takes the
+// clone path instead of rewriting every word's timing.
+// Related: transcript.ValidateTiming uses 1e-6 and the client uses 1e-6; the
+// ASR word-boundary validation uses 1e-3.
+const syncTimeEpsilon = 1e-3
+
+func nearlyEqual(a, b float64) bool {
+	return math.Abs(a-b) <= syncTimeEpsilon
+}
 
 // SyncTextAndWords keeps a segment's display text and Timed Words aligned.
 // The stored original segment is the source of truth for timings; a text
@@ -19,7 +32,7 @@ func SyncTextAndWords(original, edited Segment) (Segment, error) {
 		return syncExistingWords(edited)
 	}
 
-	if edited.Start != original.Start || edited.End != original.End {
+	if !nearlyEqual(edited.Start, original.Start) || !nearlyEqual(edited.End, original.End) {
 		edited.Words = RescaleWords(original, edited)
 	} else {
 		edited.Words = append([]Word(nil), original.Words...)

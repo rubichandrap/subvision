@@ -14,11 +14,13 @@ type ReflowOptions struct {
 
 // DefaultReflowOptions returns the subtitle-layout defaults used by the
 // Parakeet spike. `wordsPerPage` mirrors the user's existing caption setting.
+// Short cues hold into available silence so they stay readable.
 func DefaultReflowOptions(wordsPerPage int) ReflowOptions {
 	return ReflowOptions{
 		WordsPerPage:    wordsPerPage,
 		MaxCharsPerLine: 42,
 		MaxLines:        2,
+		MinCueSeconds:   0.8,
 	}
 }
 
@@ -54,7 +56,8 @@ func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) [
 
 	for _, word := range segment.Words {
 		if len(current) > 0 {
-			charsWithCandidate := currentChars + len(word.Text)
+			// Join with one space when accounting for the rendered line width.
+			charsWithCandidate := currentChars + 1 + len(word.Text)
 			tooManyWords := len(current) >= options.WordsPerPage
 			tooWide := maxCharsPerCue > 0 && charsWithCandidate > maxCharsPerCue
 			if tooManyWords || tooWide {
@@ -64,6 +67,9 @@ func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) [
 			}
 		}
 
+		if len(current) > 0 {
+			currentChars++
+		}
 		current = append(current, word)
 		currentChars += len(word.Text)
 

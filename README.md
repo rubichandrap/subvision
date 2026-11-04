@@ -157,6 +157,7 @@ No variable falls back to silent credentials or default URLs.
 | `CLIENT_URL` | server | **yes** | — | Origin of the Next.js client, allowed by the server's CORS. |
 | `WHISPER_MODEL_PATH` | server | **yes** | — | Path to the whisper.cpp ggml model. |
 | `PARAKEET_URL` | server | no | — | Optional Parakeet HTTP worker URL; when set, transcription uses the Parakeet-first spike instead of whisper.cpp. |
+| `PARAKEET_TIMEOUT_SECONDS` | server | no | 60 | Per-request Parakeet decode ceiling; raise it for long videos. |
 | `S3_ENDPOINT` | server, vfx | **yes** | — | Full URL of the S3-compatible store (RustFS in compose). |
 | `S3_ACCESS_KEY` | server, vfx | **yes** | — | S3 access key. |
 | `S3_SECRET_KEY` | server, vfx | **yes** | — | S3 secret key. |
@@ -181,8 +182,9 @@ PORT=8080
 TMP_DIR=/tmp
 CLIENT_URL=http://localhost:3000
 WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
-# Optional Parakeet spike: uncomment to use the Parakeet HTTP worker instead
-# of whisper.cpp.
+# Optional Parakeet spike: uncomment for a worker running on the host, or
+# use the docker-compose.asr.yml profile, which sets this to
+# http://asr:8081/transcribe automatically.
 #PARAKEET_URL=http://127.0.0.1:8081/transcribe
 S3_ENDPOINT=http://rustfs:9000
 S3_ACCESS_KEY=rustfs

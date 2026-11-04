@@ -14,8 +14,12 @@ type ValidationError struct {
 func (e *ValidationError) Error() string {
 	return fmt.Sprintf("segment %d %s", e.Index+1, e.Reason)
 }
+
 // Timestamp comparisons tolerate the floating-point noise produced by model
 // inference; differences up to one microsecond are treated as equal.
+// Related: syncTimeEpsilon in sync.go is 1e-3 because the editor rounds
+// inputs to milliseconds; wordBoundaryEpsilon in the ASR client is 1e-3.
+
 const timingEpsilon = 1e-6
 
 // ValidateTiming rejects segment sequences with timing anomalies:

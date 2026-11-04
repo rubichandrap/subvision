@@ -193,6 +193,12 @@ func (p *Pipeline) ProcessUpload(ctx context.Context, job UploadJob) (err error)
 	// job. The existing Edit Spec already carries the user's `wordsPerPage`.
 	segments = transcript.Reflow(segments, transcript.DefaultReflowOptions(wordsPerPage(spec)))
 
+	// Cue-sized segments must stay monotonic for the renderer and the
+	// editor; a misbehaving worker must fail loudly here, not persist.
+	if err := transcript.ValidateTiming(segments); err != nil {
+		return fmt.Errorf("invalid transcript after reflow: %w", err)
+	}
+
 	if p.lifecycle != nil {
 		if err := p.lifecycle.CommitIngestion(ctx, job.UploadID, segments, spec); err != nil {
 			return fmt.Errorf("failed to commit ingestion: %w", err)

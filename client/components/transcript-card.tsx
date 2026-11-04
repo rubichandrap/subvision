@@ -136,6 +136,9 @@ export function TranscriptCard({
   const [rerendering, setRerendering] = React.useState(false);
   const [savedNote, setSavedNote] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  // Tracks unsaved edits so a poll-driven refetch cannot silently replace
+  // what the user typed while the process was rendering.
+  const dirtyRef = React.useRef(false);
 
   // Refetch only when the polled stage moves (or the process changes) —
   // the existing per-process poll drives updates, nothing new polls here.
@@ -147,6 +150,7 @@ export function TranscriptCard({
     fetchSegments(processId).then(
       (segs) => {
         if (cancelled) return;
+        if (dirtyRef.current) return;
         setSegments(segs);
         setDraft(toDraft(segs));
       },
@@ -199,12 +203,14 @@ export function TranscriptCard({
   const hasErrors = errors.some((e) => e.text ?? e.start ?? e.end ?? e.order);
 
   const updateRow = (index: number, patch: Partial<DraftSegment>) => {
+    dirtyRef.current = true;
     setDraft((prev) =>
       prev.map((row, i) => (i === index ? { ...row, ...patch } : row)),
     );
   };
 
   const addSegment = () => {
+    dirtyRef.current = true;
     setActionError(null);
     setSavedNote(null);
     setDraft((prev) => {
@@ -215,7 +221,9 @@ export function TranscriptCard({
         {
           id: draftRowId(),
           sourceIndex: null,
-          text: 'New segment',
+          // Empty text is deliberate: an unfilled manual cue must fail
+          // validation rather than ship a placeholder into the Output.
+          text: '',
           start: formatInputSeconds(start),
           end: formatInputSeconds(start + 2),
         },
@@ -224,6 +232,7 @@ export function TranscriptCard({
   };
 
   const removeSegment = (index: number) => {
+    dirtyRef.current = true;
     setActionError(null);
     setSavedNote(null);
     setDraft((prev) => prev.filter((_, i) => i !== index));
@@ -263,10 +272,15 @@ export function TranscriptCard({
     });
 
   const sourceIndices = (): number[] =>
-    draft.map((row) => row.sourceIndex ?? -1);
+    draft.map((row) =>
+      row.sourceIndex === null || row.sourceIndex >= segments.length
+        ? -1
+        : row.sourceIndex,
+    );
 
   const persistEdits = async (): Promise<Segment[]> => {
     const saved = await saveSegments(processId, toPayload(), sourceIndices());
+    dirtyRef.current = false;
     setSegments(saved);
     setDraft(toDraft(saved));
     return saved;
@@ -310,7 +324,7 @@ export function TranscriptCard({
         extra={
           <p className="text-xs text-muted-foreground">
             {draft.length} segment{draft.length === 1 ? '' : 's'} · times in
-            seconds
+            seconds of the trimmed clip
           </p>
         }
       />

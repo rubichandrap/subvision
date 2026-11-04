@@ -144,7 +144,9 @@ export async function saveSegments(
     const body = (await res.json()) as { status: 'success'; data: { segments: Segment[] } };
     return body.data.segments;
   }
-  throw new Error(failMessage(await res.text(), `save returned ${res.status}`));
+  throw new Error(
+    `${failMessage(await res.text(), 'save failed')} (HTTP ${res.status})`,
+  );
 }
 
 // Re-render publishes a fresh render job with the saved edits plus the

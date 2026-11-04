@@ -2,6 +2,7 @@
 // moving from uploaded through transcribing and rendering to done or failed.
 // The client reads it through the status API; nothing else invents it.
 package job
+
 import (
 	"context"
 	"database/sql"
@@ -17,6 +18,7 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/transcript"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
+
 type Stage string
 
 const (
@@ -42,6 +44,7 @@ func (s Stage) valid() bool {
 
 // ErrNotFound is returned by Get when no process carries the requested id.
 var ErrNotFound = errors.New("job not found")
+
 // StageConflictError is returned when an operation is invalid for the process's current stage.
 type StageConflictError struct {
 	ID    string
@@ -70,7 +73,6 @@ type ObjectCleaner interface {
 	Delete(ctx context.Context, prefix string) error
 }
 
-
 type Process struct {
 	ID        string
 	Filename  string
@@ -80,7 +82,6 @@ type Process struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
-
 
 type Store struct {
 	db        *sql.DB
@@ -175,7 +176,6 @@ func (s *Store) MarkTranscribing(uploadID string) (bool, error) {
 func (s *Store) StartTranscription(uploadID string) (bool, error) {
 	return s.MarkTranscribing(uploadID)
 }
-
 
 // Reopen moves a done job back to rendering for a re-render. The normal
 // mark refuses terminal stages, so this runs its own statement: only done
@@ -486,21 +486,33 @@ func (s *Store) SaveSegments(id string, segments []transcript.Segment, sourceInd
 			}
 		}
 		if len(sourceIndices) != len(segments) {
-			return nil, fmt.Errorf("sourceIndices must carry one entry per segment")
+			return nil, &transcript.ValidationError{
+				Index:  0,
+				Reason: "sourceIndices must carry one entry per segment",
+			}
 		}
 		used := make(map[int]bool, len(sourceIndices))
 		for i, sourceIndex := range sourceIndices {
 			if sourceIndex < -1 {
-				return nil, fmt.Errorf("segment %d references invalid source index %d", i+1, sourceIndex)
+				return nil, &transcript.ValidationError{
+					Index:  i,
+					Reason: fmt.Sprintf("references invalid source index %d", sourceIndex),
+				}
 			}
 			if sourceIndex < 0 {
 				continue
 			}
 			if sourceIndex >= len(original) {
-				return nil, fmt.Errorf("segment %d references source index %d, but only %d original segments exist", i+1, sourceIndex, len(original))
+				return nil, &transcript.ValidationError{
+					Index:  i,
+					Reason: fmt.Sprintf("references source index %d, but only %d original segments exist", sourceIndex, len(original)),
+				}
 			}
 			if used[sourceIndex] {
-				return nil, fmt.Errorf("segment %d references source index %d more than once", i+1, sourceIndex)
+				return nil, &transcript.ValidationError{
+					Index:  i,
+					Reason: fmt.Sprintf("references source index %d more than once", sourceIndex),
+				}
 			}
 			used[sourceIndex] = true
 		}
@@ -513,25 +525,31 @@ func (s *Store) SaveSegments(id string, segments []transcript.Segment, sourceInd
 				synced, syncErr = transcript.SyncTextAndWords(original[sourceIndex], segments[i])
 			}
 			if syncErr != nil {
-				return nil, fmt.Errorf("segment %d: %w", i+1, syncErr)
+				return nil, &transcript.ValidationError{Index: i, Reason: syncErr.Error()}
 			}
 			segments[i] = synced
 		}
 	} else {
 		if sourceIndices != nil && len(sourceIndices) != len(segments) {
-			return nil, fmt.Errorf("sourceIndices must carry one entry per segment")
+			return nil, &transcript.ValidationError{
+				Index:  0,
+				Reason: "sourceIndices must carry one entry per segment",
+			}
 		}
 		if sourceIndices != nil {
 			for i, sourceIndex := range sourceIndices {
 				if sourceIndex >= 0 {
-					return nil, fmt.Errorf("segment %d references source index %d, but no original transcript is stored", i+1, sourceIndex)
+					return nil, &transcript.ValidationError{
+						Index:  i,
+						Reason: fmt.Sprintf("references source index %d, but no original transcript is stored", sourceIndex),
+					}
 				}
 			}
 		}
 		for i := range segments {
 			synced, err := transcript.SyncManualSegment(segments[i])
 			if err != nil {
-				return nil, fmt.Errorf("segment %d: %w", i+1, err)
+				return nil, &transcript.ValidationError{Index: i, Reason: err.Error()}
 			}
 			segments[i] = synced
 		}
@@ -547,7 +565,6 @@ func (s *Store) SaveSegments(id string, segments []transcript.Segment, sourceInd
 	}
 	return segments, nil
 }
-
 
 // EditSpec returns the stored original Edit Spec JSON, or empty when the
 // upload carried none. Reading an unknown id is not an error.

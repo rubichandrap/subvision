@@ -144,6 +144,18 @@ func TestParakeetTranscriberFailsLoudly(t *testing.T) {
 			wantErr: "has no timed words",
 		},
 		{
+			name: "worker returns overlapping segments",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				_ = json.NewEncoder(w).Encode(parakeetResponse{
+					Segments: []transcript.Segment{
+						{Start: 1, End: 2, Text: "hello", Words: []transcript.Word{{Text: "hello", Start: 1, End: 2}}},
+						{Start: 1.5, End: 3, Text: "world", Words: []transcript.Word{{Text: "world", Start: 1.5, End: 3}}},
+					},
+				})
+			},
+			wantErr: "starts before segment 1 ends",
+		},
+		{
 			name: "worker returns segment with inverted word timing",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				_ = json.NewEncoder(w).Encode(parakeetResponse{

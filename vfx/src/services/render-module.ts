@@ -75,7 +75,6 @@ export interface CleanVideoPlan {
 export interface CleanVideoRequest {
   videoPath: string;
   outputPath: string;
-  fps: number;
   plan: CleanVideoPlan;
 }
 
@@ -136,6 +135,11 @@ export class RenderModule {
       };
       if (job.editSpec) {
         const probe = await this.probe(videoPath);
+        if (probe.duration !== null && job.editSpec.trim.start >= probe.duration) {
+          throw new Error(
+            `trim start ${job.editSpec.trim.start}s is past the video duration ${probe.duration}s`
+          );
+        }
         const framePlan = planFrame(job.editSpec.frame, probe.width, probe.height);
         plan = {
           videoFilters: framePlan.filters,
@@ -147,7 +151,11 @@ export class RenderModule {
         };
       }
 
-      await this.cleanVideo({ videoPath, outputPath, fps: this.config.options.fps, plan });
+      await this.cleanVideo({ videoPath, outputPath, plan });
+      const produced = fs.statSync(outputPath, { throwIfNoEntry: false });
+      if (!produced || produced.size === 0) {
+        throw new Error(`ffmpeg produced no clean video at ${outputPath}`);
+      }
       await this.storage.uploadFile(this.config.bucket, outputKey(id), outputPath);
       return { uploadId: job.uploadId, outputKey: outputKey(id) };
     }
@@ -442,6 +450,9 @@ export async function cleanVideoWithFFmpeg(request: CleanVideoRequest): Promise<
     console.error(`FFmpeg Error: ${data}`);
   });
   return new Promise((resolve, reject) => {
+    ffmpeg.on("error", (error) => {
+      reject(new Error(`FFmpeg failed to start: ${error.message}`));
+    });
     ffmpeg.on("close", (code) => {
       if (code === 0) {
         resolve();
@@ -523,6 +534,9 @@ export async function combineFramesWithFFmpeg(
 
   // Handle FFmpeg process completion
   return new Promise((resolve, reject) => {
+    ffmpeg.on("error", (error) => {
+      reject(new Error(`FFmpeg failed to start: ${error.message}`));
+    });
     ffmpeg.on("close", (code) => {
       if (code === 0) {
         console.log(`Video created successfully: ${outputPath}`);

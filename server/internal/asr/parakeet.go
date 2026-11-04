@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/rubichandrap/subvision/server/internal/transcript"
@@ -17,6 +18,10 @@ import (
 // request. It is intentionally generous: long videos need real decode time.
 const DefaultParakeetTimeout = 60 * time.Second
 
+// maxParakeetBodyBytes caps the worker's response so a hung or hostile
+// worker cannot exhaust server memory while decoding.
+const maxParakeetBodyBytes = 32 << 20 // 32 MiB
+
 // ParakeetTranscriber transcribes audio by posting a 16 kHz mono WAV to a
 // small Python ASR worker and reading back Subvision's segment contract.
 type ParakeetTranscriber struct {
@@ -25,9 +30,16 @@ type ParakeetTranscriber struct {
 }
 
 // NewParakeet constructs a ParakeetTranscriber with the supplied worker URL.
+// A zero timeout uses PARAKEET_TIMEOUT_SECONDS when set, else the generous
+// DefaultParakeetTimeout; long files need real decode time.
 func NewParakeet(url string, timeout time.Duration) *ParakeetTranscriber {
 	if timeout <= 0 {
 		timeout = DefaultParakeetTimeout
+		if raw := os.Getenv("PARAKEET_TIMEOUT_SECONDS"); raw != "" {
+			if seconds, err := strconv.Atoi(raw); err == nil && seconds > 0 {
+				timeout = time.Duration(seconds) * time.Second
+			}
+		}
 	}
 	return &ParakeetTranscriber{
 		URL:    url,
@@ -68,16 +80,15 @@ func (p *ParakeetTranscriber) Transcribe(audioPath string) ([]transcript.Segment
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf(
-			"parakeet worker returned %s: %s",
-			resp.Status,
-			string(bytes.TrimSpace(body)),
-		)
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 512))
+		return nil, fmt.Errorf("parakeet worker returned %s", resp.Status)
 	}
 
+	// The worker is untrusted input: cap the body so a hung or hostile
+	// worker cannot exhaust memory here.
 	var payload parakeetResponse
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	body := io.LimitReader(resp.Body, maxParakeetBodyBytes)
+	if err := json.NewDecoder(body).Decode(&payload); err != nil {
 		return nil, fmt.Errorf("failed to decode parakeet response: %w", err)
 	}
 	if err := validateParakeetSegments(payload.Segments); err != nil {
@@ -100,6 +111,9 @@ func validateParakeetSegments(segments []transcript.Segment) error {
 		}
 		if segment.End <= segment.Start {
 			return fmt.Errorf("parakeet segment %d has end <= start", i+1)
+		}
+		if i > 0 && segment.Start < segments[i-1].End-wordBoundaryEpsilon {
+			return fmt.Errorf("parakeet segment %d starts before segment %d ends", i+1, i)
 		}
 		if len(segment.Words) == 0 {
 			return fmt.Errorf("parakeet segment %d has no timed words", i+1)

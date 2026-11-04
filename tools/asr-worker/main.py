@@ -16,6 +16,7 @@ import re
 import sys
 import tempfile
 import threading
+import traceback
 import wave
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -24,6 +25,11 @@ from typing import Iterable
 
 import numpy as np
 import sherpa_onnx
+
+# A WAV body is 16-bit mono at 16 kHz, so 256 MiB is roughly 2.3 hours. This
+# is an internal service; keep a hard ceiling even if a caller lies.
+MAX_BODY_BYTES = int(os.environ.get("ASR_MAX_BODY_BYTES", str(256 * 1024 * 1024)))
+CONNECTION_TIMEOUT_SECONDS = 60
 
 
 @dataclass(frozen=True)
@@ -87,7 +93,6 @@ class ParakeetWorker:
                 "words": [asdict(word) for word in words],
                 "meta": {
                     "engine": "sherpa-onnx",
-                    "model_dir": self._model_dir,
                     "language": "en",
                 },
             }
@@ -195,6 +200,10 @@ def segments_from_words(words: list[Word]) -> list[dict[str, object]]:
 class Handler(BaseHTTPRequestHandler):
     worker: ParakeetWorker
 
+    def setup(self) -> None:
+        super().setup()
+        self.connection.settimeout(CONNECTION_TIMEOUT_SECONDS)
+
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/healthz":
             self._send_json({"status": "ok"})
@@ -223,12 +232,22 @@ class Handler(BaseHTTPRequestHandler):
         if size <= 0:
             self._send_json({"error": "empty request body"}, status=400)
             return
+        if size > MAX_BODY_BYTES:
+            self._send_json(
+                {"error": f"request body exceeds {MAX_BODY_BYTES} bytes"},
+                status=413,
+            )
+            return
 
         data = self.rfile.read(size)
         try:
             payload = self.worker.transcribe_wav_bytes(data)
-        except (ValueError, OSError, RuntimeError) as exc:
-            self._send_json({"error": str(exc)}, status=500)
+        except (ValueError, OSError, RuntimeError):
+            # Log the concrete cause locally; don't return filesystem paths or
+            # model details to the caller.
+            print("[asr-worker] transcription failed:", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            self._send_json({"error": "transcription failed"}, status=500)
             return
         self._send_json(payload)
 
