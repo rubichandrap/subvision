@@ -92,7 +92,7 @@ func TestSaveSegmentsRejectsUneditableStages(t *testing.T) {
 			segments := []transcript.Segment{
 				{Start: 1.0, End: 2.0, Text: "hello"},
 			}
-			_, err := store.SaveSegments(id, segments)
+			_, err := store.SaveSegments(id, segments, nil)
 			if err == nil {
 				t.Fatalf("expected error saving segments in stage %s, got nil", stage)
 			}
@@ -120,7 +120,7 @@ func TestSaveSegmentsAllowsRenderingAndDone(t *testing.T) {
 			segments := []transcript.Segment{
 				{Start: 1.0, End: 2.5, Text: "valid segment"},
 			}
-			saved, err := store.SaveSegments(id, segments)
+			saved, err := store.SaveSegments(id, segments, nil)
 			if err != nil {
 				t.Fatalf("unexpected error saving segments in stage %s: %v", stage, err)
 			}
@@ -140,7 +140,7 @@ func TestSaveSegmentsValidatesTimings(t *testing.T) {
 	segments := []transcript.Segment{
 		{Start: 2.5, End: 1.0, Text: "backward time"},
 	}
-	_, err := store.SaveSegments(id, segments)
+	_, err := store.SaveSegments(id, segments, nil)
 	if err == nil {
 		t.Fatal("expected validation error for invalid timing, got nil")
 	}
@@ -172,7 +172,7 @@ func TestSaveSegmentsRescalesWordsAgainstWhisperOriginals(t *testing.T) {
 	edited := []transcript.Segment{
 		{Start: 2.0, End: 4.0, Text: "hello world"},
 	}
-	saved, err := store.SaveSegments(id, edited)
+	saved, err := store.SaveSegments(id, edited, nil)
 	if err != nil {
 		t.Fatalf("save segments: %v", err)
 	}
@@ -187,6 +187,123 @@ func TestSaveSegmentsRescalesWordsAgainstWhisperOriginals(t *testing.T) {
 	w0 := saved[0].Words[0]
 	if w0.Text != "hello" || w0.Start < 2.19 || w0.Start > 2.21 {
 		t.Errorf("word 0 start = %f, want ~2.2", w0.Start)
+	}
+}
+
+func TestSaveSegmentsUpdatesWordsForSameTokenCountTextEdits(t *testing.T) {
+	store := newTestStoreWithPorts(t, &fakePublisher{}, &fakeCleaner{})
+	id := "job-sync-words"
+	createJobWithStage(t, store, id, StageTranscribing)
+
+	segmentsJSON := `[{"start":1.0,"end":2.0,"text":"hello world","words":[{"start":1.1,"end":1.5,"text":"hello"},{"start":1.6,"end":1.9,"text":"world"}]}]`
+	var original []transcript.Segment
+	if err := json.Unmarshal([]byte(segmentsJSON), &original); err != nil {
+		t.Fatalf("unmarshal original segments: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), id, original, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+	if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+
+	edited := []transcript.Segment{
+		{Start: 1.0, End: 2.0, Text: "greet planet"},
+	}
+	saved, err := store.SaveSegments(id, edited, nil)
+	if err != nil {
+		t.Fatalf("save segments: %v", err)
+	}
+	if len(saved) != 1 || len(saved[0].Words) != 2 {
+		t.Fatalf("unexpected saved segments: %+v", saved)
+	}
+	if saved[0].Words[0].Text != "greet" || saved[0].Words[1].Text != "planet" {
+		t.Errorf("word texts = (%q, %q), want (%q, %q)", saved[0].Words[0].Text, saved[0].Words[1].Text, "greet", "planet")
+	}
+}
+
+func TestSaveSegmentsSupportsAddingAndRemovingSegments(t *testing.T) {
+	store := newTestStoreWithPorts(t, &fakePublisher{}, &fakeCleaner{})
+	id := "job-manual-segments"
+	createJobWithStage(t, store, id, StageTranscribing)
+
+	segmentsJSON := `[
+		{"start":1.0,"end":2.0,"text":"hello world","words":[{"start":1.1,"end":1.5,"text":"hello"},{"start":1.6,"end":1.9,"text":"world"}]},
+		{"start":3.0,"end":4.0,"text":"goodbye world","words":[{"start":3.1,"end":3.5,"text":"goodbye"},{"start":3.6,"end":3.9,"text":"world"}]}
+	]`
+	var original []transcript.Segment
+	if err := json.Unmarshal([]byte(segmentsJSON), &original); err != nil {
+		t.Fatalf("unmarshal original segments: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), id, original, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+	if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+
+	// Add a manual row between the original rows and remove nothing.
+	manual := transcript.Segment{Start: 2.0, End: 3.0, Text: "manual row"}
+	saved, err := store.SaveSegments(id, []transcript.Segment{original[0], manual, original[1]}, []int{0, -1, 1})
+	if err != nil {
+		t.Fatalf("save segments: %v", err)
+	}
+	if len(saved) != 3 {
+		t.Fatalf("saved segments = %d, want 3", len(saved))
+	}
+	if got := saved[1].Words; len(got) != 2 || got[0].Text != "manual" || got[1].Text != "row" {
+		t.Fatalf("manual words = %+v, want two generated words", got)
+	}
+	if saved[1].Words[0].Start < saved[1].Start || saved[1].Words[len(saved[1].Words)-1].End > saved[1].End {
+		t.Fatalf("manual word timings = %+v, want them inside %+v", saved[1].Words, saved[1])
+	}
+	if saved[2].Words[0].Start != original[1].Words[0].Start || saved[2].Words[0].End != original[1].Words[0].End {
+		t.Fatalf("original word timings changed: got %+v, want %+v", saved[2].Words[0], original[1].Words[0])
+	}
+
+	// Remove the first row; the second's original source index must still bind correctly.
+	removed, err := store.SaveSegments(id, []transcript.Segment{original[1]}, []int{1})
+	if err != nil {
+		t.Fatalf("save segments after removal: %v", err)
+	}
+	if len(removed) != 1 || removed[0].Start != original[1].Start || removed[0].End != original[1].End {
+		t.Fatalf("removed save = %+v, want the original second row", removed)
+	}
+
+	// Two rows must not claim the same original source.
+	duplicateWindows := []transcript.Segment{
+		original[0],
+		{Start: 2, End: 3, Text: original[0].Text, Words: original[0].Words},
+	}
+	_, err = store.SaveSegments(id, duplicateWindows, []int{0, 0})
+	if err == nil || !strings.Contains(err.Error(), "more than once") {
+		t.Fatalf("SaveSegments() error = %v, want duplicate source index rejection", err)
+	}
+}
+
+func TestSaveSegmentsRejectsTextEditsThatChangeWordCount(t *testing.T) {
+	store := newTestStoreWithPorts(t, &fakePublisher{}, &fakeCleaner{})
+	id := "job-reject-word-count"
+	createJobWithStage(t, store, id, StageTranscribing)
+
+	segmentsJSON := `[{"start":1.0,"end":2.0,"text":"hello world","words":[{"start":1.1,"end":1.5,"text":"hello"},{"start":1.6,"end":1.9,"text":"world"}]}]`
+	var original []transcript.Segment
+	if err := json.Unmarshal([]byte(segmentsJSON), &original); err != nil {
+		t.Fatalf("unmarshal original segments: %v", err)
+	}
+	if err := store.CommitIngestion(context.Background(), id, original, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+	if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
+		t.Fatalf("mark done: %v", err)
+	}
+
+	edited := []transcript.Segment{
+		{Start: 1.0, End: 2.0, Text: "hello brave new world"},
+	}
+	_, err := store.SaveSegments(id, edited, nil)
+	if err == nil || !strings.Contains(err.Error(), "segment text has 4 words, want 2 timed words") {
+		t.Fatalf("SaveSegments() error = %v, want it to contain %q", err, "segment text has 4 words, want 2 timed words")
 	}
 }
 

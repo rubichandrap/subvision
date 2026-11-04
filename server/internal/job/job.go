@@ -448,8 +448,10 @@ func (s *Store) publishVfxJob(id string, segments []transcript.Segment, spec *ed
 }
 
 // SaveSegments enforces that the Process is in rendering or done stage, validates timings,
-// rescales words against whisper originals, and saves to job_segments.
-func (s *Store) SaveSegments(id string, segments []transcript.Segment) ([]transcript.Segment, error) {
+// rescales or syncs Timed Words against the stored originals, and saves to job_segments.
+// sourceIndices carries one entry per segment and identifies the stored original it
+// came from; -1 marks a user-created manual segment. Nil keeps the historic index-based mapping.
+func (s *Store) SaveSegments(id string, segments []transcript.Segment, sourceIndices []int) ([]transcript.Segment, error) {
 	proc, err := s.Get(id)
 	if err != nil {
 		return nil, err
@@ -465,20 +467,73 @@ func (s *Store) SaveSegments(id string, segments []transcript.Segment) ([]transc
 		return nil, err
 	}
 
-	// Rescale word offsets against whisper originals if present
+	// Rescale word offsets against the stored original segments, if present, and
+	// keep text and Timed Words aligned for text edits. Manual segments are
+	// distributed across their cue window so karaoke/pop have word timings.
 	if stored, err := s.Segments(id); err == nil && len(stored) > 0 {
 		var original []transcript.Segment
-		if json.Unmarshal([]byte(stored), &original) == nil {
-			for i := range segments {
-				if i >= len(original) {
-					break
-				}
-				if segments[i].Start != original[i].Start || segments[i].End != original[i].End {
-					segments[i].Words = transcript.RescaleWords(original[i], segments[i])
+		if err := json.Unmarshal([]byte(stored), &original); err != nil {
+			return nil, fmt.Errorf("stored segments for job %s are corrupt: %w", id, err)
+		}
+		if sourceIndices == nil {
+			sourceIndices = make([]int, len(segments))
+			for i := range sourceIndices {
+				if i < len(original) {
+					sourceIndices[i] = i
 				} else {
-					segments[i].Words = original[i].Words
+					sourceIndices[i] = -1
 				}
 			}
+		}
+		if len(sourceIndices) != len(segments) {
+			return nil, fmt.Errorf("sourceIndices must carry one entry per segment")
+		}
+		used := make(map[int]bool, len(sourceIndices))
+		for i, sourceIndex := range sourceIndices {
+			if sourceIndex < -1 {
+				return nil, fmt.Errorf("segment %d references invalid source index %d", i+1, sourceIndex)
+			}
+			if sourceIndex < 0 {
+				continue
+			}
+			if sourceIndex >= len(original) {
+				return nil, fmt.Errorf("segment %d references source index %d, but only %d original segments exist", i+1, sourceIndex, len(original))
+			}
+			if used[sourceIndex] {
+				return nil, fmt.Errorf("segment %d references source index %d more than once", i+1, sourceIndex)
+			}
+			used[sourceIndex] = true
+		}
+		for i := range segments {
+			var synced transcript.Segment
+			var syncErr error
+			if sourceIndex := sourceIndices[i]; sourceIndex < 0 {
+				synced, syncErr = transcript.SyncManualSegment(segments[i])
+			} else {
+				synced, syncErr = transcript.SyncTextAndWords(original[sourceIndex], segments[i])
+			}
+			if syncErr != nil {
+				return nil, fmt.Errorf("segment %d: %w", i+1, syncErr)
+			}
+			segments[i] = synced
+		}
+	} else {
+		if sourceIndices != nil && len(sourceIndices) != len(segments) {
+			return nil, fmt.Errorf("sourceIndices must carry one entry per segment")
+		}
+		if sourceIndices != nil {
+			for i, sourceIndex := range sourceIndices {
+				if sourceIndex >= 0 {
+					return nil, fmt.Errorf("segment %d references source index %d, but no original transcript is stored", i+1, sourceIndex)
+				}
+			}
+		}
+		for i := range segments {
+			synced, err := transcript.SyncManualSegment(segments[i])
+			if err != nil {
+				return nil, fmt.Errorf("segment %d: %w", i+1, err)
+			}
+			segments[i] = synced
 		}
 	}
 

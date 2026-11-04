@@ -130,13 +130,14 @@ function failMessage(body: string, fallback: string): string {
 export async function saveSegments(
   id: string,
   segments: Segment[],
+  sourceIndices: number[],
 ): Promise<Segment[]> {
   const res = await fetch(
     `${env.serverUrl}/jobs/${encodeURIComponent(normalizeJobId(id))}/segments`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segments }),
+      body: JSON.stringify({ segments, sourceIndices }),
     },
   );
   if (res.ok) {

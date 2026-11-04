@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Trash2 } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,12 +23,15 @@ import {
 // reports, so no new polling mechanism.
 
 export type DraftSegment = {
+  id: string;
+  sourceIndex: number | null;
   text: string;
   start: string;
   end: string;
 };
 
 export type SegmentError = {
+  text?: string;
   start?: string;
   end?: string;
   order?: string;
@@ -52,13 +55,31 @@ function TranscriptHeader({ extra }: { extra?: React.ReactNode }) {
   );
 }
 
+function formatInputSeconds(value: number): string {
+  return String(Math.round(value * 1000) / 1000);
+}
+
+let draftRowSequence = 0;
+
+function draftRowId(): string {
+  draftRowSequence += 1;
+  return `draft-row-${draftRowSequence}-${Date.now()}`;
+}
+
 function toDraft(segments: Segment[]): DraftSegment[] {
-  return segments.map((s) => ({
+  return segments.map((s, index) => ({
+    id: `source-${index}`,
+    sourceIndex: index,
     text: s.text,
-    start: String(s.start),
-    end: String(s.end),
+    start: formatInputSeconds(s.start),
+    end: formatInputSeconds(s.end),
   }));
 }
+
+// Timestamp comparisons tolerate the floating-point noise produced by model
+// inference (e.g. 13.5199995 vs 13.5199997). Only differences beyond this are
+// treated as overlapping or misordered.
+const timeEpsilon = 1e-6;
 
 export function validateSegments(draft: DraftSegment[]): SegmentError[] {
   const parsed = draft.map((row) => ({
@@ -68,6 +89,9 @@ export function validateSegments(draft: DraftSegment[]): SegmentError[] {
   return draft.map((row, i) => {
     const err: SegmentError = {};
     const { start, end } = parsed[i];
+    if (row.text.trim() === '') {
+      err.text = 'Enter the caption text.';
+    }
     if (row.start.trim() === '' || !Number.isFinite(start)) {
       err.start = 'Enter a start time in seconds.';
     } else if (start < 0) {
@@ -89,7 +113,7 @@ export function validateSegments(draft: DraftSegment[]): SegmentError[] {
         Number.isFinite(prev.end) &&
         row.start.trim() !== '' &&
         draft[i - 1].end.trim() !== '' &&
-        start < prev.end
+        start < prev.end - timeEpsilon
       ) {
         err.order = 'Segments must stay in order, without overlap.';
       }
@@ -171,19 +195,8 @@ export function TranscriptCard({
     );
   }
 
-  if (segments.length === 0) {
-    return (
-      <Card className="border-2 p-5">
-        <TranscriptHeader />
-        <p className="py-4 text-sm text-muted-foreground">
-          No transcript segments for this process yet.
-        </p>
-      </Card>
-    );
-  }
-
   const errors = validateSegments(draft);
-  const hasErrors = errors.some((e) => e.start ?? e.end ?? e.order);
+  const hasErrors = errors.some((e) => e.text ?? e.start ?? e.end ?? e.order);
 
   const updateRow = (index: number, patch: Partial<DraftSegment>) => {
     setDraft((prev) =>
@@ -191,25 +204,69 @@ export function TranscriptCard({
     );
   };
 
-  // Edited rows merge back onto the fetched segments: text plus parsed
-  // times, words ride along untouched (the server rescales word offsets
-  // into the edited window on save).
+  const addSegment = () => {
+    setActionError(null);
+    setSavedNote(null);
+    setDraft((prev) => {
+      const parsedEnd = Number(prev[prev.length - 1]?.end ?? '0');
+      const start = Number.isFinite(parsedEnd) ? parsedEnd : 0;
+      return [
+        ...prev,
+        {
+          id: draftRowId(),
+          sourceIndex: null,
+          text: 'New segment',
+          start: formatInputSeconds(start),
+          end: formatInputSeconds(start + 2),
+        },
+      ];
+    });
+  };
+
+  const removeSegment = (index: number) => {
+    setActionError(null);
+    setSavedNote(null);
+    setDraft((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Edited rows merge back onto their source rows. Manual rows carry no
+  // words; the server distributes timings across their token lengths.
   const toPayload = (): Segment[] =>
-    (segments ?? []).map((seg, i) => ({
-      ...seg,
-      text: draft[i]?.text ?? seg.text,
-      start:
-        draft[i] !== undefined && draft[i].start.trim() !== ''
-          ? Number(draft[i].start)
-          : seg.start,
-      end:
-        draft[i] !== undefined && draft[i].end.trim() !== ''
-          ? Number(draft[i].end)
-          : seg.end,
-    }));
+    draft.map((row) => {
+      const source =
+        row.sourceIndex === null || row.sourceIndex >= segments.length
+          ? undefined
+          : segments[row.sourceIndex];
+      const text = row.text;
+      const start =
+        row.start.trim() !== ''
+          ? Number(row.start)
+          : (source?.start ?? 0);
+      const end =
+        row.end.trim() !== '' ? Number(row.end) : (source?.end ?? start);
+
+      if (source) {
+        return {
+          ...source,
+          text,
+          start,
+          end,
+        };
+      }
+
+      return {
+        text,
+        start,
+        end,
+        words: [],
+      };
+    });
+
+  const sourceIndices = (): number[] =>
+    draft.map((row) => row.sourceIndex ?? -1);
 
   const persistEdits = async (): Promise<Segment[]> => {
-    const saved = await saveSegments(processId, toPayload());
+    const saved = await saveSegments(processId, toPayload(), sourceIndices());
     setSegments(saved);
     setDraft(toDraft(saved));
     return saved;
@@ -260,20 +317,34 @@ export function TranscriptCard({
       <ol className="mt-4 space-y-4">
         {draft.map((row, i) => {
           const err = errors[i] ?? {};
-          const invalid = Boolean(err.start ?? err.end ?? err.order);
+          const invalid = Boolean(err.text ?? err.start ?? err.end ?? err.order);
           return (
             <li
-              key={i}
+              key={row.id}
               className={`border-2 p-3 ${invalid ? 'border-destructive/60' : 'border-border'}`}
             >
-              <p className="font-mono text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                Segment {i + 1}
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-mono text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Segment {i + 1}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Remove segment ${i + 1}`}
+                  title="Remove segment"
+                  disabled={saving || rerendering}
+                  onClick={() => removeSegment(i)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
               <Textarea
                 aria-label={`Segment ${i + 1} text`}
                 value={row.text}
                 onChange={(e) => updateRow(i, { text: e.target.value })}
                 className="mt-2 min-h-[60px]"
+                aria-invalid={Boolean(err.text)}
               />
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <label className="block">
@@ -301,9 +372,9 @@ export function TranscriptCard({
                   />
                 </label>
               </div>
-              {(err.start ?? err.end ?? err.order) && (
+              {(err.text ?? err.start ?? err.end ?? err.order) && (
                 <div className="mt-2 space-y-0.5" role="alert">
-                  {[err.start, err.end, err.order]
+                  {[err.text, err.start, err.end, err.order]
                     .filter(Boolean)
                     .map((message) => (
                       <p key={message} className="text-xs font-medium text-destructive">
@@ -316,6 +387,16 @@ export function TranscriptCard({
           );
         })}
       </ol>
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-4 w-full"
+        disabled={saving || rerendering}
+        onClick={addSegment}
+      >
+        <Plus className="mr-2 h-4 w-4" />
+        Add segment
+      </Button>
       {savedNote && (
         <p className="mt-4 border-2 border-border bg-[#7df29a] p-2 text-sm font-bold text-[#141414]">
           {savedNote}

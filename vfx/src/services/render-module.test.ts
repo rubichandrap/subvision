@@ -5,6 +5,8 @@ import path from "path";
 import { describe, it } from "node:test";
 
 import {
+  CleanVideoRequest,
+  CleanVideoRenderer,
   CombinePlan,
   FrameCombiner,
   FrameRenderer,
@@ -98,8 +100,12 @@ function makeModule(
   ) => {
     combineCalls.push({ videoPath, framesDir, outputPath, fps: frameRate, plan });
   };
-  const module = new RenderModule(storage, renderFrames, combineFrames, config, probe);
-  return { module, renderCalls, combineCalls };
+  const cleanCalls: CleanVideoRequest[] = [];
+  const cleanVideo: CleanVideoRenderer = async (request) => {
+    cleanCalls.push(request);
+  };
+  const module = new RenderModule(storage, renderFrames, combineFrames, config, probe, cleanVideo);
+  return { module, renderCalls, combineCalls, cleanCalls };
 }
 
 describe("render module", () => {
@@ -174,14 +180,26 @@ describe("render module", () => {
     );
   });
 
-  it("rejects a job without segments", async () => {
+  it("renders a clean video with no overlay when the job has no segments", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "render-module-"));
-    const { module } = makeModule(tmpDir, new FakeStorage());
+    const storage = new FakeStorage();
+    const { module, renderCalls, combineCalls, cleanCalls } = makeModule(tmpDir, storage);
 
-    await assert.rejects(
-      module.run({ uploadId: "u1", objectKey: "uploads/u1", segments: [] }),
-      /no segments/
-    );
+    const outcome = await module.run({ uploadId: "u1", objectKey: "uploads/u1", segments: [] });
+
+    assert.deepEqual(outcome, { uploadId: "u1", outputKey: "outputs/u1" });
+    assert.equal(storage.downloads.length, 1);
+    assert.equal(renderCalls.length, 0);
+    assert.equal(combineCalls.length, 0);
+    assert.equal(cleanCalls.length, 1);
+    assert.equal(cleanCalls[0]!.videoPath, path.join(tmpDir, "videos", "u1"));
+    assert.equal(cleanCalls[0]!.outputPath, path.join(tmpDir, "outputs", "u1.mp4"));
+    assert.deepEqual(cleanCalls[0]!.plan, {
+      videoFilters: [],
+      seekStart: 0,
+      seekDuration: null,
+    });
+    assert.equal(storage.uploads.length, 1);
   });
 });
 
@@ -319,6 +337,23 @@ describe("render module with an Edit Spec", () => {
 
     assert.equal(combineCalls[0]!.plan.seekStart, 5);
     assert.equal(combineCalls[0]!.plan.seekDuration, null);
+  });
+
+  it("renders an empty transcript with the clean-video path and no overlay", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "render-module-"));
+    const storage = new FakeStorage();
+    const { module, renderCalls, combineCalls, cleanCalls } = makeModule(tmpDir, storage);
+
+    await module.run({ uploadId: "u1", objectKey: "uploads/u1", segments: [], editSpec });
+
+    assert.equal(renderCalls.length, 0);
+    assert.equal(combineCalls.length, 0);
+    assert.equal(cleanCalls.length, 1);
+    assert.deepEqual(cleanCalls[0]!.plan, {
+      videoFilters: ["scale=2869:1614", "crop=606:1076:0:269"],
+      seekStart: 10,
+      seekDuration: 10,
+    });
   });
 
   it("surfaces a probe failure loudly", async () => {
