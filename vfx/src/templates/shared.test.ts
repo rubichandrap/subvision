@@ -6,7 +6,7 @@ import { ISegment, IWord } from "../types";
 import { activePageWords, activeSegment, onsetStart } from "./shared";
 
 // Synthetic segment: word i spans [i, i + 0.8], segment holds `trailing`
-// seconds past the last word end (trailing pauses are real whisper output).
+// seconds past the last word end (trailing pauses are real transcript output).
 function makeSegment(count: number, trailing = 1): ISegment {
   const words: IWord[] = Array.from({ length: count }, (_, i) => ({
     text: `w${i}`,
@@ -18,7 +18,7 @@ function makeSegment(count: number, trailing = 1): ISegment {
 }
 
 // A segment whose window opens `lead` seconds before its first word starts —
-// the leading-silence shape real whisper output has.
+// the leading-silence shape real transcript output has.
 function makeLeadSegment(count: number, lead: number): ISegment {
   const segment = makeSegment(count);
   segment.start = 0;

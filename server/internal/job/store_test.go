@@ -150,12 +150,12 @@ func TestSaveSegmentsValidatesTimings(t *testing.T) {
 	}
 }
 
-func TestSaveSegmentsRescalesWordsAgainstWhisperOriginals(t *testing.T) {
+func TestSaveSegmentsRescalesWordsAgainstStoredOriginals(t *testing.T) {
 	store := newTestStoreWithPorts(t, &fakePublisher{}, &fakeCleaner{})
 	id := "job-rescale"
 	createJobWithStage(t, store, id, StageTranscribing)
 
-	// Store whisper original segment with timed words
+	// Store original segment with timed words
 	originalJSON := `[{"start":1.0,"end":2.0,"text":"hello world","words":[{"start":1.1,"end":1.5,"text":"hello"},{"start":1.6,"end":1.9,"text":"world"}]}]`
 	var original []transcript.Segment
 	if err := json.Unmarshal([]byte(originalJSON), &original); err != nil {

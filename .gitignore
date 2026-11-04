@@ -21,5 +21,8 @@ skills-lock.json
 # Graphifyy artifacts
 graphify-out
 
-# Local Parakeet model mounts for docker-compose.asr.yml
+# Local Parakeet model mounts for docker-compose.yml
 /models/
+
+# Python bytecode
+__pycache__/

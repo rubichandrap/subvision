@@ -283,8 +283,8 @@ func TestProcessUploadAutonomousFailureGuard(t *testing.T) {
 			},
 			downloader:    &fakeDownloader{createFile: true},
 			extractor:     &fakeExtractor{createFile: true},
-			transcriber:   &fakeTranscriber{err: errors.New("whisper cgo panic")},
-			wantErrSubstr: "whisper cgo panic",
+			transcriber:   &fakeTranscriber{err: errors.New("parakeet worker panic")},
+			wantErrSubstr: "parakeet worker panic",
 		},
 		{
 			name: "commit ingestion error",

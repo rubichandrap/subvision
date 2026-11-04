@@ -11,8 +11,10 @@ services:
       - "8080:8080"
     env_file:
       - ./server/.env
+    environment:
+      # The worker is a separate container; 127.0.0.1 would be the server.
+      PARAKEET_URL: http://asr:8081/transcribe
     volumes:
-      - ./server/third_party/whisper.cpp/bindings/go/models:/app/third_party/whisper.cpp/bindings/go/models
       - ./server/data:/app/data
     restart: always
     depends_on:
@@ -20,6 +22,21 @@ services:
         condition: service_healthy
       rustfs:
         condition: service_healthy
+      asr:
+        condition: service_healthy
+
+  asr:
+    build:
+      context: ./asr/worker
+    container_name: subvision-asr
+    environment:
+      PARAKEET_MODEL_DIR: /models
+    volumes:
+      - ${PARAKEET_MODEL_DIR:-./models/parakeet}:/models:ro
+    # Internal only: the browser never talks to the worker.
+    expose:
+      - "8081"
+    restart: always
 
   vfx:
     build:

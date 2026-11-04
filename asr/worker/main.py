@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Small HTTP worker that turns a 16 kHz mono WAV into Subvision Segments.
 
-This is intentionally tiny and dependency-light: the production integration is
-still measurement-gated, so the worker exists to make the Parakeet spike easy
-to exercise without coupling Subvision to a heavy inference framework.
+This is intentionally tiny and dependency-light: Subvision's Go server owns
+ingestion, reflow, persistence, and rendering, while this worker owns only
+Parakeet inference and token timing.
 """
 
 from __future__ import annotations
