@@ -1,6 +1,8 @@
 # ADR-0005: Long segments split at transcribe time; word animations page at render time
 
-Date: 2026-09-04 · Status: accepted
+Date: 2026-09-04 · Status: accepted; amended by ADR-0010 (the transcriber-side whisper split is replaced by server-side cue reflow)
+
+> Amended by ADR-0010: subtitle grouping moved from transcribe-time splitting to server-side cue reflow. Caption Pages remain a render-time concept.
 
 ## Context
 

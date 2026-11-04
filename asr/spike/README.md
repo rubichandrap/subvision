@@ -11,7 +11,7 @@ derive the words.
 uv venv /tmp/opencode/asr-spike-venv --python 3.11
 uv pip install --python /tmp/opencode/asr-spike-venv/bin/python \
   --index-url https://pypi.org/simple \
-  -r tools/asr-spike/requirements.txt
+  -r asr/spike/requirements.txt
 ```
 
 If `uv` uses a private index on your machine, set:
@@ -38,7 +38,7 @@ done
 
 ```sh
 PARAKEET_MODEL_DIR=/tmp/opencode/parakeet-tdt-0.6b-v3-int8
-/tmp/opencode/asr-spike-venv/bin/python tools/asr-spike/parakeet.py \
+/tmp/opencode/asr-spike-venv/bin/python asr/spike/parakeet.py \
   server/testdata/onset-fixture/fixture.wav \
   --model-dir "$PARAKEET_MODEL_DIR" \
   --output /tmp/opencode/parakeet-fixture.json
@@ -55,7 +55,7 @@ ffmpeg -hide_banner -y \
   -vn -ac 1 -ar 16000 -acodec pcm_s16le \
   /tmp/opencode/your-video.wav
 
-/tmp/opencode/asr-spike-venv/bin/python tools/asr-spike/parakeet.py \
+/tmp/opencode/asr-spike-venv/bin/python asr/spike/parakeet.py \
   /tmp/opencode/your-video.wav \
   --model-dir "$PARAKEET_MODEL_DIR" \
   --output /tmp/opencode/your-video.json
@@ -64,10 +64,10 @@ ffmpeg -hide_banner -y \
 To compare against the committed baseline transcript, use:
 
 ```sh
-/tmp/opencode/asr-spike-venv/bin/python tools/asr-spike/compare.py \
+/tmp/opencode/asr-spike-venv/bin/python asr/spike/compare.py \
   server/testdata/onset-fixture/segments.json \
   /tmp/opencode/your-video.json \
-  --reference tools/asr-spike/reference.txt
+  --reference asr/spike/reference.txt
 ```
 
 The JSON contains:

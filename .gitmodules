@@ -1,3 +1,0 @@
-[submodule "server/third_party/whisper.cpp"]
-	path = server/third_party/whisper.cpp
-	url = https://github.com/ggml-org/whisper.cpp.git

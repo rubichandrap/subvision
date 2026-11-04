@@ -1,5 +1,7 @@
 # ADR-0008: Decoder tuning for Timing Drift
 
+Date: 2026-09-07 · Status: superseded by ADR-0010 (whisper.cpp retired; decoder tuning exhausted)
+
 Timing Drift (a Timed Word appearing before it is spoken, or late by a fraction of a second) is attacked one decoder knob at a time, each measured on the acceptance fixture and the reporter's ear check — never all at once, so every change has a known cause. Order: beam size 5 → 8, then entropy threshold 2.40 → 2.0, then the small.en model opt-in via WHISPER_MODEL_PATH, then token-probability logging. Token probabilities are logged, never used to drop words: dropping a low-confidence word turns drift into a missing word, which is worse. SetSplitOnWord was considered and rejected — it only moves segment cut points and we never set a max segment length, so it changes nothing. DTW and built-in VAD stay out per ADR-0007 (no vendored edits). Each step reverts if the fixture does not move.
 
 ## Measured 2026-09-07: all four decoder-side knobs failed

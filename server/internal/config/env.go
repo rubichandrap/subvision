@@ -9,16 +9,15 @@ import (
 )
 
 type Env struct {
-	Port             string
-	TmpDir           string
-	ClientURL        string
-	AmqpURL          string
-	S3Endpoint       string
-	S3AccessKey      string
-	S3SecretKey      string
-	S3Bucket         string
-	WhisperModelPath string
-	ParakeetURL      string
+	Port        string
+	TmpDir      string
+	ClientURL   string
+	AmqpURL     string
+	S3Endpoint  string
+	S3AccessKey string
+	S3SecretKey string
+	S3Bucket    string
+	ParakeetURL string
 }
 
 func LoadEnv() *Env {
@@ -31,7 +30,7 @@ func LoadEnv() *Env {
 		"CLIENT_URL",
 		"S3_ENDPOINT", "S3_ACCESS_KEY", "S3_SECRET_KEY", "S3_BUCKET",
 		"RABBITMQ_HOST", "RABBITMQ_PORT", "RABBITMQ_USER", "RABBITMQ_PASSWORD",
-		"WHISPER_MODEL_PATH",
+		"PARAKEET_URL",
 	}
 	for _, key := range requiredVars {
 		if os.Getenv(key) == "" {
@@ -46,15 +45,14 @@ func LoadEnv() *Env {
 	amqpURL := fmt.Sprintf("amqp://%s:%s@%s:%s/", rabbitUser, rabbitPass, rabbitHost, rabbitPort)
 
 	return &Env{
-		Port:             os.Getenv("PORT"),
-		TmpDir:           os.Getenv("TMP_DIR"),
-		ClientURL:        os.Getenv("CLIENT_URL"),
-		AmqpURL:          amqpURL,
-		S3Endpoint:       os.Getenv("S3_ENDPOINT"),
-		S3AccessKey:      os.Getenv("S3_ACCESS_KEY"),
-		S3SecretKey:      os.Getenv("S3_SECRET_KEY"),
-		S3Bucket:         os.Getenv("S3_BUCKET"),
-		WhisperModelPath: os.Getenv("WHISPER_MODEL_PATH"),
-		ParakeetURL:      os.Getenv("PARAKEET_URL"),
+		Port:        os.Getenv("PORT"),
+		TmpDir:      os.Getenv("TMP_DIR"),
+		ClientURL:   os.Getenv("CLIENT_URL"),
+		AmqpURL:     amqpURL,
+		S3Endpoint:  os.Getenv("S3_ENDPOINT"),
+		S3AccessKey: os.Getenv("S3_ACCESS_KEY"),
+		S3SecretKey: os.Getenv("S3_SECRET_KEY"),
+		S3Bucket:    os.Getenv("S3_BUCKET"),
+		ParakeetURL: os.Getenv("PARAKEET_URL"),
 	}
 }

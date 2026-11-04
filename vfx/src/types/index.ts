@@ -8,6 +8,6 @@ export interface ISegment {
   start: number;
   end: number;
   text: string;
-  /** Timed Words transcribed by whisper, built server-side from its token timestamps. */
+  /** Timed Words returned by the ASR worker, including native token timings. */
   words: IWord[];
 }

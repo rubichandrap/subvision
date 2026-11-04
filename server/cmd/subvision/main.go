@@ -13,7 +13,6 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/job"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
 	"github.com/rubichandrap/subvision/server/internal/storage"
-	"github.com/rubichandrap/subvision/server/internal/transcriber"
 	"github.com/rubichandrap/subvision/server/internal/utils"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 
@@ -76,14 +75,7 @@ func main() {
 		log.Fatalf("Failed to prepare job store: %v", err)
 	}
 	// consumers
-	var trans ingest.AudioTranscriber
-	if env.ParakeetURL != "" {
-		trans = asr.NewParakeet(env.ParakeetURL, 0)
-	} else {
-		trans = transcriber.New(transcriber.Settings{
-			ModelPath: env.WhisperModelPath,
-		})
-	}
+	trans := asr.NewParakeet(env.ParakeetURL, 0)
 	pipeline := ingest.New(ingest.Config{
 		VideoDownloader:  objectStore,
 		AudioExtractor:   ingest.NewFFmpegAudioExtractor(),

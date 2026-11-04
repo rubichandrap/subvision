@@ -155,9 +155,9 @@ function requireString(
   return value;
 }
 
-// parseWords validates a segment's Timed Words — whisper-transcribed word
-// timings built server-side. A segment without them cannot render the karaoke
-// or pop animations faithfully, so the contract requires them.
+// parseWords validates a segment's Timed Words — word timings returned by the
+// ASR worker. A segment without them cannot render the karaoke or pop
+// animations faithfully, so the contract requires them.
 function parseWords(value: unknown, path: string): IWord[] {
   if (!Array.isArray(value)) {
     throw new ContractError(`"${path}" must be an array`);

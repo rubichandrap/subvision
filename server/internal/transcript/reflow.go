@@ -13,7 +13,7 @@ type ReflowOptions struct {
 }
 
 // DefaultReflowOptions returns the subtitle-layout defaults used by the
-// Parakeet spike. `wordsPerPage` mirrors the user's existing caption setting.
+// Parakeet pipeline. `wordsPerPage` mirrors the user's existing caption setting.
 // Short cues hold into available silence so they stay readable.
 func DefaultReflowOptions(wordsPerPage int) ReflowOptions {
 	return ReflowOptions{

@@ -1,24 +1,31 @@
 # Context
 
-Subvision generates subtitles for uploaded videos: an upload is transcribed with
-whisper.cpp, then the vfx service renders styled subtitles onto the video with
-Remotion and ffmpeg. The Go server orchestrates the pipeline through RabbitMQ;
-the Next.js client uploads videos with tus.
+Subvision generates subtitles for uploaded videos: an upload is transcribed by
+the Parakeet ASR worker, then the vfx service renders styled subtitles onto the
+video with Remotion and ffmpeg. The Go server orchestrates the pipeline through
+RabbitMQ; the Next.js client uploads videos with tus.
 
 ## Glossary
 
 - **Upload** — a video a user uploads through the tus endpoint. Stored in object
   storage under the key `uploads/<id>`, where `<id>` is the tus upload id.
+- **ASR Worker** — the internal Python service that runs NVIDIA Parakeet TDT
+  v3 through sherpa-onnx. The server posts a 16 kHz mono WAV and receives
+  ordered token/word timings; it is not exposed to the browser.
 - **Transcript** — the ordered sequence of Transcription Segments representing
   the spoken audio of an Upload. Produced during transcription, persisted in the
   job store, and editable by the user before a Re-render.
-- **Transcription Segment** — one timed subtitle unit produced by whisper:
-  start time, end time, text, and the Timed Words inside it. The unit that
-  flows from transcription into rendering.
+- **Transcription Segment** — one timed subtitle unit produced by the ASR
+  worker and reflowed by the server: start time, end time, text, and the Timed
+  Words inside it. The unit that flows from transcription into rendering.
 - **Timed Word** — one word of a Transcription Segment with its own start and
-  end time, taken from whisper's token timestamps. The timing unit the
+  end time, taken from Parakeet token timestamps. The timing unit the
   karaoke and pop Animations render against; word timings are never guessed
   from the segment's duration.
+- **Cue Reflow** — the server-side pass that groups Timed Words into readable
+  Transcription Segments after trim shifting and before persistence. Each cue
+  may hold at most `captions.wordsPerPage` words; cue windows can extend into
+  silence for readability but never move a Timed Word or overlap another cue.
 - **Caption Page** — a group of Timed Words from one Transcription Segment
   shown together on screen by the karaoke and pop Animations; only the page
   holding the currently spoken word is visible.
@@ -52,9 +59,10 @@ the Next.js client uploads videos with tus.
   no archive, no restore. A Delete never cancels work already in flight; that
   is Cancel, a separate concept not yet built (see ADR-0004).
 - **Ingestion** — the server-side pipeline that turns an Upload into a
-  Transcript: downloads the video, extracts audio for the trim window,
-  transcribes with whisper, records the Transcription Segments and Edit Spec
-  in the job store, and transitions the Process to rendering.
+  Transcript: downloads the video, extracts audio for the trim window, posts
+  it to the Parakeet ASR worker, reflows cues, records the Transcription
+  Segments and Edit Spec in the job store, and transitions the Process to
+  rendering.
 - **Process** — the client-facing lifecycle of a job (uploaded →
   transcribing → rendering → done/failed). Real server-side state, owned by
   the server's job module; the client polls its status, edits its
@@ -64,7 +72,8 @@ the Next.js client uploads videos with tus.
   transitioning the Process from done back to rendering. The rendered Output
   replaces `outputs/<id>` in place.
 - **Timing Drift** — a Timed Word appearing before it is spoken, or late by a
-  fraction of a second. A decode-timing miss, not a missing word or wrong text.
+  fraction of a second. The legacy whisper path produced it by interpolating
+  timestamps; the Parakeet path uses native token timings instead (ADR-0010).
 
 ## Invariants
 

@@ -1,9 +1,9 @@
 package transcript
 
-// RescaleWords keeps a segment's whisper-original word timings at their
-// relative offsets, scaled into the edited window. Word timings are never
-// re-derived from scratch; unchanged boundaries or degenerate original
-// windows leave words untouched.
+// RescaleWords keeps a segment's original word timings at their relative
+// offsets, scaled into the edited window. Word timings are never re-derived
+// from scratch; unchanged boundaries or degenerate original windows leave
+// words untouched.
 func RescaleWords(original, edited Segment) []Word {
 	if len(original.Words) == 0 {
 		return original.Words

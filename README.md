@@ -1,9 +1,10 @@
 # Subvision
 
-Subvision transcribes the audio of uploaded videos with whisper.cpp and burns
-styled subtitles onto them with Remotion and ffmpeg. A browser editor trims
-and reframes the video and styles the captions; the edit travels with the
-upload as metadata and is applied server-side in a single render pass.
+Subvision transcribes the audio of uploaded videos with NVIDIA Parakeet TDT v3
+through a small Python ASR worker, then burns styled subtitles onto them with
+Remotion and ffmpeg. A browser editor trims and reframes the video and styles
+the captions; the edit travels with the upload as metadata and is applied
+server-side in a single render pass.
 
 ---
 
@@ -13,8 +14,8 @@ upload as metadata and is applied server-side in a single render pass.
 - **Caption styling**: Configure font family, scale, text color, outline stroke, vertical position, background plate, uppercase mode, and highlight color.
 - **Caption animations**: Pick from fade, slide, karaoke swipe, or word-by-word pop, chosen manually or resolved randomly on submit.
 - **Resumable uploads**: Transfers videos over tus, attaching the edit spec directly as upload metadata (ADR-0003).
-- **Local transcription**: whisper.cpp extracts timestamped speech segments with per-word timings on the server.
-- **Optional Parakeet spike**: a small ASR worker can be enabled with `PARAKEET_URL` to test NVIDIA Parakeet TDT v3 without replacing the whisper.cpp path.
+- **Parakeet transcription**: an HTTP ASR worker transcribes 16 kHz mono audio with NVIDIA Parakeet TDT v3 (int8) and returns native token/word timings.
+- **Subtitle reflow**: the server turns timed words into readable cues before rendering, honoring the caption word limit.
 - **VFX compositor**: Remotion and ffmpeg composite the styled captions onto the trimmed footage.
 - **Gallery**: Monitor in-flight jobs, preview finished videos on hover, and download rendered MP4 files.
 - **Stack**: Next.js client with Tailwind CSS v4 and shadcn/ui; Go backend with Gin, tusd, RabbitMQ, and RustFS; Node.js VFX service with Remotion.
@@ -25,7 +26,7 @@ upload as metadata and is applied server-side in a single render pass.
 
 - **Client:** Next.js app ([client/](client))
 - **Server:** Go backend ([server/](server))
-- **ASR spike:** Parakeet TDT v3 worker and comparison tools ([tools/](tools))
+- **ASR worker:** Python + sherpa-onnx Parakeet TDT v3 service ([asr/worker/](asr/worker))
 - **Vfx:** Node.js service that renders the subtitle overlay with Remotion and composites it onto the video with ffmpeg ([vfx/](vfx))
 - **RustFS:** S3-compatible object storage for uploads and outputs
 - **RabbitMQ:** Job queue for processing
@@ -40,8 +41,9 @@ flowchart TD
     A[Client - Next.js] -- Upload video via tus<br>with the Edit Spec as metadata --> B[Server - Go, tusd handler]
     B -- Store video --> C[RustFS]
     B -- Record Process + publish upload_jobs --> D[Server - Processor]
-    D -- Download video<br>Convert to WAV<br>Transcribe with whisper.cpp --> F[Transcription Segments]
-    D -- Publish vfx_jobs (Edit Spec + segments) --> G[VFX Service - Node.js, Remotion]
+    D -- Download video<br>Convert to 16 kHz WAV<br>POST /transcribe --> E[Parakeet ASR Worker]
+    E -- Native word timings --> D
+    D -- Reflow cues + publish vfx_jobs --> G[VFX Service - Node.js, Remotion]
     G -- Download video<br>Trim, crop-to-fill, render overlay<br>Composite with ffmpeg --> H[Output at outputs/id in RustFS]
     G -- job_completed / job_failed --> B
     A -- GET /jobs, GET /jobs/:id/download --> B
@@ -50,7 +52,7 @@ flowchart TD
     style B fill:#fffde7,stroke:#fbc02d
     style C fill:#e8f5e9,stroke:#388e3c
     style D fill:#f3e5f5,stroke:#8e24aa
-    style F fill:#fce4ec,stroke:#d81b60
+    style E fill:#fff3e0,stroke:#ef6c00
     style G fill:#e1f5fe,stroke:#0288d1
     style H fill:#e8f5e9,stroke:#388e3c
 ```
@@ -59,7 +61,9 @@ flowchart TD
 
 ## Reference
 
-Subvision uses [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for speech-to-text transcription.
+Subvision transcribes with [NVIDIA Parakeet TDT 0.6B v3](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3)
+through [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx). See
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution.
 
 ---
 
@@ -72,11 +76,26 @@ Subvision uses [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for speec
 ### 1. Clone the repository
 
 ```sh
-git clone --recurse-submodules https://github.com/rubichandrap/subvision.git
+git clone https://github.com/rubichandrap/subvision.git
 cd subvision
 ```
 
-### 2. Configure environment variables
+### 2. Download the Parakeet model
+
+Model weights are not committed to the repository. Download the pinned
+sherpa-onnx int8 export into the default mount directory:
+
+```sh
+mkdir -p models/parakeet
+huggingface-cli download csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8 \
+  --local-dir models/parakeet
+```
+
+If you keep the model elsewhere, set `PARAKEET_MODEL_DIR` to its host path.
+See [asr/worker/README.md](asr/worker/README.md) for file names,
+checksums, and license notes.
+
+### 3. Configure environment variables
 
 Copy the example environment files and edit them as needed:
 
@@ -90,13 +109,16 @@ cp vfx/.env.example vfx/.env
 - Edit `client/.env` for frontend configuration (see [client/.env.example](client/.env.example))
 - Edit `vfx/.env` for VFX service configuration (see [vfx/.env.example](vfx/.env.example))
 
-### 3. Start all services
+### 4. Start all services
 
 ```sh
-docker-compose up --build
+docker compose up --build
 ```
 
-### 4. Access the app
+The `asr` worker runs internally on `http://asr:8081`; only the client and
+server ports are published.
+
+### 5. Access the app
 
 - **Frontend:** [http://localhost:3000](http://localhost:3000)
 - **Backend API:** [http://localhost:8080](http://localhost:8080)
@@ -117,10 +139,13 @@ pnpm dev
 
 ### Server
 
+The server requires a reachable Parakeet worker. Start it locally first (see
+[asr/worker/README.md](asr/worker/README.md)), then:
+
 ```sh
 cd server
 go mod tidy
-go run ./cmd/subvision/main.go
+PARAKEET_URL=http://127.0.0.1:8081/transcribe sh scripts/dev.sh
 ```
 
 ### Vfx
@@ -136,10 +161,12 @@ pnpm dev
 ## Folder Structure
 
 ```
-/client   # Next.js frontend
-/server   # Go backend
-/vfx      # Node.js Remotion-based subtitle/effects renderer
-/tools    # Parakeet ASR spike tools and worker
+/client              # Next.js frontend
+/server              # Go backend
+/vfx                 # Node.js Remotion-based subtitle/effects renderer
+/asr/worker          # Parakeet TDT v3 ASR HTTP worker
+/asr/spike           # Measurement/comparison tools
+/models              # Local model mounts (gitignored)
 ```
 
 ---
@@ -150,14 +177,18 @@ One contract for the whole stack. Values are documented here and mirrored in mat
 `.env.example` files. **Bold** variables are required: each service loader fails at boot
 when one is missing and names the variable. Everything else has a documented default.
 No variable falls back to silent credentials or default URLs.
+
+> Upgrading from whisper.cpp: `WHISPER_MODEL_PATH` is retired. Remove it and
+> provide `PARAKEET_URL` (or use the compose stack, which sets it).
+
 | Variable | Service(s) | Required | Default | Description |
 | --- | --- | :---: | --- | --- |
 | `PORT` | server | **yes** | — | Port the Gin server listens on. |
 | `TMP_DIR` | server, vfx | **yes** | — | Scratch directory for videos, audio, frames, rendered outputs. |
 | `CLIENT_URL` | server | **yes** | — | Origin of the Next.js client, allowed by the server's CORS. |
-| `WHISPER_MODEL_PATH` | server | **yes** | — | Path to the whisper.cpp ggml model. |
-| `PARAKEET_URL` | server | no | — | Optional Parakeet HTTP worker URL; when set, transcription uses the Parakeet-first spike instead of whisper.cpp. |
+| `PARAKEET_URL` | server | **yes** | — | HTTP endpoint of the Parakeet ASR worker. Compose sets `http://asr:8081/transcribe`. |
 | `PARAKEET_TIMEOUT_SECONDS` | server | no | 60 | Per-request Parakeet decode ceiling; raise it for long videos. |
+| `PARAKEET_MODEL_DIR` | compose | no | `./models/parakeet` | Host path mounted read-only at `/models` in the ASR worker. |
 | `S3_ENDPOINT` | server, vfx | **yes** | — | Full URL of the S3-compatible store (RustFS in compose). |
 | `S3_ACCESS_KEY` | server, vfx | **yes** | — | S3 access key. |
 | `S3_SECRET_KEY` | server, vfx | **yes** | — | S3 secret key. |
@@ -181,11 +212,9 @@ No variable falls back to silent credentials or default URLs.
 PORT=8080
 TMP_DIR=/tmp
 CLIENT_URL=http://localhost:3000
-WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
-# Optional Parakeet spike: uncomment for a worker running on the host, or
-# use the docker-compose.asr.yml profile, which sets this to
-# http://asr:8081/transcribe automatically.
-#PARAKEET_URL=http://127.0.0.1:8081/transcribe
+# Required for a server outside the compose stack.
+PARAKEET_URL=http://127.0.0.1:8081/transcribe
+#PARAKEET_TIMEOUT_SECONDS=60
 S3_ENDPOINT=http://rustfs:9000
 S3_ACCESS_KEY=rustfs
 S3_SECRET_KEY=rustfs123
