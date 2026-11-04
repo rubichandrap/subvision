@@ -130,20 +130,23 @@ function failMessage(body: string, fallback: string): string {
 export async function saveSegments(
   id: string,
   segments: Segment[],
+  sourceIndices: number[],
 ): Promise<Segment[]> {
   const res = await fetch(
     `${env.serverUrl}/jobs/${encodeURIComponent(normalizeJobId(id))}/segments`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ segments }),
+      body: JSON.stringify({ segments, sourceIndices }),
     },
   );
   if (res.ok) {
     const body = (await res.json()) as { status: 'success'; data: { segments: Segment[] } };
     return body.data.segments;
   }
-  throw new Error(failMessage(await res.text(), `save returned ${res.status}`));
+  throw new Error(
+    `${failMessage(await res.text(), 'save failed')} (HTTP ${res.status})`,
+  );
 }
 
 // Re-render publishes a fresh render job with the saved edits plus the

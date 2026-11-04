@@ -18,6 +18,7 @@ type Env struct {
 	S3SecretKey      string
 	S3Bucket         string
 	WhisperModelPath string
+	ParakeetURL      string
 }
 
 func LoadEnv() *Env {
@@ -54,5 +55,6 @@ func LoadEnv() *Env {
 		S3SecretKey:      os.Getenv("S3_SECRET_KEY"),
 		S3Bucket:         os.Getenv("S3_BUCKET"),
 		WhisperModelPath: os.Getenv("WHISPER_MODEL_PATH"),
+		ParakeetURL:      os.Getenv("PARAKEET_URL"),
 	}
 }

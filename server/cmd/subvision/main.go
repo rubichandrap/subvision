@@ -5,6 +5,7 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/rubichandrap/subvision/server/internal/asr"
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/db"
 	"github.com/rubichandrap/subvision/server/internal/handler"
@@ -75,9 +76,14 @@ func main() {
 		log.Fatalf("Failed to prepare job store: %v", err)
 	}
 	// consumers
-	trans := transcriber.New(transcriber.Settings{
-		ModelPath: env.WhisperModelPath,
-	})
+	var trans ingest.AudioTranscriber
+	if env.ParakeetURL != "" {
+		trans = asr.NewParakeet(env.ParakeetURL, 0)
+	} else {
+		trans = transcriber.New(transcriber.Settings{
+			ModelPath: env.WhisperModelPath,
+		})
+	}
 	pipeline := ingest.New(ingest.Config{
 		VideoDownloader:  objectStore,
 		AudioExtractor:   ingest.NewFFmpegAudioExtractor(),
@@ -180,4 +186,3 @@ func main() {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
-

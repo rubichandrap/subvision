@@ -2,6 +2,7 @@
 // moving from uploaded through transcribing and rendering to done or failed.
 // The client reads it through the status API; nothing else invents it.
 package job
+
 import (
 	"context"
 	"database/sql"
@@ -17,6 +18,7 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/transcript"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
+
 type Stage string
 
 const (
@@ -42,6 +44,7 @@ func (s Stage) valid() bool {
 
 // ErrNotFound is returned by Get when no process carries the requested id.
 var ErrNotFound = errors.New("job not found")
+
 // StageConflictError is returned when an operation is invalid for the process's current stage.
 type StageConflictError struct {
 	ID    string
@@ -70,7 +73,6 @@ type ObjectCleaner interface {
 	Delete(ctx context.Context, prefix string) error
 }
 
-
 type Process struct {
 	ID        string
 	Filename  string
@@ -80,7 +82,6 @@ type Process struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
-
 
 type Store struct {
 	db        *sql.DB
@@ -175,7 +176,6 @@ func (s *Store) MarkTranscribing(uploadID string) (bool, error) {
 func (s *Store) StartTranscription(uploadID string) (bool, error) {
 	return s.MarkTranscribing(uploadID)
 }
-
 
 // Reopen moves a done job back to rendering for a re-render. The normal
 // mark refuses terminal stages, so this runs its own statement: only done
@@ -448,8 +448,10 @@ func (s *Store) publishVfxJob(id string, segments []transcript.Segment, spec *ed
 }
 
 // SaveSegments enforces that the Process is in rendering or done stage, validates timings,
-// rescales words against whisper originals, and saves to job_segments.
-func (s *Store) SaveSegments(id string, segments []transcript.Segment) ([]transcript.Segment, error) {
+// rescales or syncs Timed Words against the stored originals, and saves to job_segments.
+// sourceIndices carries one entry per segment and identifies the stored original it
+// came from; -1 marks a user-created manual segment. Nil keeps the historic index-based mapping.
+func (s *Store) SaveSegments(id string, segments []transcript.Segment, sourceIndices []int) ([]transcript.Segment, error) {
 	proc, err := s.Get(id)
 	if err != nil {
 		return nil, err
@@ -465,20 +467,91 @@ func (s *Store) SaveSegments(id string, segments []transcript.Segment) ([]transc
 		return nil, err
 	}
 
-	// Rescale word offsets against whisper originals if present
+	// Rescale word offsets against the stored original segments, if present, and
+	// keep text and Timed Words aligned for text edits. Manual segments are
+	// distributed across their cue window so karaoke/pop have word timings.
 	if stored, err := s.Segments(id); err == nil && len(stored) > 0 {
 		var original []transcript.Segment
-		if json.Unmarshal([]byte(stored), &original) == nil {
-			for i := range segments {
-				if i >= len(original) {
-					break
-				}
-				if segments[i].Start != original[i].Start || segments[i].End != original[i].End {
-					segments[i].Words = transcript.RescaleWords(original[i], segments[i])
+		if err := json.Unmarshal([]byte(stored), &original); err != nil {
+			return nil, fmt.Errorf("stored segments for job %s are corrupt: %w", id, err)
+		}
+		if sourceIndices == nil {
+			sourceIndices = make([]int, len(segments))
+			for i := range sourceIndices {
+				if i < len(original) {
+					sourceIndices[i] = i
 				} else {
-					segments[i].Words = original[i].Words
+					sourceIndices[i] = -1
 				}
 			}
+		}
+		if len(sourceIndices) != len(segments) {
+			return nil, &transcript.ValidationError{
+				Index:  0,
+				Reason: "sourceIndices must carry one entry per segment",
+			}
+		}
+		used := make(map[int]bool, len(sourceIndices))
+		for i, sourceIndex := range sourceIndices {
+			if sourceIndex < -1 {
+				return nil, &transcript.ValidationError{
+					Index:  i,
+					Reason: fmt.Sprintf("references invalid source index %d", sourceIndex),
+				}
+			}
+			if sourceIndex < 0 {
+				continue
+			}
+			if sourceIndex >= len(original) {
+				return nil, &transcript.ValidationError{
+					Index:  i,
+					Reason: fmt.Sprintf("references source index %d, but only %d original segments exist", sourceIndex, len(original)),
+				}
+			}
+			if used[sourceIndex] {
+				return nil, &transcript.ValidationError{
+					Index:  i,
+					Reason: fmt.Sprintf("references source index %d more than once", sourceIndex),
+				}
+			}
+			used[sourceIndex] = true
+		}
+		for i := range segments {
+			var synced transcript.Segment
+			var syncErr error
+			if sourceIndex := sourceIndices[i]; sourceIndex < 0 {
+				synced, syncErr = transcript.SyncManualSegment(segments[i])
+			} else {
+				synced, syncErr = transcript.SyncTextAndWords(original[sourceIndex], segments[i])
+			}
+			if syncErr != nil {
+				return nil, &transcript.ValidationError{Index: i, Reason: syncErr.Error()}
+			}
+			segments[i] = synced
+		}
+	} else {
+		if sourceIndices != nil && len(sourceIndices) != len(segments) {
+			return nil, &transcript.ValidationError{
+				Index:  0,
+				Reason: "sourceIndices must carry one entry per segment",
+			}
+		}
+		if sourceIndices != nil {
+			for i, sourceIndex := range sourceIndices {
+				if sourceIndex >= 0 {
+					return nil, &transcript.ValidationError{
+						Index:  i,
+						Reason: fmt.Sprintf("references source index %d, but no original transcript is stored", sourceIndex),
+					}
+				}
+			}
+		}
+		for i := range segments {
+			synced, err := transcript.SyncManualSegment(segments[i])
+			if err != nil {
+				return nil, &transcript.ValidationError{Index: i, Reason: err.Error()}
+			}
+			segments[i] = synced
 		}
 	}
 
@@ -492,7 +565,6 @@ func (s *Store) SaveSegments(id string, segments []transcript.Segment) ([]transc
 	}
 	return segments, nil
 }
-
 
 // EditSpec returns the stored original Edit Spec JSON, or empty when the
 // upload carried none. Reading an unknown id is not an error.

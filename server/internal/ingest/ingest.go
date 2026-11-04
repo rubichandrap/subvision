@@ -28,18 +28,15 @@ type VideoDownloader interface {
 	Download(ctx context.Context, key, destPath string) error
 }
 
-
 // AudioExtractor extracts 16kHz mono WAV audio from a video file within an optional trim window.
 type AudioExtractor interface {
 	ExtractAudio(ctx context.Context, inputPath, outputPath string, window [2]float64) error
 }
 
-
 // AudioTranscriber converts a WAV audio file into Transcription Segments.
 type AudioTranscriber interface {
 	Transcribe(audioPath string) ([]transcript.Segment, error)
 }
-
 
 // ProcessLifecycle coordinates stage transitions and atomic commit for an upload process.
 type ProcessLifecycle interface {
@@ -162,7 +159,6 @@ func (p *Pipeline) ProcessUpload(ctx context.Context, job UploadJob) (err error)
 		}
 	}()
 
-
 	if p.downloader != nil {
 		if err := p.downloader.Download(ctx, job.ObjectKey, videoPath); err != nil {
 			return fmt.Errorf("failed to download video from object storage: %w", err)
@@ -193,6 +189,16 @@ func (p *Pipeline) ProcessUpload(ctx context.Context, job UploadJob) (err error)
 		segments = transcript.Shift(segments, window[0])
 	}
 
+	// Subtitle reflow is server-side: cue readability is not the ASR worker's
+	// job. The existing Edit Spec already carries the user's `wordsPerPage`.
+	segments = transcript.Reflow(segments, transcript.DefaultReflowOptions(wordsPerPage(spec)))
+
+	// Cue-sized segments must stay monotonic for the renderer and the
+	// editor; a misbehaving worker must fail loudly here, not persist.
+	if err := transcript.ValidateTiming(segments); err != nil {
+		return fmt.Errorf("invalid transcript after reflow: %w", err)
+	}
+
 	if p.lifecycle != nil {
 		if err := p.lifecycle.CommitIngestion(ctx, job.UploadID, segments, spec); err != nil {
 			return fmt.Errorf("failed to commit ingestion: %w", err)
@@ -200,4 +206,11 @@ func (p *Pipeline) ProcessUpload(ctx context.Context, job UploadJob) (err error)
 	}
 
 	return nil
+}
+
+func wordsPerPage(spec *editspec.Spec) int {
+	if spec == nil || spec.Captions == nil || spec.Captions.WordsPerPage <= 0 {
+		return 4
+	}
+	return spec.Captions.WordsPerPage
 }

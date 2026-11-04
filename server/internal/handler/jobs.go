@@ -25,7 +25,7 @@ type ProcessManager interface {
 	List() ([]job.Process, error)
 	Get(id string) (*job.Process, error)
 	Segments(id string) (string, error)
-	SaveSegments(id string, segments []transcript.Segment) ([]transcript.Segment, error)
+	SaveSegments(id string, segments []transcript.Segment, sourceIndices []int) ([]transcript.Segment, error)
 	Rerender(id string) (*job.Process, error)
 	Delete(id string) (bool, error)
 }
@@ -120,7 +120,8 @@ func RegisterJobs(r *gin.Engine, manager ProcessManager, outputs OutputOpener) {
 	r.PUT("/jobs/:id/segments", func(c *gin.Context) {
 		id := c.Param("id")
 		var payload struct {
-			Segments json.RawMessage `json:"segments"`
+			Segments      json.RawMessage `json:"segments"`
+			SourceIndices []int           `json:"sourceIndices"`
 		}
 		if err := c.ShouldBindJSON(&payload); err != nil {
 			primitives.JSendFail(c, gin.H{"segments": "request body must carry a segments array"}, http.StatusBadRequest)
@@ -131,7 +132,17 @@ func RegisterJobs(r *gin.Engine, manager ProcessManager, outputs OutputOpener) {
 			primitives.JSendFail(c, gin.H{"segments": "segments must decode as timed text"}, http.StatusBadRequest)
 			return
 		}
-		saved, err := manager.SaveSegments(id, segments)
+		if segments == nil {
+			// A JSON null segments value unmarshals into a nil slice without
+			// error; treat it as "clear the transcript" rather than crashing
+			// the client on a null payload.
+			segments = []transcript.Segment{}
+		}
+		if payload.SourceIndices != nil && len(payload.SourceIndices) != len(segments) {
+			primitives.JSendFail(c, gin.H{"sourceIndices": "sourceIndices must carry one entry per segment"}, http.StatusBadRequest)
+			return
+		}
+		saved, err := manager.SaveSegments(id, segments, payload.SourceIndices)
 		if err != nil {
 			respondWithError(c, id, err)
 			return

@@ -13,10 +13,10 @@ import (
 )
 
 type fakeDownloader struct {
-	downloadedKey  string
-	destPath       string
-	err            error
-	createFile     bool
+	downloadedKey string
+	destPath      string
+	err           error
+	createFile    bool
 }
 
 func (f *fakeDownloader) Download(ctx context.Context, key, destPath string) error {
@@ -199,8 +199,8 @@ func TestProcessUploadSuccessWithTrimWindowShiftsSegments(t *testing.T) {
 		t.Fatalf("expected 2 segments, got %d", len(lifecycle.committedSegments))
 	}
 	s0 := lifecycle.committedSegments[0]
-	if s0.Start != 30.2 || s0.End != 31.4 {
-		t.Errorf("segment 0 timing = %f-%f, want 30.2-31.4", s0.Start, s0.End)
+	if s0.Start != 30.3 || s0.End != 31.3 {
+		t.Errorf("segment 0 timing = %f-%f, want 30.3-31.3", s0.Start, s0.End)
 	}
 	if len(s0.Words) != 1 || s0.Words[0].Start != 30.3 || s0.Words[0].End != 31.3 {
 		t.Errorf("segment 0 word timing = %+v, want 30.3-31.3", s0.Words)

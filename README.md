@@ -14,6 +14,7 @@ upload as metadata and is applied server-side in a single render pass.
 - **Caption animations**: Pick from fade, slide, karaoke swipe, or word-by-word pop, chosen manually or resolved randomly on submit.
 - **Resumable uploads**: Transfers videos over tus, attaching the edit spec directly as upload metadata (ADR-0003).
 - **Local transcription**: whisper.cpp extracts timestamped speech segments with per-word timings on the server.
+- **Optional Parakeet spike**: a small ASR worker can be enabled with `PARAKEET_URL` to test NVIDIA Parakeet TDT v3 without replacing the whisper.cpp path.
 - **VFX compositor**: Remotion and ffmpeg composite the styled captions onto the trimmed footage.
 - **Gallery**: Monitor in-flight jobs, preview finished videos on hover, and download rendered MP4 files.
 - **Stack**: Next.js client with Tailwind CSS v4 and shadcn/ui; Go backend with Gin, tusd, RabbitMQ, and RustFS; Node.js VFX service with Remotion.
@@ -24,6 +25,7 @@ upload as metadata and is applied server-side in a single render pass.
 
 - **Client:** Next.js app ([client/](client))
 - **Server:** Go backend ([server/](server))
+- **ASR spike:** Parakeet TDT v3 worker and comparison tools ([tools/](tools))
 - **Vfx:** Node.js service that renders the subtitle overlay with Remotion and composites it onto the video with ffmpeg ([vfx/](vfx))
 - **RustFS:** S3-compatible object storage for uploads and outputs
 - **RabbitMQ:** Job queue for processing
@@ -137,6 +139,7 @@ pnpm dev
 /client   # Next.js frontend
 /server   # Go backend
 /vfx      # Node.js Remotion-based subtitle/effects renderer
+/tools    # Parakeet ASR spike tools and worker
 ```
 
 ---
@@ -153,6 +156,8 @@ No variable falls back to silent credentials or default URLs.
 | `TMP_DIR` | server, vfx | **yes** | — | Scratch directory for videos, audio, frames, rendered outputs. |
 | `CLIENT_URL` | server | **yes** | — | Origin of the Next.js client, allowed by the server's CORS. |
 | `WHISPER_MODEL_PATH` | server | **yes** | — | Path to the whisper.cpp ggml model. |
+| `PARAKEET_URL` | server | no | — | Optional Parakeet HTTP worker URL; when set, transcription uses the Parakeet-first spike instead of whisper.cpp. |
+| `PARAKEET_TIMEOUT_SECONDS` | server | no | 60 | Per-request Parakeet decode ceiling; raise it for long videos. |
 | `S3_ENDPOINT` | server, vfx | **yes** | — | Full URL of the S3-compatible store (RustFS in compose). |
 | `S3_ACCESS_KEY` | server, vfx | **yes** | — | S3 access key. |
 | `S3_SECRET_KEY` | server, vfx | **yes** | — | S3 secret key. |
@@ -177,6 +182,10 @@ PORT=8080
 TMP_DIR=/tmp
 CLIENT_URL=http://localhost:3000
 WHISPER_MODEL_PATH=third_party/whisper.cpp/bindings/go/models/ggml-base.en.bin
+# Optional Parakeet spike: uncomment for a worker running on the host, or
+# use the docker-compose.asr.yml profile, which sets this to
+# http://asr:8081/transcribe automatically.
+#PARAKEET_URL=http://127.0.0.1:8081/transcribe
 S3_ENDPOINT=http://rustfs:9000
 S3_ACCESS_KEY=rustfs
 S3_SECRET_KEY=rustfs123

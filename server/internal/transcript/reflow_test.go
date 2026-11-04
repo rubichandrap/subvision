@@ -1,0 +1,215 @@
+package transcript_test
+
+import (
+	"encoding/json"
+	"os"
+	"reflect"
+	"strings"
+	"testing"
+
+	"github.com/rubichandrap/subvision/server/internal/transcript"
+)
+
+func reflowWord(text string, start, end float64) transcript.Word {
+	return transcript.Word{Text: text, Start: start, End: end}
+}
+
+func wordsFromSegments(segments []transcript.Segment) []transcript.Word {
+	words := make([]transcript.Word, 0)
+	for _, segment := range segments {
+		words = append(words, segment.Words...)
+	}
+	return words
+}
+
+func TestReflowRespectsWordsPerPage(t *testing.T) {
+	words := []transcript.Word{
+		reflowWord("one", 0, 0.5),
+		reflowWord("two", 0.6, 1),
+		reflowWord("three", 1.1, 1.5),
+		reflowWord("four", 1.6, 2),
+		reflowWord("five", 2.1, 2.5),
+	}
+	segments := []transcript.Segment{{
+		Start: words[0].Start,
+		End:   words[len(words)-1].End,
+		Text:  "one two three four five",
+		Words: words,
+	}}
+
+	got := transcript.Reflow(segments, transcript.ReflowOptions{WordsPerPage: 2})
+	if len(got) != 3 {
+		t.Fatalf("Reflow() produced %d cues, want 3", len(got))
+	}
+	for i, cue := range got {
+		if len(cue.Words) > 2 {
+			t.Fatalf("cue %d has %d words, want at most 2", i, len(cue.Words))
+		}
+	}
+	wantTexts := []string{"one two", "three four", "five"}
+	for i, cue := range got {
+		if cue.Text != wantTexts[i] {
+			t.Fatalf("cue %d text = %q, want %q", i, cue.Text, wantTexts[i])
+		}
+	}
+}
+
+func TestReflowRespectsCharacterBudget(t *testing.T) {
+	words := []transcript.Word{
+		reflowWord("extraordinarily", 0, 1),
+		reflowWord("long", 1.1, 1.5),
+		reflowWord("word", 1.6, 2),
+		reflowWord("another", 2.1, 2.5),
+	}
+	segments := []transcript.Segment{{
+		Start: words[0].Start,
+		End:   words[len(words)-1].End,
+		Text:  "extraordinarily long word another",
+		Words: words,
+	}}
+
+	got := transcript.Reflow(segments, transcript.ReflowOptions{
+		WordsPerPage:    10,
+		MaxCharsPerLine: 10,
+		MaxLines:        2,
+	})
+	if len(got) != 2 {
+		t.Fatalf("Reflow() produced %d cues, want 2", len(got))
+	}
+	if got[0].Text != "extraordinarily long" {
+		t.Fatalf("first cue = %q, want %q", got[0].Text, "extraordinarily long")
+	}
+	if got[1].Text != "word another" {
+		t.Fatalf("second cue = %q, want %q", got[1].Text, "word another")
+	}
+}
+
+func TestReflowKeepsWordsInOrder(t *testing.T) {
+	words := []transcript.Word{
+		reflowWord("one", 0, 0.5),
+		reflowWord("two", 0.6, 1),
+		reflowWord("three", 1.1, 1.5),
+		reflowWord("four", 1.6, 2),
+		reflowWord("five", 2.1, 2.5),
+	}
+	segments := []transcript.Segment{{
+		Start: words[0].Start,
+		End:   words[len(words)-1].End,
+		Text:  "one two three four five",
+		Words: words,
+	}}
+
+	got := transcript.Reflow(segments, transcript.ReflowOptions{WordsPerPage: 2})
+	if gotWords := wordsFromSegments(got); !reflect.DeepEqual(gotWords, words) {
+		t.Fatalf("reflowed words = %+v, want %+v", gotWords, words)
+	}
+}
+
+func TestReflowRebuildsTextFromWords(t *testing.T) {
+	words := []transcript.Word{
+		reflowWord("hello,", 0, 0.5),
+		reflowWord("world.", 0.6, 1),
+		reflowWord("another", 1.1, 1.5),
+	}
+	segments := []transcript.Segment{{
+		Start: words[0].Start,
+		End:   words[len(words)-1].End,
+		Text:  "hello, world. another",
+		Words: words,
+	}}
+
+	got := transcript.Reflow(segments, transcript.ReflowOptions{WordsPerPage: 2})
+	for i, cue := range got {
+		texts := make([]string, len(cue.Words))
+		for j, word := range cue.Words {
+			texts[j] = word.Text
+		}
+		if want := strings.Join(texts, " "); cue.Text != want {
+			t.Fatalf("cue %d text = %q, want %q", i, cue.Text, want)
+		}
+	}
+}
+
+func TestReflowPassesWordlessSegmentsThrough(t *testing.T) {
+	segments := []transcript.Segment{{Start: 1, End: 2, Text: "[music]"}}
+	got := transcript.Reflow(segments, transcript.ReflowOptions{WordsPerPage: 2})
+	if !reflect.DeepEqual(got, segments) {
+		t.Fatalf("Reflow() = %+v, want %+v", got, segments)
+	}
+}
+
+func TestReflowLeavesUnlimitedWordsPerPageUnchanged(t *testing.T) {
+	segments := []transcript.Segment{{
+		Start: 0,
+		End:   2,
+		Text:  "one two",
+		Words: []transcript.Word{
+			reflowWord("one", 0, 0.5),
+			reflowWord("two", 0.6, 1),
+		},
+	}}
+	got := transcript.Reflow(segments, transcript.ReflowOptions{WordsPerPage: 0})
+	if !reflect.DeepEqual(got, segments) {
+		t.Fatalf("Reflow() = %+v, want %+v", got, segments)
+	}
+}
+
+func TestReflowHoldsShortCuesWithoutOverlap(t *testing.T) {
+	words := []transcript.Word{
+		reflowWord("one", 0, 0.2),
+		reflowWord("two", 0.3, 0.4),
+		reflowWord("three", 2.0, 2.2),
+		reflowWord("four", 2.3, 2.4),
+	}
+	segments := []transcript.Segment{{
+		Start: words[0].Start,
+		End:   words[len(words)-1].End,
+		Text:  "one two three four",
+		Words: words,
+	}}
+
+	got := transcript.Reflow(segments, transcript.ReflowOptions{
+		WordsPerPage:  2,
+		MinCueSeconds: 1,
+	})
+	if len(got) != 2 {
+		t.Fatalf("Reflow() produced %d cues, want 2", len(got))
+	}
+	if got[0].Start != 0 || got[0].End != 1 {
+		t.Fatalf("first cue window = %v-%v, want 0-1", got[0].Start, got[0].End)
+	}
+	if got[1].Start != 2.0 || got[1].End != 2.4 {
+		t.Fatalf("second cue window = %v-%v, want 2-2.4", got[1].Start, got[1].End)
+	}
+}
+
+func TestReflowOnParakeetFixture(t *testing.T) {
+	raw, err := os.ReadFile("../../testdata/parakeet-spike/fixture.json")
+	if err != nil {
+		t.Skipf("parakeet fixture unavailable: %v", err)
+	}
+
+	var payload struct {
+		Segments []transcript.Segment `json:"segments"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("failed to parse parakeet fixture: %v", err)
+	}
+
+	got := transcript.Reflow(payload.Segments, transcript.ReflowOptions{
+		WordsPerPage:    4,
+		MaxCharsPerLine: 42,
+		MaxLines:        2,
+	})
+	for i, cue := range got {
+		if len(cue.Words) > 4 {
+			t.Fatalf("cue %d has %d words, want at most 4", i, len(cue.Words))
+		}
+		if cue.Start != cue.Words[0].Start {
+			t.Fatalf("cue %d start = %v, want %v", i, cue.Start, cue.Words[0].Start)
+		}
+		if cue.End != cue.Words[len(cue.Words)-1].End {
+			t.Fatalf("cue %d end = %v, want %v", i, cue.End, cue.Words[len(cue.Words)-1].End)
+		}
+	}
+}

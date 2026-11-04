@@ -63,6 +63,25 @@ export interface FrameCombiner {
   (videoPath: string, framesDir: string, outputPath: string, fps: number, plan: CombinePlan): Promise<void>;
 }
 
+// How the CleanVideoRenderer cuts and reframes the video without a subtitle
+// overlay, derived from the Edit Spec when present. It shares the same
+// crop/trim plan as the overlay path, but never renders placeholder frames.
+export interface CleanVideoPlan {
+  videoFilters: string[];
+  seekStart: number;
+  seekDuration: number | null;
+}
+
+export interface CleanVideoRequest {
+  videoPath: string;
+  outputPath: string;
+  plan: CleanVideoPlan;
+}
+
+export interface CleanVideoRenderer {
+  (request: CleanVideoRequest): Promise<void>;
+}
+
 export interface VideoProbe {
   width: number;
   height: number;
@@ -95,7 +114,8 @@ export class RenderModule {
     private readonly renderFrames: FrameRenderer,
     private readonly combineFrames: FrameCombiner,
     private readonly config: RenderModuleConfig,
-    private readonly probe: VideoProber = probeVideoFile
+    private readonly probe: VideoProber = probeVideoFile,
+    private readonly cleanVideo: CleanVideoRenderer = cleanVideoWithFFmpeg
   ) {}
 
   // run renders one VFX Job: it throws if any stage fails and resolves with
@@ -103,7 +123,41 @@ export class RenderModule {
   async run(job: VfxJobPayload): Promise<RenderOutcome> {
     const id = jobIdFromObjectKey(job.objectKey);
     if (job.segments.length === 0) {
-      throw new Error(`job for upload ${job.uploadId} carries no segments to render`);
+      const videoPath = this.videoPath(id);
+      const outputPath = this.outputPath(id);
+      ensureDirs(path.dirname(videoPath), path.dirname(outputPath));
+      await this.storage.downloadFile(this.config.bucket, uploadKey(id), videoPath);
+
+      let plan: CleanVideoPlan = {
+        videoFilters: [],
+        seekStart: 0,
+        seekDuration: null,
+      };
+      if (job.editSpec) {
+        const probe = await this.probe(videoPath);
+        if (probe.duration !== null && job.editSpec.trim.start >= probe.duration) {
+          throw new Error(
+            `trim start ${job.editSpec.trim.start}s is past the video duration ${probe.duration}s`
+          );
+        }
+        const framePlan = planFrame(job.editSpec.frame, probe.width, probe.height);
+        plan = {
+          videoFilters: framePlan.filters,
+          seekStart: job.editSpec.trim.start,
+          seekDuration:
+            job.editSpec.trim.end > 0
+              ? job.editSpec.trim.end - job.editSpec.trim.start
+              : null,
+        };
+      }
+
+      await this.cleanVideo({ videoPath, outputPath, plan });
+      const produced = fs.statSync(outputPath, { throwIfNoEntry: false });
+      if (!produced || produced.size === 0) {
+        throw new Error(`ffmpeg produced no clean video at ${outputPath}`);
+      }
+      await this.storage.uploadFile(this.config.bucket, outputKey(id), outputPath);
+      return { uploadId: job.uploadId, outputKey: outputKey(id) };
     }
 
     const videoPath = this.videoPath(id);
@@ -361,6 +415,54 @@ export async function overlaySequencePattern(framesDir: string): Promise<string 
   return `${framesDir}/element-%0${pad}d.png`;
 }
 
+// cleanVideoWithFFmpeg encodes the trimmed/reframed source video without a
+// subtitle overlay. It is used for empty transcripts so the Process completes
+// with a clean Output instead of failing.
+export async function cleanVideoWithFFmpeg(request: CleanVideoRequest): Promise<void> {
+  const { videoPath, outputPath, plan } = request;
+  const args = ["-ss", String(plan.seekStart), "-i", videoPath];
+  if (plan.seekDuration !== null) {
+    args.push("-t", String(plan.seekDuration));
+  }
+  if (plan.videoFilters.length > 0) {
+    args.push("-vf", plan.videoFilters.join(","));
+  }
+  args.push(
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a?",
+    "-c:v",
+    "libx264",
+    "-crf",
+    "23",
+    "-preset",
+    "fast",
+    "-c:a",
+    "aac",
+    "-movflags",
+    "+faststart",
+    outputPath
+  );
+
+  const ffmpeg = spawn("ffmpeg", args);
+  ffmpeg.stderr.on("data", (data) => {
+    console.error(`FFmpeg Error: ${data}`);
+  });
+  return new Promise((resolve, reject) => {
+    ffmpeg.on("error", (error) => {
+      reject(new Error(`FFmpeg failed to start: ${error.message}`));
+    });
+    ffmpeg.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`FFmpeg process failed with code ${code}`));
+      }
+    });
+  });
+}
+
 export async function combineFramesWithFFmpeg(
   videoPath: string,
   framesDir: string,
@@ -432,6 +534,9 @@ export async function combineFramesWithFFmpeg(
 
   // Handle FFmpeg process completion
   return new Promise((resolve, reject) => {
+    ffmpeg.on("error", (error) => {
+      reject(new Error(`FFmpeg failed to start: ${error.message}`));
+    });
     ffmpeg.on("close", (code) => {
       if (code === 0) {
         console.log(`Video created successfully: ${outputPath}`);
