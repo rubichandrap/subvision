@@ -37,6 +37,13 @@ func TestValidateTimingValidSequences(t *testing.T) {
 			},
 		},
 		{
+			name: "sub-millisecond overlap from ASR token boundaries",
+			segments: []transcript.Segment{
+				{Start: 0.0, End: 1.5, Text: "hello"},
+				{Start: 1.499996, End: 3.0, Text: "world"},
+			},
+		},
+		{
 			name: "contiguous segments",
 			segments: []transcript.Segment{
 				{Start: 0.0, End: 1.5, Text: "hello"},
@@ -116,6 +123,15 @@ func TestValidateTimingRejections(t *testing.T) {
 			},
 			wantIndex:  0,
 			wantReason: "end must be after its start",
+		},
+		{
+			name: "five millisecond overlap is still rejected",
+			segments: []transcript.Segment{
+				{Start: 0.0, End: 1.5, Text: "first"},
+				{Start: 1.495, End: 3.0, Text: "second"},
+			},
+			wantIndex:  1,
+			wantReason: "must not start before segment 1 ends",
 		},
 		{
 			name: "second segment starts before first ends",

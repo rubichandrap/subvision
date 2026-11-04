@@ -16,11 +16,15 @@ func (e *ValidationError) Error() string {
 }
 
 // Timestamp comparisons tolerate the floating-point noise produced by model
-// inference; differences up to one microsecond are treated as equal.
+// inference and ASR token boundaries. Differences up to two milliseconds are
+// treated as equal: Parakeet word boundaries can overlap by a few microseconds
+// when cues are reflowed, which is far below one video frame. Two milliseconds
+// is twice the ASR word-boundary tolerance, so cue validation never rejects a
+// boundary the ASR validator accepted.
 // Related: syncTimeEpsilon in sync.go is 1e-3 because the editor rounds
 // inputs to milliseconds; wordBoundaryEpsilon in the ASR client is 1e-3.
 
-const timingEpsilon = 1e-6
+const timingEpsilon = 2e-3
 
 // ValidateTiming rejects segment sequences with timing anomalies:
 // non-finite start or end times, negative start times, ends at or before

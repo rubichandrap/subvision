@@ -77,9 +77,10 @@ function toDraft(segments: Segment[]): DraftSegment[] {
 }
 
 // Timestamp comparisons tolerate the floating-point noise produced by model
-// inference (e.g. 13.5199995 vs 13.5199997). Only differences beyond this are
-// treated as overlapping or misordered.
-const timeEpsilon = 1e-6;
+// inference and the millisecond rounding in these inputs. This mirrors the
+// server's 2 ms tolerance so the editor does not reject a timeline the server
+// accepts.
+const timeEpsilon = 2e-3;
 
 export function validateSegments(draft: DraftSegment[]): SegmentError[] {
   const parsed = draft.map((row) => ({
