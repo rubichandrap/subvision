@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/rubichandrap/subvision/server/internal/config"
 	"github.com/rubichandrap/subvision/server/internal/editspec"
+	"github.com/rubichandrap/subvision/server/internal/sourcetimeline"
 	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
@@ -28,14 +28,10 @@ type VideoDownloader interface {
 	Download(ctx context.Context, key, destPath string) error
 }
 
-// AudioExtractor extracts 16kHz mono WAV audio from a video file within an optional trim window.
-type AudioExtractor interface {
-	ExtractAudio(ctx context.Context, inputPath, outputPath string, window [2]float64) error
-}
-
-// AudioTranscriber converts a WAV audio file into Transcription Segments.
-type AudioTranscriber interface {
-	Transcribe(audioPath string) ([]transcript.Segment, error)
+// SourceTranscriber turns a video's trim window into Transcription Segments
+// on the Source Timeline, clipped to the window (sourcetimeline.Timeline).
+type SourceTranscriber interface {
+	Transcribe(ctx context.Context, videoPath string, window sourcetimeline.Window) ([]transcript.Segment, error)
 }
 
 // ProcessLifecycle coordinates stage transitions and atomic commit for an upload process.
@@ -45,49 +41,22 @@ type ProcessLifecycle interface {
 	MarkFailed(uploadID, reason string) (bool, error)
 }
 
-// FFmpegAudioExtractor extracts audio using the ffmpeg CLI.
-type FFmpegAudioExtractor struct{}
-
-func NewFFmpegAudioExtractor() *FFmpegAudioExtractor {
-	return &FFmpegAudioExtractor{}
-}
-
-func (e *FFmpegAudioExtractor) ExtractAudio(ctx context.Context, inputPath, outputPath string, window [2]float64) error {
-	args := []string{"-hide_banner"}
-	if window[0] > 0 {
-		args = append(args, "-ss", fmt.Sprintf("%.3f", window[0]))
-	}
-	args = append(args, "-i", inputPath, "-vn", "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1")
-	if window[1] > 0 {
-		args = append(args, "-to", fmt.Sprintf("%.3f", window[1]))
-	}
-	args = append(args, outputPath)
-	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	log.Printf("[ffmpeg] Running conversion command: %v", cmd.Args)
-	return cmd.Run()
-}
-
 // Config configures the Ingestion pipeline with adapters and scratch directory.
 type Config struct {
-	VideoDownloader  VideoDownloader
-	AudioExtractor   AudioExtractor
-	AudioTranscriber AudioTranscriber
-	ProcessLifecycle ProcessLifecycle
-	TmpDir           string
+	VideoDownloader   VideoDownloader
+	SourceTranscriber SourceTranscriber
+	ProcessLifecycle  ProcessLifecycle
+	TmpDir            string
 }
 
 // Pipeline owns the end-to-end ingestion workflow: validation, download,
-// extraction, speech transcription, coordinate shifting, atomic commit,
+// Source Timeline transcription, cue reflow, atomic commit,
 // scratch file cleanup, and autonomous failure guards.
 type Pipeline struct {
 	downloader  VideoDownloader
-	extractor   AudioExtractor
-	transcriber AudioTranscriber
+	transcriber SourceTranscriber
 	lifecycle   ProcessLifecycle
 	videoTmpDir string
-	audioTmpDir string
 }
 
 // New creates an Ingestion pipeline with the supplied configuration.
@@ -97,17 +66,13 @@ func New(cfg Config) *Pipeline {
 		tmpDir = os.TempDir()
 	}
 	videoDir := filepath.Join(tmpDir, "videos")
-	audioDir := filepath.Join(tmpDir, "audios")
 	_ = os.MkdirAll(videoDir, 0755)
-	_ = os.MkdirAll(audioDir, 0755)
 
 	return &Pipeline{
 		downloader:  cfg.VideoDownloader,
-		extractor:   cfg.AudioExtractor,
-		transcriber: cfg.AudioTranscriber,
+		transcriber: cfg.SourceTranscriber,
 		lifecycle:   cfg.ProcessLifecycle,
 		videoTmpDir: videoDir,
-		audioTmpDir: audioDir,
 	}
 }
 
@@ -147,17 +112,9 @@ func (p *Pipeline) ProcessUpload(ctx context.Context, job UploadJob) (err error)
 
 	id := strings.TrimPrefix(job.ObjectKey, config.ObjectPrefix)
 	videoPath := filepath.Join(p.videoTmpDir, id)
-	audioPath := filepath.Join(p.audioTmpDir, fmt.Sprintf("%s.wav", id))
 
 	// Deferred scratch file cleanup ensures no temporary files leak on success or failure.
-	defer func() {
-		if videoPath != "" {
-			_ = os.Remove(videoPath)
-		}
-		if audioPath != "" {
-			_ = os.Remove(audioPath)
-		}
-	}()
+	defer func() { _ = os.Remove(videoPath) }()
 
 	if p.downloader != nil {
 		if err := p.downloader.Download(ctx, job.ObjectKey, videoPath); err != nil {
@@ -165,28 +122,20 @@ func (p *Pipeline) ProcessUpload(ctx context.Context, job UploadJob) (err error)
 		}
 	}
 
-	var window [2]float64
+	var window sourcetimeline.Window
 	if spec != nil {
-		window = [2]float64{spec.Trim.Start, spec.Trim.End}
+		window = sourcetimeline.Window{Start: spec.Trim.Start, End: spec.Trim.End}
 	}
 
-	if p.extractor != nil {
-		if err := p.extractor.ExtractAudio(ctx, videoPath, audioPath, window); err != nil {
-			return fmt.Errorf("failed to extract audio: %w", err)
-		}
-	}
-
+	// Segments come back on the Source Timeline, already clipped to the trim
+	// window; ingestion never handles audio files or time offsets itself.
 	var segments []transcript.Segment
 	if p.transcriber != nil {
 		var err error
-		segments, err = p.transcriber.Transcribe(audioPath)
+		segments, err = p.transcriber.Transcribe(ctx, videoPath, window)
 		if err != nil {
 			return fmt.Errorf("failed to transcribe audio: %w", err)
 		}
-	}
-
-	if window[0] > 0 {
-		segments = transcript.Shift(segments, window[0])
 	}
 
 	// Subtitle reflow is server-side: cue readability is not the ASR worker's

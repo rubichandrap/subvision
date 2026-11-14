@@ -1,6 +1,7 @@
-package transcript_test
+package sourcetimeline
 
 import (
+	"math"
 	"testing"
 
 	"github.com/rubichandrap/subvision/server/internal/transcript"
@@ -29,7 +30,7 @@ func TestShiftTranslatesSegmentAndWordBoundaries(t *testing.T) {
 	}
 
 	offset := 10.5
-	shifted := transcript.Shift(orig, offset)
+	shifted := shift(orig, offset)
 
 	if len(shifted) != len(orig) {
 		t.Fatalf("expected %d segments, got %d", len(orig), len(shifted))
@@ -79,7 +80,7 @@ func TestShiftPreservesRelativeIntervalsAndOrdering(t *testing.T) {
 	}
 
 	offset := 15.125
-	shifted := transcript.Shift(orig, offset)
+	shifted := shift(orig, offset)
 
 	origSpan := orig[0].End - orig[0].Start
 	shiftedSpan := shifted[0].End - shifted[0].Start
@@ -117,7 +118,7 @@ func TestShiftZeroOffset(t *testing.T) {
 		},
 	}
 
-	shifted := transcript.Shift(orig, 0.0)
+	shifted := shift(orig, 0.0)
 
 	assertApprox(t, shifted[0].Start, orig[0].Start, "start")
 	assertApprox(t, shifted[0].End, orig[0].End, "end")
@@ -135,13 +136,13 @@ func TestShiftZeroOffset(t *testing.T) {
 
 func TestShiftEmptyAndNilInput(t *testing.T) {
 	// Nil segments should return nil without panic
-	if got := transcript.Shift(nil, 5.0); got != nil {
+	if got := shift(nil, 5.0); got != nil {
 		t.Errorf("expected nil for nil input, got %+v", got)
 	}
 
 	// Empty slice should return empty slice without panic
 	empty := []transcript.Segment{}
-	gotEmpty := transcript.Shift(empty, 5.0)
+	gotEmpty := shift(empty, 5.0)
 	if gotEmpty == nil {
 		t.Errorf("expected non-nil empty slice for empty input, got nil")
 	}
@@ -166,7 +167,7 @@ func TestShiftSegmentWithoutWords(t *testing.T) {
 		},
 	}
 
-	shifted := transcript.Shift(orig, 2.5)
+	shifted := shift(orig, 2.5)
 
 	assertApprox(t, shifted[0].Start, 3.5, "segment 0 start")
 	assertApprox(t, shifted[0].End, 4.5, "segment 0 end")
@@ -193,7 +194,7 @@ func TestShiftDoesNotMutateOriginal(t *testing.T) {
 		},
 	}
 
-	shifted := transcript.Shift(orig, 10.0)
+	shifted := shift(orig, 10.0)
 
 	// Mutate shifted output
 	shifted[0].Start = 999.0
@@ -229,16 +230,23 @@ func TestShiftFractionalAndNegativeOffsets(t *testing.T) {
 	}
 
 	// Positive fractional
-	posShifted := transcript.Shift(orig, 0.333)
+	posShifted := shift(orig, 0.333)
 	assertApprox(t, posShifted[0].Start, 10.888, "pos shift start")
 	assertApprox(t, posShifted[0].End, 13.110, "pos shift end")
 	assertApprox(t, posShifted[0].Words[0].Start, 10.999, "pos shift word start")
 	assertApprox(t, posShifted[0].Words[0].End, 12.888, "pos shift word end")
 
 	// Negative offset (e.g. reverse translation if needed)
-	negShifted := transcript.Shift(orig, -5.555)
+	negShifted := shift(orig, -5.555)
 	assertApprox(t, negShifted[0].Start, 5.0, "neg shift start")
 	assertApprox(t, negShifted[0].End, 7.222, "neg shift end")
 	assertApprox(t, negShifted[0].Words[0].Start, 5.111, "neg shift word start")
 	assertApprox(t, negShifted[0].Words[0].End, 7.0, "neg shift word end")
+}
+
+func assertApprox(t *testing.T, got, want float64, name string) {
+	t.Helper()
+	if math.Abs(got-want) > 1e-6 {
+		t.Errorf("%s = %f, want %f", name, got, want)
+	}
 }

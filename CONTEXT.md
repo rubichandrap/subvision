@@ -58,11 +58,17 @@ RabbitMQ; the Next.js client uploads videos with tus.
   objects (the Upload and, if rendered, the Output) are erased. Irreversible —
   no archive, no restore. A Delete never cancels work already in flight; that
   is Cancel, a separate concept not yet built (see ADR-0004).
+- **Source Timeline** — the clock of the uploaded video's container: the
+  timeline the rendered Output plays on, before any trim. Every persisted
+  Transcription Segment and Timed Word is a time on the Source Timeline. Audio
+  sent to the ASR Worker must keep the Source Timeline: a late-starting audio
+  stream or a gap in its timestamps is silence on it, not something to close
+  up (ADR-0011).
 - **Ingestion** — the server-side pipeline that turns an Upload into a
-  Transcript: downloads the video, extracts audio for the trim window, posts
-  it to the Parakeet ASR worker, reflows cues, records the Transcription
-  Segments and Edit Spec in the job store, and transitions the Process to
-  rendering.
+  Transcript: downloads the video, transcribes the trim window's audio onto
+  the Source Timeline through the Parakeet ASR worker, reflows cues, records
+  the Transcription Segments and Edit Spec in the job store, and transitions
+  the Process to rendering. Nothing outside the trim window is recorded.
 - **Process** — the client-facing lifecycle of a job (uploaded →
   transcribing → rendering → done/failed). Real server-side state, owned by
   the server's job module; the client polls its status, edits its
@@ -74,6 +80,8 @@ RabbitMQ; the Next.js client uploads videos with tus.
 - **Timing Drift** — a Timed Word appearing before it is spoken, or late by a
   fraction of a second. The legacy whisper path produced it by interpolating
   timestamps; the Parakeet path uses native token timings instead (ADR-0010).
+  Audio extracted off the Source Timeline produces it too, as a constant
+  lead or one that grows after every audio gap (ADR-0011).
 
 ## Invariants
 
