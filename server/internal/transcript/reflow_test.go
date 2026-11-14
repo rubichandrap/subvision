@@ -2,6 +2,7 @@ package transcript_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -237,4 +238,104 @@ func TestReflowOnParakeetFixture(t *testing.T) {
 			t.Fatalf("cue %d end = %v, want %v", i, cue.End, cue.Words[len(cue.Words)-1].End)
 		}
 	}
+}
+
+func TestReflowSplitsCuesOnSilence(t *testing.T) {
+	// A sung line, a long instrumental pause, then the next line: the pause
+	// must not sit inside one Caption Page, or the later words show on
+	// screen long before they are sung.
+	words := []transcript.Word{
+		reflowWord("let", 21.36, 21.68),
+		reflowWord("me", 21.68, 21.84),
+		reflowWord("show", 21.84, 22.24),
+		reflowWord("you", 22.24, 22.40),
+		reflowWord("love", 22.56, 22.88),
+		reflowWord("stay", 25.04, 25.20),
+		reflowWord("by", 25.36, 25.52),
+	}
+	segments := []transcript.Segment{{
+		Start: words[0].Start,
+		End:   words[len(words)-1].End,
+		Text:  "let me show you love stay by",
+		Words: words,
+	}}
+
+	got := transcript.Reflow(segments, transcript.ReflowOptions{
+		WordsPerPage:      4,
+		MaxWordGapSeconds: 1,
+	})
+	wantTexts := []string{"let me show you", "love", "stay by"}
+	if len(got) != len(wantTexts) {
+		t.Fatalf("Reflow() produced %d cues %v, want %v", len(got), cueTexts(got), wantTexts)
+	}
+	for i, cue := range got {
+		if cue.Text != wantTexts[i] {
+			t.Fatalf("cue %d text = %q, want %q", i, cue.Text, wantTexts[i])
+		}
+	}
+	if !reflect.DeepEqual(wordsFromSegments(got), words) {
+		t.Fatal("Reflow() moved, dropped, or reordered a Timed Word")
+	}
+}
+
+func TestReflowKeepsCueAcrossGapAtThreshold(t *testing.T) {
+	words := []transcript.Word{
+		reflowWord("one", 0, 0.5),
+		reflowWord("two", 1.5, 2), // exactly 1 s of silence
+	}
+	got := transcript.Reflow([]transcript.Segment{{
+		Start: 0, End: 2, Text: "one two", Words: words,
+	}}, transcript.ReflowOptions{WordsPerPage: 4, MaxWordGapSeconds: 1})
+	if len(got) != 1 {
+		t.Fatalf("Reflow() produced %d cues %v, want 1", len(got), cueTexts(got))
+	}
+}
+
+func TestReflowWithoutGapLimitKeepsLongPausesTogether(t *testing.T) {
+	words := []transcript.Word{
+		reflowWord("one", 0, 0.5),
+		reflowWord("two", 10, 10.5),
+	}
+	got := transcript.Reflow([]transcript.Segment{{
+		Start: 0, End: 10.5, Text: "one two", Words: words,
+	}}, transcript.ReflowOptions{WordsPerPage: 4})
+	if len(got) != 1 {
+		t.Fatalf("Reflow() produced %d cues %v, want 1 with no gap limit", len(got), cueTexts(got))
+	}
+}
+
+func TestDefaultReflowNeverHoldsAWordOnScreenThroughSilence(t *testing.T) {
+	// Song-shaped input: no punctuation, short words, irregular pauses up to
+	// half a minute where recognition found nothing.
+	starts := []float64{16.08, 16.40, 16.56, 16.96, 17.44, 21.36, 29.04, 29.36, 35.28, 60.64, 61.0, 79.2, 119.0, 148.0}
+	words := make([]transcript.Word, len(starts))
+	for i, start := range starts {
+		words[i] = reflowWord(fmt.Sprintf("w%d", i), start, start+0.16)
+	}
+	got := transcript.Reflow([]transcript.Segment{{
+		Start: words[0].Start, End: words[len(words)-1].End, Words: words,
+	}}, transcript.DefaultReflowOptions(4))
+
+	limit := transcript.DefaultReflowOptions(4).MaxWordGapSeconds
+	if limit <= 0 {
+		t.Fatal("DefaultReflowOptions must set a positive MaxWordGapSeconds")
+	}
+	for i, cue := range got {
+		for j := 1; j < len(cue.Words); j++ {
+			if gap := cue.Words[j].Start - cue.Words[j-1].End; gap > limit {
+				t.Fatalf("cue %d %q holds %.1fs of silence before %q", i, cue.Text, gap, cue.Words[j].Text)
+			}
+		}
+	}
+	if err := transcript.ValidateTiming(got); err != nil {
+		t.Fatalf("ValidateTiming() rejected silence-split cues: %v", err)
+	}
+}
+
+func cueTexts(cues []transcript.Segment) []string {
+	out := make([]string, len(cues))
+	for i, cue := range cues {
+		out[i] = cue.Text
+	}
+	return out
 }

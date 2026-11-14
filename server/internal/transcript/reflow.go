@@ -4,23 +4,34 @@ import "strings"
 
 // ReflowOptions tunes server-side subtitle reflow. WordsPerPage is the hard
 // maximum number of Timed Words one output cue may carry; it mirrors the
-// existing Edit Spec `captions.wordsPerPage`.
+// existing Edit Spec `captions.wordsPerPage`. MaxWordGapSeconds, when
+// positive, closes a cue at any silence between two Timed Words longer than
+// it, so a Caption Page never shows a word long before it is spoken; zero
+// disables the gap rule.
 type ReflowOptions struct {
-	WordsPerPage    int
-	MaxCharsPerLine int
-	MaxLines        int
-	MinCueSeconds   float64
+	WordsPerPage      int
+	MaxCharsPerLine   int
+	MaxLines          int
+	MinCueSeconds     float64
+	MaxWordGapSeconds float64
 }
+
+// defaultMaxWordGapSeconds is longer than a pause between spoken phrases but
+// shorter than the instrumental breaks between sung lines, and covers the
+// stretches where ASR recognised nothing.
+const defaultMaxWordGapSeconds = 1.0
 
 // DefaultReflowOptions returns the subtitle-layout defaults used by the
 // Parakeet pipeline. `wordsPerPage` mirrors the user's existing caption setting.
-// Short cues hold into available silence so they stay readable.
+// Short cues hold into available silence so they stay readable, and long
+// silences always start a new cue.
 func DefaultReflowOptions(wordsPerPage int) ReflowOptions {
 	return ReflowOptions{
-		WordsPerPage:    wordsPerPage,
-		MaxCharsPerLine: 42,
-		MaxLines:        2,
-		MinCueSeconds:   0.8,
+		WordsPerPage:      wordsPerPage,
+		MaxCharsPerLine:   42,
+		MaxLines:          2,
+		MinCueSeconds:     0.8,
+		MaxWordGapSeconds: defaultMaxWordGapSeconds,
 	}
 }
 
@@ -60,7 +71,9 @@ func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) [
 			charsWithCandidate := currentChars + 1 + len(word.Text)
 			tooManyWords := len(current) >= options.WordsPerPage
 			tooWide := maxCharsPerCue > 0 && charsWithCandidate > maxCharsPerCue
-			if tooManyWords || tooWide {
+			afterSilence := options.MaxWordGapSeconds > 0 &&
+				word.Start-current[len(current)-1].End > options.MaxWordGapSeconds
+			if tooManyWords || tooWide || afterSilence {
 				cues = append(cues, segmentFromWords(current))
 				current = make([]Word, 0, options.WordsPerPage)
 				currentChars = 0
