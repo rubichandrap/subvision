@@ -1,26 +1,48 @@
 package transcript
 
-import "strings"
+import (
+	"math"
+	"strings"
+)
 
 // ReflowOptions tunes server-side subtitle reflow. WordsPerPage is the hard
 // maximum number of Timed Words one output cue may carry; it mirrors the
-// existing Edit Spec `captions.wordsPerPage`.
+// existing Edit Spec `captions.wordsPerPage`. MaxWordGapSeconds, when
+// positive, closes a cue at any silence between two Timed Words longer than
+// it, so a Caption Page never shows a word long before it is spoken; zero
+// disables the gap rule.
 type ReflowOptions struct {
-	WordsPerPage    int
-	MaxCharsPerLine int
-	MaxLines        int
-	MinCueSeconds   float64
+	WordsPerPage      int
+	MaxCharsPerLine   int
+	MaxLines          int
+	MinCueSeconds     float64
+	MaxWordGapSeconds float64
+	// TrimEndSeconds, when positive, is the latest time a held cue window may
+	// reach. Zero (untrimmed) leaves the last cue's hold unbounded; the
+	// rendered Output still ends with the video.
+	TrimEndSeconds float64
 }
+
+// defaultMaxWordGapSeconds is longer than a pause between spoken phrases but
+// shorter than the instrumental breaks between sung lines, and covers the
+// stretches where ASR recognised nothing.
+const defaultMaxWordGapSeconds = 1.0
+
+// gapEpsilon absorbs float noise in word-boundary subtraction (2.2-1.2 is
+// 1.0000000000000002), so a gap of exactly MaxWordGapSeconds never splits.
+const gapEpsilon = 1e-9
 
 // DefaultReflowOptions returns the subtitle-layout defaults used by the
 // Parakeet pipeline. `wordsPerPage` mirrors the user's existing caption setting.
-// Short cues hold into available silence so they stay readable.
+// Short cues hold into available silence so they stay readable, and long
+// silences always start a new cue.
 func DefaultReflowOptions(wordsPerPage int) ReflowOptions {
 	return ReflowOptions{
-		WordsPerPage:    wordsPerPage,
-		MaxCharsPerLine: 42,
-		MaxLines:        2,
-		MinCueSeconds:   0.8,
+		WordsPerPage:      wordsPerPage,
+		MaxCharsPerLine:   42,
+		MaxLines:          2,
+		MinCueSeconds:     0.8,
+		MaxWordGapSeconds: defaultMaxWordGapSeconds,
 	}
 }
 
@@ -46,7 +68,7 @@ func Reflow(segments []Segment, options ReflowOptions) []Segment {
 		}
 		out = append(out, reflowSegment(segment, options, maxCharsPerCue)...)
 	}
-	return out
+	return holdCueWindows(out, options.TrimEndSeconds, options.MinCueSeconds)
 }
 
 func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) []Segment {
@@ -60,7 +82,9 @@ func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) [
 			charsWithCandidate := currentChars + 1 + len(word.Text)
 			tooManyWords := len(current) >= options.WordsPerPage
 			tooWide := maxCharsPerCue > 0 && charsWithCandidate > maxCharsPerCue
-			if tooManyWords || tooWide {
+			afterSilence := options.MaxWordGapSeconds > 0 &&
+				word.Start-current[len(current)-1].End > options.MaxWordGapSeconds+gapEpsilon
+			if tooManyWords || tooWide || afterSilence {
 				cues = append(cues, segmentFromWords(current))
 				current = make([]Word, 0, options.WordsPerPage)
 				currentChars = 0
@@ -86,7 +110,7 @@ func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) [
 		cues = append(cues, segmentFromWords(current))
 	}
 
-	return holdCueWindows(cues, segment.End, options.MinCueSeconds)
+	return cues
 }
 
 func endsSentencePunctuation(text string) bool {
@@ -95,28 +119,34 @@ func endsSentencePunctuation(text string) bool {
 		strings.HasSuffix(text, "?")
 }
 
-// holdCueWindows extends short cue windows into available silence so viewers
-// can read them, without overlapping the next cue or leaving the original
-// Segment's window.
-func holdCueWindows(cues []Segment, segmentEnd, minCueSeconds float64) []Segment {
+// holdCueWindows extends short word-bearing cue windows into the silence
+// after them so viewers can read them: up to MinCueSeconds long, never past
+// the next cue's start, and never past endLimit when it is positive. A cue
+// whose words have no duration (a word cut off by the trim end) is held the
+// same way, so every cue keeps a renderable window. Wordless segments pass
+// through untouched.
+func holdCueWindows(cues []Segment, endLimit, minCueSeconds float64) []Segment {
 	if minCueSeconds <= 0 {
 		return cues
 	}
 
 	for i := range cues {
 		cue := &cues[i]
-		nextStart := segmentEnd
-		if i+1 < len(cues) {
-			nextStart = cues[i+1].Start
+		if len(cue.Words) == 0 {
+			continue
 		}
-		if nextStart <= cue.Start {
+		bound := math.Inf(1)
+		if endLimit > 0 {
+			bound = endLimit
+		}
+		if i+1 < len(cues) && cues[i+1].Start < bound {
+			bound = cues[i+1].Start
+		}
+		if bound <= cue.Start {
 			continue
 		}
 
-		minEnd := cue.Start + minCueSeconds
-		if minEnd > nextStart {
-			minEnd = nextStart
-		}
+		minEnd := min(cue.Start+minCueSeconds, bound)
 		if minEnd > cue.End {
 			cue.End = minEnd
 		}
