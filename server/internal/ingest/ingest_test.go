@@ -9,6 +9,7 @@ import (
 
 	"github.com/rubichandrap/subvision/server/internal/editspec"
 	"github.com/rubichandrap/subvision/server/internal/ingest"
+	"github.com/rubichandrap/subvision/server/internal/sourcetimeline"
 	"github.com/rubichandrap/subvision/server/internal/transcript"
 )
 
@@ -28,32 +29,16 @@ func (f *fakeDownloader) Download(ctx context.Context, key, destPath string) err
 	return f.err
 }
 
-type fakeExtractor struct {
-	inputPath  string
-	outputPath string
-	window     [2]float64
-	err        error
-	createFile bool
-}
-
-func (f *fakeExtractor) ExtractAudio(ctx context.Context, inputPath, outputPath string, window [2]float64) error {
-	f.inputPath = inputPath
-	f.outputPath = outputPath
-	f.window = window
-	if f.createFile {
-		_ = os.WriteFile(outputPath, []byte("fake wav data"), 0644)
-	}
-	return f.err
-}
-
 type fakeTranscriber struct {
-	audioPath string
+	videoPath string
+	window    sourcetimeline.Window
 	segments  []transcript.Segment
 	err       error
 }
 
-func (f *fakeTranscriber) Transcribe(audioPath string) ([]transcript.Segment, error) {
-	f.audioPath = audioPath
+func (f *fakeTranscriber) Transcribe(ctx context.Context, videoPath string, window sourcetimeline.Window) ([]transcript.Segment, error) {
+	f.videoPath = videoPath
+	f.window = window
 	return f.segments, f.err
 }
 
@@ -88,7 +73,6 @@ func (f *fakeLifecycle) MarkFailed(uploadID, reason string) (bool, error) {
 func TestProcessUploadSuccessWithoutTrim(t *testing.T) {
 	tmpDir := t.TempDir()
 	downloader := &fakeDownloader{createFile: true}
-	extractor := &fakeExtractor{createFile: true}
 	trans := &fakeTranscriber{
 		segments: []transcript.Segment{
 			{Start: 0.5, End: 2.0, Text: "hello world"},
@@ -97,11 +81,10 @@ func TestProcessUploadSuccessWithoutTrim(t *testing.T) {
 	lifecycle := &fakeLifecycle{}
 
 	pipeline := ingest.New(ingest.Config{
-		VideoDownloader:  downloader,
-		AudioExtractor:   extractor,
-		AudioTranscriber: trans,
-		ProcessLifecycle: lifecycle,
-		TmpDir:           tmpDir,
+		VideoDownloader:   downloader,
+		SourceTranscriber: trans,
+		ProcessLifecycle:  lifecycle,
+		TmpDir:            tmpDir,
 	})
 
 	uploadJob := ingest.UploadJob{
@@ -122,8 +105,11 @@ func TestProcessUploadSuccessWithoutTrim(t *testing.T) {
 	if downloader.downloadedKey != "uploads/upload-123" {
 		t.Errorf("expected downloaded key = uploads/upload-123, got %q", downloader.downloadedKey)
 	}
-	if extractor.window != [2]float64{0, 0} {
-		t.Errorf("expected zero window, got %v", extractor.window)
+	if trans.window != (sourcetimeline.Window{}) {
+		t.Errorf("expected open window, got %+v", trans.window)
+	}
+	if trans.videoPath != downloader.destPath {
+		t.Errorf("transcriber got video %q, want the downloaded %q", trans.videoPath, downloader.destPath)
 	}
 	if lifecycle.committedID != "upload-123" {
 		t.Errorf("expected committedID = upload-123, got %q", lifecycle.committedID)
@@ -141,38 +127,33 @@ func TestProcessUploadSuccessWithoutTrim(t *testing.T) {
 			t.Errorf("expected video file to be cleaned up at %s", downloader.destPath)
 		}
 	}
-	if extractor.outputPath != "" {
-		if _, err := os.Stat(extractor.outputPath); !os.IsNotExist(err) {
-			t.Errorf("expected audio file to be cleaned up at %s", extractor.outputPath)
-		}
-	}
 }
 
-func TestProcessUploadSuccessWithTrimWindowShiftsSegments(t *testing.T) {
+// Ingestion hands the trim window to the Source Timeline and commits what
+// comes back as-is (after reflow): shifting and clipping are not its job.
+func TestProcessUploadPassesTrimWindowAndCommitsSourceTimeSegments(t *testing.T) {
 	tmpDir := t.TempDir()
 	downloader := &fakeDownloader{createFile: true}
-	extractor := &fakeExtractor{createFile: true}
 	trans := &fakeTranscriber{
 		segments: []transcript.Segment{
 			{
-				Start: 0.2,
-				End:   1.4,
+				Start: 30.3,
+				End:   31.3,
 				Text:  "hello",
 				Words: []transcript.Word{
-					{Text: "hello", Start: 0.3, End: 1.3},
+					{Text: "hello", Start: 30.3, End: 31.3},
 				},
 			},
-			{Start: 1.6, End: 2.9, Text: "there"},
+			{Start: 31.6, End: 32.9, Text: "there"},
 		},
 	}
 	lifecycle := &fakeLifecycle{}
 
 	pipeline := ingest.New(ingest.Config{
-		VideoDownloader:  downloader,
-		AudioExtractor:   extractor,
-		AudioTranscriber: trans,
-		ProcessLifecycle: lifecycle,
-		TmpDir:           tmpDir,
+		VideoDownloader:   downloader,
+		SourceTranscriber: trans,
+		ProcessLifecycle:  lifecycle,
+		TmpDir:            tmpDir,
 	})
 
 	rawSpec := `{"trim":{"start":30.0,"end":45.0},"frame":{"preset":"9:16","ratio":0.5625,"zoom":1,"panX":0,"panY":0},"animation":"karaoke"}`
@@ -182,19 +163,14 @@ func TestProcessUploadSuccessWithTrimWindowShiftsSegments(t *testing.T) {
 		RawEditSpec: rawSpec,
 	}
 
-	ctx := context.Background()
-	err := pipeline.ProcessUpload(ctx, uploadJob)
-	if err != nil {
+	if err := pipeline.ProcessUpload(context.Background(), uploadJob); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Extractor must receive trim window
-	expectedWindow := [2]float64{30.0, 45.0}
-	if extractor.window != expectedWindow {
-		t.Errorf("extractor window = %v, want %v", extractor.window, expectedWindow)
+	if want := (sourcetimeline.Window{Start: 30, End: 45}); trans.window != want {
+		t.Errorf("transcriber window = %+v, want %+v", trans.window, want)
 	}
 
-	// Segments must be shifted by 30.0
 	if len(lifecycle.committedSegments) != 2 {
 		t.Fatalf("expected 2 segments, got %d", len(lifecycle.committedSegments))
 	}
@@ -210,7 +186,6 @@ func TestProcessUploadSuccessWithTrimWindowShiftsSegments(t *testing.T) {
 		t.Errorf("segment 1 timing = %f-%f, want 31.6-32.9", s1.Start, s1.End)
 	}
 
-	// Spec must be committed
 	if lifecycle.committedSpec == nil || lifecycle.committedSpec.Trim.Start != 30.0 {
 		t.Errorf("unexpected committed spec: %+v", lifecycle.committedSpec)
 	}
@@ -221,7 +196,6 @@ func TestProcessUploadAutonomousFailureGuard(t *testing.T) {
 		name          string
 		job           ingest.UploadJob
 		downloader    *fakeDownloader
-		extractor     *fakeExtractor
 		transcriber   *fakeTranscriber
 		lifecycle     *fakeLifecycle
 		wantErrSubstr string
@@ -264,14 +238,14 @@ func TestProcessUploadAutonomousFailureGuard(t *testing.T) {
 			wantErrSubstr: "s3 connection failed",
 		},
 		{
-			name: "audio extractor error",
+			name: "audio extraction error",
 			job: ingest.UploadJob{
 				UploadID:    "u-err-5",
 				ObjectKey:   "uploads/u-err-5",
 				RawEditSpec: "",
 			},
 			downloader:    &fakeDownloader{createFile: true},
-			extractor:     &fakeExtractor{err: errors.New("ffmpeg exited 1")},
+			transcriber:   &fakeTranscriber{err: errors.New("ffmpeg exited 1")},
 			wantErrSubstr: "ffmpeg exited 1",
 		},
 		{
@@ -282,7 +256,6 @@ func TestProcessUploadAutonomousFailureGuard(t *testing.T) {
 				RawEditSpec: "",
 			},
 			downloader:    &fakeDownloader{createFile: true},
-			extractor:     &fakeExtractor{createFile: true},
 			transcriber:   &fakeTranscriber{err: errors.New("parakeet worker panic")},
 			wantErrSubstr: "parakeet worker panic",
 		},
@@ -294,7 +267,6 @@ func TestProcessUploadAutonomousFailureGuard(t *testing.T) {
 				RawEditSpec: "",
 			},
 			downloader:    &fakeDownloader{createFile: true},
-			extractor:     &fakeExtractor{createFile: true},
 			transcriber:   &fakeTranscriber{segments: []transcript.Segment{{Start: 0, End: 1}}},
 			lifecycle:     &fakeLifecycle{commitErr: errors.New("sqlite disk full")},
 			wantErrSubstr: "sqlite disk full",
@@ -308,10 +280,6 @@ func TestProcessUploadAutonomousFailureGuard(t *testing.T) {
 			if dl == nil {
 				dl = &fakeDownloader{createFile: true}
 			}
-			ext := tc.extractor
-			if ext == nil {
-				ext = &fakeExtractor{createFile: true}
-			}
 			tr := tc.transcriber
 			if tr == nil {
 				tr = &fakeTranscriber{segments: []transcript.Segment{{Start: 0, End: 1}}}
@@ -322,11 +290,10 @@ func TestProcessUploadAutonomousFailureGuard(t *testing.T) {
 			}
 
 			p := ingest.New(ingest.Config{
-				VideoDownloader:  dl,
-				AudioExtractor:   ext,
-				AudioTranscriber: tr,
-				ProcessLifecycle: lc,
-				TmpDir:           tmpDir,
+				VideoDownloader:   dl,
+				SourceTranscriber: tr,
+				ProcessLifecycle:  lc,
+				TmpDir:            tmpDir,
 			})
 
 			err := p.ProcessUpload(context.Background(), tc.job)
@@ -351,16 +318,14 @@ func TestProcessUploadAutonomousFailureGuard(t *testing.T) {
 func TestProcessUploadScratchFilesCleanedUpOnFailure(t *testing.T) {
 	tmpDir := t.TempDir()
 	dl := &fakeDownloader{createFile: true}
-	ext := &fakeExtractor{createFile: true}
 	tr := &fakeTranscriber{err: errors.New("transcribe failed")}
 	lc := &fakeLifecycle{}
 
 	p := ingest.New(ingest.Config{
-		VideoDownloader:  dl,
-		AudioExtractor:   ext,
-		AudioTranscriber: tr,
-		ProcessLifecycle: lc,
-		TmpDir:           tmpDir,
+		VideoDownloader:   dl,
+		SourceTranscriber: tr,
+		ProcessLifecycle:  lc,
+		TmpDir:            tmpDir,
 	})
 
 	uploadJob := ingest.UploadJob{
@@ -374,14 +339,12 @@ func TestProcessUploadScratchFilesCleanedUpOnFailure(t *testing.T) {
 		t.Fatal("expected error, got nil")
 	}
 
-	// Verify both scratch files were removed despite failure
-	if dl.destPath == "" || ext.outputPath == "" {
-		t.Fatal("destPath or outputPath was not recorded")
+	// The scratch video is removed despite failure; scratch audio is the
+	// Source Timeline's to clean up (see sourcetimeline tests).
+	if dl.destPath == "" {
+		t.Fatal("destPath was not recorded")
 	}
 	if _, err := os.Stat(dl.destPath); !os.IsNotExist(err) {
 		t.Errorf("scratch video file still exists at %s", dl.destPath)
-	}
-	if _, err := os.Stat(ext.outputPath); !os.IsNotExist(err) {
-		t.Errorf("scratch audio file still exists at %s", ext.outputPath)
 	}
 }

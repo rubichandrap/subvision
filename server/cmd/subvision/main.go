@@ -12,6 +12,7 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/ingest"
 	"github.com/rubichandrap/subvision/server/internal/job"
 	"github.com/rubichandrap/subvision/server/internal/rabbitmq"
+	"github.com/rubichandrap/subvision/server/internal/sourcetimeline"
 	"github.com/rubichandrap/subvision/server/internal/storage"
 	"github.com/rubichandrap/subvision/server/internal/utils"
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
@@ -77,11 +78,10 @@ func main() {
 	// consumers
 	trans := asr.NewParakeet(env.ParakeetURL, 0)
 	pipeline := ingest.New(ingest.Config{
-		VideoDownloader:  objectStore,
-		AudioExtractor:   ingest.NewFFmpegAudioExtractor(),
-		AudioTranscriber: trans,
-		ProcessLifecycle: jobs,
-		TmpDir:           env.TmpDir,
+		VideoDownloader:   objectStore,
+		SourceTranscriber: sourcetimeline.New(trans, audioTmpDir),
+		ProcessLifecycle:  jobs,
+		TmpDir:            env.TmpDir,
 	})
 	uploadJobConsumer := rabbitmq.NewUploadJobConsumer(conn)
 	err = uploadJobConsumer.Start(func(payload rabbitmq.UploadJobPayload) {
