@@ -19,7 +19,7 @@ The `sourcetimeline` server module owns extraction, the mapping back to source t
 - `-af aresample=async=1:first_pts=0`, which pads a late start and fills timestamp gaps with silence, so WAV time equals container time minus the trim start;
 - `-t (end - start)` for a bounded window, never `-to`.
 
-Segments returned by the ASR Worker are shifted into source time and clipped to the window before persistence: words starting at or after the window end are dropped, words running past it are cut back, and segments left without words are dropped.
+Segments returned by the ASR Worker are shifted into source time and clipped to the window before persistence: words starting at or after the window end are dropped, words running past it are cut back, and segments left without words are dropped. Wordless segments are clamped to the window, or dropped when they fall outside it.
 
 ## Consequences
 

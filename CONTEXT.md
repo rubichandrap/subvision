@@ -23,7 +23,7 @@ RabbitMQ; the Next.js client uploads videos with tus.
   karaoke and pop Animations render against; word timings are never guessed
   from the segment's duration.
 - **Cue Reflow** — the server-side pass that groups Timed Words into readable
-  Transcription Segments after trim shifting and before persistence. Each cue
+  Transcription Segments on the Source Timeline, before persistence. Each cue
   may hold at most `captions.wordsPerPage` words; cue windows can extend into
   silence for readability but never move a Timed Word or overlap another cue.
 - **Caption Page** — a group of Timed Words from one Transcription Segment

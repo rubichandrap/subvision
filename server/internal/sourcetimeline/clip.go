@@ -11,7 +11,8 @@ import (
 // back to the window end. Word-bearing segments are rebuilt from their
 // surviving words and dropped when none survive; wordless segments are
 // clamped to the window or dropped when outside it. An open window
-// (End <= 0) only bounds the start.
+// (End <= 0) returns the segments unchanged: shifted worker times never fall
+// before the window start.
 func clip(segments []transcript.Segment, window Window) []transcript.Segment {
 	if segments == nil {
 		return nil

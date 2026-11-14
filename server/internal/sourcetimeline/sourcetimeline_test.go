@@ -39,7 +39,8 @@ func ffmpeg(t *testing.T, args ...string) {
 }
 
 // toneVideo builds a small video whose audio is a 440 Hz tone, audible only
-// where audible(t) is true, then optionally offsets the audio stream start.
+// where the ffmpeg expression audibleExpr is true, with an optional extra
+// audio filter (for example a pts gap). offsetAudio shifts the stream start.
 func toneVideo(t *testing.T, seconds float64, audibleExpr string, filter string) string {
 	t.Helper()
 	dir := t.TempDir()
