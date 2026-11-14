@@ -27,7 +27,8 @@ RabbitMQ; the Next.js client uploads videos with tus.
   may hold at most `captions.wordsPerPage` words, and a long silence between
   two Timed Words always ends a cue, so a Caption Page never shows a word
   long before it is spoken. Cue windows can extend into silence for
-  readability but never move a Timed Word or overlap another cue.
+  readability but never move a Timed Word, overlap another cue, or run past
+  the trim end.
 - **Caption Page** — a group of Timed Words from one Transcription Segment
   shown together on screen by the karaoke and pop Animations; only the page
   holding the currently spoken word is visible.

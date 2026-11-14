@@ -179,8 +179,8 @@ func TestReflowHoldsShortCuesWithoutOverlap(t *testing.T) {
 	if got[0].Start != 0 || got[0].End != 1 {
 		t.Fatalf("first cue window = %v-%v, want 0-1", got[0].Start, got[0].End)
 	}
-	if got[1].Start != 2.0 || got[1].End != 2.4 {
-		t.Fatalf("second cue window = %v-%v, want 2-2.4", got[1].Start, got[1].End)
+	if got[1].Start != 2.0 || got[1].End != 3.0 {
+		t.Fatalf("second cue window = %v-%v, want 2-3 (held into the silence after it)", got[1].Start, got[1].End)
 	}
 }
 
@@ -338,4 +338,45 @@ func cueTexts(cues []transcript.Segment) []string {
 		out[i] = cue.Text
 	}
 	return out
+}
+
+func TestReflowHoldsZeroLengthCueIntoFollowingSilence(t *testing.T) {
+	// A trim that cuts the audio mid-word leaves Parakeet's last word with no
+	// duration, at the very end of its segment. The cue must still get a
+	// renderable window: held into the silence after it, up to the trim end.
+	segments := []transcript.Segment{
+		{Start: 10.92, End: 11.80, Text: "ask what you can", Words: []transcript.Word{
+			reflowWord("ask", 10.92, 11.32), reflowWord("what", 11.32, 11.48),
+			reflowWord("you", 11.48, 11.64), reflowWord("can", 11.72, 11.80),
+		}},
+		{Start: 11.88, End: 11.88, Text: "do.", Words: []transcript.Word{reflowWord("do.", 11.88, 11.88)}},
+	}
+	options := transcript.DefaultReflowOptions(4)
+	options.EndLimit = 12
+
+	got := transcript.Reflow(segments, options)
+	if err := transcript.ValidateTiming(got); err != nil {
+		t.Fatalf("ValidateTiming() rejected reflowed cues %+v: %v", got, err)
+	}
+	last := got[len(got)-1]
+	if last.Start != 11.88 || last.End != 12 {
+		t.Fatalf("last cue window = %v-%v, want 11.88-12 (held to the trim end)", last.Start, last.End)
+	}
+	if got[0].End > last.Start {
+		t.Fatalf("first cue %v-%v overlaps the last cue", got[0].Start, got[0].End)
+	}
+}
+
+func TestReflowHoldsAcrossSourceSegmentsWithoutOverlap(t *testing.T) {
+	segments := []transcript.Segment{
+		{Start: 0, End: 0.2, Text: "hi.", Words: []transcript.Word{reflowWord("hi.", 0, 0.2)}},
+		{Start: 0.5, End: 0.7, Text: "there", Words: []transcript.Word{reflowWord("there", 0.5, 0.7)}},
+	}
+	got := transcript.Reflow(segments, transcript.ReflowOptions{WordsPerPage: 4, MinCueSeconds: 1})
+	if got[0].End != 0.5 {
+		t.Fatalf("first cue end = %v, want held to the next cue's start 0.5", got[0].End)
+	}
+	if got[1].End != 1.5 {
+		t.Fatalf("last cue end = %v, want 1.5 with no end limit", got[1].End)
+	}
 }

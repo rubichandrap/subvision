@@ -1,6 +1,9 @@
 package transcript
 
-import "strings"
+import (
+	"math"
+	"strings"
+)
 
 // ReflowOptions tunes server-side subtitle reflow. WordsPerPage is the hard
 // maximum number of Timed Words one output cue may carry; it mirrors the
@@ -14,6 +17,9 @@ type ReflowOptions struct {
 	MaxLines          int
 	MinCueSeconds     float64
 	MaxWordGapSeconds float64
+	// EndLimit, when positive, is the latest time a held cue window may
+	// reach (the trim end). Zero leaves the last cue's hold unbounded.
+	EndLimit float64
 }
 
 // defaultMaxWordGapSeconds is longer than a pause between spoken phrases but
@@ -57,7 +63,7 @@ func Reflow(segments []Segment, options ReflowOptions) []Segment {
 		}
 		out = append(out, reflowSegment(segment, options, maxCharsPerCue)...)
 	}
-	return out
+	return holdCueWindows(out, options.EndLimit, options.MinCueSeconds)
 }
 
 func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) []Segment {
@@ -99,7 +105,7 @@ func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) [
 		cues = append(cues, segmentFromWords(current))
 	}
 
-	return holdCueWindows(cues, segment.End, options.MinCueSeconds)
+	return cues
 }
 
 func endsSentencePunctuation(text string) bool {
@@ -108,28 +114,34 @@ func endsSentencePunctuation(text string) bool {
 		strings.HasSuffix(text, "?")
 }
 
-// holdCueWindows extends short cue windows into available silence so viewers
-// can read them, without overlapping the next cue or leaving the original
-// Segment's window.
-func holdCueWindows(cues []Segment, segmentEnd, minCueSeconds float64) []Segment {
+// holdCueWindows extends short word-bearing cue windows into the silence
+// after them so viewers can read them: up to MinCueSeconds long, never past
+// the next cue's start, and never past endLimit when it is positive. A cue
+// whose words have no duration (a word cut off by the trim end) is held the
+// same way, so every cue keeps a renderable window. Wordless segments pass
+// through untouched.
+func holdCueWindows(cues []Segment, endLimit, minCueSeconds float64) []Segment {
 	if minCueSeconds <= 0 {
 		return cues
 	}
 
 	for i := range cues {
 		cue := &cues[i]
-		nextStart := segmentEnd
-		if i+1 < len(cues) {
-			nextStart = cues[i+1].Start
+		if len(cue.Words) == 0 {
+			continue
 		}
-		if nextStart <= cue.Start {
+		bound := math.Inf(1)
+		if endLimit > 0 {
+			bound = endLimit
+		}
+		if i+1 < len(cues) && cues[i+1].Start < bound {
+			bound = cues[i+1].Start
+		}
+		if bound <= cue.Start {
 			continue
 		}
 
-		minEnd := cue.Start + minCueSeconds
-		if minEnd > nextStart {
-			minEnd = nextStart
-		}
+		minEnd := min(cue.Start+minCueSeconds, bound)
 		if minEnd > cue.End {
 			cue.End = minEnd
 		}
