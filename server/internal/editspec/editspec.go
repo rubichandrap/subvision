@@ -56,10 +56,11 @@ var backgrounds = map[string]bool{"none": true, "box": true}
 var hexColor = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 // Trim is the rendered window of the source video, in seconds. End == 0 (or
-// absent) means "until the video ends".
+// absent on input) means "until the video ends". End is always marshalled,
+// even at zero: the vfx contract requires the field on every VFX Job.
 type Trim struct {
 	Start float64 `json:"start"`
-	End   float64 `json:"end,omitempty"`
+	End   float64 `json:"end"`
 }
 
 // Frame is the target canvas: an aspect ratio (from a Frame Preset or free)

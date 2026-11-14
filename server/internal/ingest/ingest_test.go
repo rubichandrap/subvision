@@ -3,6 +3,7 @@ package ingest_test
 import (
 	"context"
 	"errors"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -346,5 +347,35 @@ func TestProcessUploadScratchFilesCleanedUpOnFailure(t *testing.T) {
 	}
 	if _, err := os.Stat(dl.destPath); !os.IsNotExist(err) {
 		t.Errorf("scratch video file still exists at %s", dl.destPath)
+	}
+}
+
+// A trim that cuts the audio mid-word leaves a zero-length last word at the
+// trim end. Ingestion must still commit a valid transcript whose last cue is
+// held exactly to the trim end.
+func TestProcessUploadHoldsCutOffLastWordToTrimEnd(t *testing.T) {
+	trans := &fakeTranscriber{
+		segments: []transcript.Segment{
+			{Start: 11.88, End: 11.88, Text: "do.", Words: []transcript.Word{{Text: "do.", Start: 11.88, End: 11.88}}},
+		},
+	}
+	lifecycle := &fakeLifecycle{}
+	pipeline := ingest.New(ingest.Config{
+		VideoDownloader:   &fakeDownloader{createFile: true},
+		SourceTranscriber: trans,
+		ProcessLifecycle:  lifecycle,
+		TmpDir:            t.TempDir(),
+	})
+
+	rawSpec := `{"trim":{"start":5,"end":12},"frame":{"preset":"16:9","ratio":1.7778,"zoom":1,"panX":0,"panY":0},"animation":"karaoke"}`
+	err := pipeline.ProcessUpload(context.Background(), ingest.UploadJob{
+		UploadID: "u-cut", ObjectKey: "uploads/u-cut", RawEditSpec: rawSpec,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	got := lifecycle.committedSegments
+	if len(got) != 1 || math.Abs(got[0].Start-11.88) > 1e-9 || got[0].End != 12 {
+		t.Fatalf("committed %+v, want one cue 11.88-12", got)
 	}
 }

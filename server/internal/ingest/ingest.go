@@ -140,7 +140,11 @@ func (p *Pipeline) ProcessUpload(ctx context.Context, job UploadJob) (err error)
 
 	// Subtitle reflow is server-side: cue readability is not the ASR worker's
 	// job. The existing Edit Spec already carries the user's `wordsPerPage`.
-	segments = transcript.Reflow(segments, transcript.DefaultReflowOptions(wordsPerPage(spec)))
+	// Held cue windows stay inside the trim window, so a word cut off at the
+	// trim end still gets a renderable cue that ends there.
+	reflow := transcript.DefaultReflowOptions(wordsPerPage(spec))
+	reflow.TrimEndSeconds = window.End
+	segments = transcript.Reflow(segments, reflow)
 
 	// Cue-sized segments must stay monotonic for the renderer and the
 	// editor; a misbehaving worker must fail loudly here, not persist.
