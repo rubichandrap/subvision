@@ -2,6 +2,7 @@ package vfxjob
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/rubichandrap/subvision/server/internal/editspec"
@@ -121,5 +122,27 @@ func TestQueueArgsMatchContract(t *testing.T) {
 	}
 	if args["x-dead-letter-routing-key"] != DeadQueueName {
 		t.Errorf("x-dead-letter-routing-key = %v, want %q", args["x-dead-letter-routing-key"], DeadQueueName)
+	}
+}
+
+// An untrimmed upload carries trim.end = 0 ("to the end"). vfx requires the
+// field to be present (vfx/src/contract.ts parseEditSpec), so it must survive
+// marshalling even at its zero value.
+func TestJobEditSpecKeepsZeroTrimEnd(t *testing.T) {
+	body, err := json.Marshal(Job{
+		UploadID:  "u1",
+		ObjectKey: "uploads/u1",
+		Segments:  []transcript.Segment{},
+		EditSpec: &editspec.Spec{
+			Trim:      editspec.Trim{Start: 0, End: 0},
+			Frame:     editspec.Frame{Preset: "16:9", Ratio: 1.7778, Zoom: 1},
+			Animation: "karaoke",
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if want := `"trim":{"start":0,"end":0}`; !strings.Contains(string(body), want) {
+		t.Fatalf("VFX Job dropped the zero trim end:\n got: %s\nwant substring: %s", body, want)
 	}
 }
