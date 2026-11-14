@@ -280,11 +280,11 @@ func TestReflowSplitsCuesOnSilence(t *testing.T) {
 
 func TestReflowKeepsCueAcrossGapAtThreshold(t *testing.T) {
 	words := []transcript.Word{
-		reflowWord("one", 0, 0.5),
-		reflowWord("two", 1.5, 2), // exactly 1 s of silence
+		reflowWord("one", 0.7, 1.2),
+		reflowWord("two", 2.2, 2.5), // exactly 1 s of silence, but 2.2-1.2 is 1.0000000000000002 in float64
 	}
 	got := transcript.Reflow([]transcript.Segment{{
-		Start: 0, End: 2, Text: "one two", Words: words,
+		Start: 0.7, End: 2.5, Text: "one two", Words: words,
 	}}, transcript.ReflowOptions{WordsPerPage: 4, MaxWordGapSeconds: 1})
 	if len(got) != 1 {
 		t.Fatalf("Reflow() produced %d cues %v, want 1", len(got), cueTexts(got))
@@ -352,7 +352,7 @@ func TestReflowHoldsZeroLengthCueIntoFollowingSilence(t *testing.T) {
 		{Start: 11.88, End: 11.88, Text: "do.", Words: []transcript.Word{reflowWord("do.", 11.88, 11.88)}},
 	}
 	options := transcript.DefaultReflowOptions(4)
-	options.EndLimit = 12
+	options.TrimEndSeconds = 12
 
 	got := transcript.Reflow(segments, options)
 	if err := transcript.ValidateTiming(got); err != nil {

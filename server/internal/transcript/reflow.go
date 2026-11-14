@@ -17,15 +17,20 @@ type ReflowOptions struct {
 	MaxLines          int
 	MinCueSeconds     float64
 	MaxWordGapSeconds float64
-	// EndLimit, when positive, is the latest time a held cue window may
-	// reach (the trim end). Zero leaves the last cue's hold unbounded.
-	EndLimit float64
+	// TrimEndSeconds, when positive, is the latest time a held cue window may
+	// reach. Zero (untrimmed) leaves the last cue's hold unbounded; the
+	// rendered Output still ends with the video.
+	TrimEndSeconds float64
 }
 
 // defaultMaxWordGapSeconds is longer than a pause between spoken phrases but
 // shorter than the instrumental breaks between sung lines, and covers the
 // stretches where ASR recognised nothing.
 const defaultMaxWordGapSeconds = 1.0
+
+// gapEpsilon absorbs float noise in word-boundary subtraction (2.2-1.2 is
+// 1.0000000000000002), so a gap of exactly MaxWordGapSeconds never splits.
+const gapEpsilon = 1e-9
 
 // DefaultReflowOptions returns the subtitle-layout defaults used by the
 // Parakeet pipeline. `wordsPerPage` mirrors the user's existing caption setting.
@@ -63,7 +68,7 @@ func Reflow(segments []Segment, options ReflowOptions) []Segment {
 		}
 		out = append(out, reflowSegment(segment, options, maxCharsPerCue)...)
 	}
-	return holdCueWindows(out, options.EndLimit, options.MinCueSeconds)
+	return holdCueWindows(out, options.TrimEndSeconds, options.MinCueSeconds)
 }
 
 func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) []Segment {
@@ -78,7 +83,7 @@ func reflowSegment(segment Segment, options ReflowOptions, maxCharsPerCue int) [
 			tooManyWords := len(current) >= options.WordsPerPage
 			tooWide := maxCharsPerCue > 0 && charsWithCandidate > maxCharsPerCue
 			afterSilence := options.MaxWordGapSeconds > 0 &&
-				word.Start-current[len(current)-1].End > options.MaxWordGapSeconds
+				word.Start-current[len(current)-1].End > options.MaxWordGapSeconds+gapEpsilon
 			if tooManyWords || tooWide || afterSilence {
 				cues = append(cues, segmentFromWords(current))
 				current = make([]Word, 0, options.WordsPerPage)

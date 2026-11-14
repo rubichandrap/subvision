@@ -194,7 +194,7 @@ func (p *Pipeline) ProcessUpload(ctx context.Context, job UploadJob) (err error)
 	// Held cue windows stay inside the trim window, so a word cut off at the
 	// trim end still gets a renderable cue that ends there.
 	reflow := transcript.DefaultReflowOptions(wordsPerPage(spec))
-	reflow.EndLimit = window[1]
+	reflow.TrimEndSeconds = window[1]
 	segments = transcript.Reflow(segments, reflow)
 
 	// Cue-sized segments must stay monotonic for the renderer and the
