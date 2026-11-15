@@ -3,7 +3,8 @@
 
 This is intentionally tiny and dependency-light: Subvision's Go server owns
 ingestion, reflow, persistence, and rendering, while this worker owns only
-Parakeet inference and token timing.
+Parakeet inference and token timing. Long audio is decoded in overlapping
+chunks and stitched back into one word list (chunking.py, ADR-0012).
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ import re
 import sys
 import tempfile
 import threading
+import time
 import traceback
 import wave
 from dataclasses import asdict, dataclass
@@ -26,10 +28,17 @@ from typing import Iterable
 import numpy as np
 import sherpa_onnx
 
+from chunking import ChunkOptions, decode_chunked, plan_chunks
+
 # A WAV body is 16-bit mono at 16 kHz, so 256 MiB is roughly 2.3 hours. This
 # is an internal service; keep a hard ceiling even if a caller lies.
 MAX_BODY_BYTES = int(os.environ.get("ASR_MAX_BODY_BYTES", str(256 * 1024 * 1024)))
 CONNECTION_TIMEOUT_SECONDS = 60
+
+# Audio longer than DEFAULT_CHUNK_SECONDS is decoded in overlapping chunks
+# (chunking.py, ADR-0012): over music one long pass is erratic, short ones steadier.
+DEFAULT_CHUNK_SECONDS = 20.0
+DEFAULT_CHUNK_OVERLAP_SECONDS = 4.0
 
 
 @dataclass(frozen=True)
@@ -49,7 +58,12 @@ class Token:
 class ParakeetWorker:
     """Thread-safe wrapper around one sherpa-onnx recognizer."""
 
-    def __init__(self, model_dir: str, threads: int = 4) -> None:
+    def __init__(
+        self,
+        model_dir: str,
+        threads: int = 4,
+        chunking: ChunkOptions | None = None,
+    ) -> None:
         encoder = Path(model_dir) / "encoder.int8.onnx"
         decoder = Path(model_dir) / "decoder.int8.onnx"
         joiner = Path(model_dir) / "joiner.int8.onnx"
@@ -73,29 +87,47 @@ class ParakeetWorker:
         )
         self._model_dir = str(Path(model_dir).resolve())
         self._lock = threading.Lock()
+        self._chunking = chunking or ChunkOptions(
+            DEFAULT_CHUNK_SECONDS, DEFAULT_CHUNK_OVERLAP_SECONDS
+        )
 
     def transcribe_wav_bytes(self, data: bytes) -> dict[str, object]:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "audio.wav"
             path.write_bytes(data)
             samples, sample_rate = load_wav(path)
-            with self._lock:
-                stream = self._recognizer.create_stream()
-                stream.accept_waveform(sample_rate, samples)
-                self._recognizer.decode_stream(stream)
-                result = stream.result
-            tokens = tokens_from_result(result)
-            words = words_from_tokens(tokens)
-            return {
-                "text": str(result.text),
-                "segments": segments_from_words(words),
-                "tokens": [asdict(token) for token in tokens],
-                "words": [asdict(word) for word in words],
-                "meta": {
-                    "engine": "sherpa-onnx",
-                    "language": "en",
-                },
-            }
+
+        started = time.monotonic()
+        words = decode_chunked(
+            samples,
+            sample_rate,
+            lambda chunk: self._decode_words(chunk, sample_rate),
+            self._chunking,
+        )
+        chunks = len(plan_chunks(len(samples), sample_rate, self._chunking))
+        sys.stderr.write(
+            f"[asr-worker] {len(samples) / sample_rate:.1f}s of audio, {chunks} chunk(s), "
+            f"{len(words)} words, {time.monotonic() - started:.1f}s\n"
+        )
+        return {
+            "text": " ".join(word.text for word in words),
+            "segments": segments_from_words(words),
+            "words": [asdict(word) for word in words],
+            "meta": {
+                "engine": "sherpa-onnx",
+                "language": "en",
+                "chunks": chunks,
+            },
+        }
+
+    def _decode_words(self, samples: np.ndarray, sample_rate: int) -> list[Word]:
+        """One decode pass: words timed from the start of ``samples``."""
+        with self._lock:
+            stream = self._recognizer.create_stream()
+            stream.accept_waveform(sample_rate, samples)
+            self._recognizer.decode_stream(stream)
+            result = stream.result
+        return words_from_tokens(tokens_from_result(result))
 
 
 def load_wav(path: Path) -> tuple[np.ndarray, int]:
@@ -278,6 +310,22 @@ def parse_args() -> argparse.Namespace:
         default=int(os.environ.get("ASR_THREADS", "4")),
         help="ONNX runtime thread count",
     )
+    parser.add_argument(
+        "--chunk-seconds",
+        type=float,
+        default=float(os.environ.get("ASR_CHUNK_SECONDS", str(DEFAULT_CHUNK_SECONDS))),
+        help="longest audio decoded in one pass; 0 decodes every file in one pass "
+        "(default: $ASR_CHUNK_SECONDS or %(default)s)",
+    )
+    parser.add_argument(
+        "--chunk-overlap-seconds",
+        type=float,
+        default=float(
+            os.environ.get("ASR_CHUNK_OVERLAP_SECONDS", str(DEFAULT_CHUNK_OVERLAP_SECONDS))
+        ),
+        help="audio shared by neighbouring chunks, under half a chunk "
+        "(default: $ASR_CHUNK_OVERLAP_SECONDS or %(default)s)",
+    )
     return parser.parse_args()
 
 
@@ -286,10 +334,21 @@ def main() -> int:
     if not args.model_dir:
         raise SystemExit("missing --model-dir or $PARAKEET_MODEL_DIR")
 
-    worker = ParakeetWorker(args.model_dir, threads=args.threads)
+    try:
+        chunking = ChunkOptions(args.chunk_seconds, args.chunk_overlap_seconds)
+    except ValueError as error:
+        raise SystemExit(f"invalid chunk settings: {error}")
+
+    worker = ParakeetWorker(args.model_dir, threads=args.threads, chunking=chunking)
     Handler.worker = worker
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     sys.stderr.write(f"[asr-worker] listening on {args.host}:{args.port}\n")
+    sys.stderr.write(
+        f"[asr-worker] chunking: {chunking.chunk_seconds:g}s chunks, "
+        f"{chunking.overlap_seconds:g}s overlap"
+        + ("" if chunking.enabled else " (off: one pass per file)")
+        + "\n"
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir --index-url https://pypi.org/simple -r requiremen
 
 RUN addgroup --system app && adduser --system --ingroup app app
 
-COPY --chown=app:app main.py ./
+COPY --chown=app:app main.py chunking.py ./
 
 USER app
 
