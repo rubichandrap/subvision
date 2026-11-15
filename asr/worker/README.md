@@ -91,10 +91,10 @@ sung words it hears changes with where the audio starts, and short passes are
 steadier (measurements in
 [ADR-0012](../../docs/adr/0012-chunked-asr-decoding.md)). So audio longer
 than `ASR_CHUNK_SECONDS` is split into equal chunks that overlap by
-`ASR_CHUNK_OVERLAP_SECONDS`, each chunk is decoded on its own, and the words
-are stitched back into one transcript. Where two chunks overlap, the
-transcript crosses over at a word both heard, so each side comes from the
-chunk with more audio around it and no word is repeated or dropped.
+`ASR_CHUNK_OVERLAP_SECONDS`, each chunk is decoded on its own, and the Timed
+Words are stitched back into one list. Where two chunks overlap, the list
+crosses over at a word both heard, so each side comes from the chunk with more
+audio around it and a word is not heard twice.
 
 - Audio that fits one chunk is decoded in one pass, as before.
 - The request and the `segments` contract are unchanged. The response also
@@ -116,7 +116,7 @@ chunk with more audio around it and no word is repeated or dropped.
 | `ASR_MAX_BODY_BYTES` | Request body cap; default 256 MiB. |
 | `ASR_HOST` / `ASR_PORT` | Bind address and port; defaults `0.0.0.0:8081`. |
 | `ASR_THREADS` | ONNX runtime thread count. |
-| `ASR_CHUNK_SECONDS` | Longest audio decoded in one pass; longer files are chunked. Default `20`; `0` turns chunking off. |
+| `ASR_CHUNK_SECONDS` | Longest audio decoded in one pass; longer files are chunked. Default `20`; `0` turns chunking off, otherwise at least `2`. |
 | `ASR_CHUNK_OVERLAP_SECONDS` | Audio shared by neighbouring chunks, under half a chunk. Default `4`. |
 
 ## Tests
@@ -127,12 +127,14 @@ Chunk planning and stitching are pure Python and need no model or numpy:
 python3 -m unittest discover -s asr/worker -p 'test_*.py'
 ```
 
-`test_worker_model.py` runs the real model on the committed fixture and skips
-itself without a model. Run it where the worker runs:
+`test_worker_model.py` runs the real model on the committed fixture, including
+chunks of 6-10 s at six start offsets, and skips itself without a model. Run it
+where the worker runs, with the image built as in [Docker](#docker):
 
 ```sh
+docker build -t subvision-asr-worker asr/worker
 docker run --rm --entrypoint python -w /repo/asr/worker \
   -v "$PWD":/repo:ro -v "$PWD/models/parakeet":/models:ro \
-  -e PARAKEET_MODEL_DIR=/models subvision-asr \
+  -e PARAKEET_MODEL_DIR=/models subvision-asr-worker \
   -m unittest discover -p 'test_*.py'
 ```

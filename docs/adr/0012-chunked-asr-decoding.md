@@ -4,7 +4,7 @@ Date: 2026-11-15 · Status: accepted · Issue: #78
 
 ## Context
 
-#72 and #75 removed the captions that ran early on the reporter's music video, and they showed that Parakeet's word timestamps are sound: for words that a single pass and a chunked decode of the same audio both heard, start times differ by a median of 26–32 ms (over 1,086 song words and 2,766 speech words). What is left is what the model *hears*, and one decode pass over a long file is erratic.
+#72 and #75 removed the Timing Drift on the reporter's music video, and they showed that Parakeet's word timestamps are sound: for words that a single pass and a chunked decode of the same audio both heard, start times differ by a median of 26–32 ms (over 1,086 song words and 2,766 speech words). What is left is what the model *hears*, and one decode pass over a long file is erratic.
 
 Measured on two real local videos (the media and transcripts stay local; only aggregates are recorded here). Each decode was repeated on audio starting at different offsets, and every decode was scored against the others: a word is *corroborated* when at least half of the other decodes contain it within 0.5 s; precision is the share of a decode's words that are corroborated, recall the share of corroborated words it contains. There is no ground-truth transcript for the song, so this measures consistency, not accuracy.
 
@@ -31,17 +31,19 @@ Chunking is not a cure for music: the longest stretch with no recognized word is
 
 The ASR Worker decodes audio longer than `ASR_CHUNK_SECONDS` (default 20) in the fewest equal chunks that overlap by at least `ASR_CHUNK_OVERLAP_SECONDS` (default 4), then stitches the words into one list. Audio that fits one chunk is decoded in one pass, exactly as before.
 
-Stitching crosses over between neighbouring chunks at a word both heard (same text ignoring case and punctuation, centers within 0.4 s), choosing the one nearest the middle of the overlap and taking that word from the chunk with more audio around it. With no shared word it cuts at the middle. Words from two chunks can meet a frame out of step, so the earlier word gives way and the list stays ordered with no overlap beyond the Go client's 1 ms tolerance.
+Stitching crosses over between neighbouring chunks at a word both heard, choosing the one nearest the middle of the overlap and taking that word from the chunk with more audio around it. Words are lined up by the cheapest in-order alignment: copies of a word (same text ignoring case and punctuation) pair at the cost of the time between their centers, and a word left unpaired costs 0.15 s, so copies pair only when closer than 0.3 s. Pricing the distance matters for runs of identical words ("no no no"), where counting matches alone prefers an alignment shifted by one instance. With no shared word it cuts at the middle.
 
-Planning and stitching live in a pure-Python `chunking` module with the decode function injected; the tests use a fake decoder and need no model. The worker's `/transcribe` interface is unchanged, so the server needs no change. The response drops the raw `tokens` field (tokens cannot be stitched across chunks, and nothing read it) and gains `meta.chunks`. `ASR_CHUNK_SECONDS=0` turns chunking off, for comparing on your own files.
+Words from two chunks can meet a frame out of step. Where one starts inside the one before it, the earlier word gives way and the later word keeps its start, which is what a caption shows; if that would leave the earlier word under half a frame, the two share the overlap instead, because the Go client rejects a sentence whose only word has no duration. The list stays ordered with no overlap beyond the Go client's 1 ms tolerance.
+
+Planning and stitching live in a pure-Python `chunking` module with the decode function injected; the tests use a fake decoder and need no model. The worker's request and its `segments` contract are unchanged, so the server needs no change. The response drops the raw `tokens` field (tokens cannot be stitched across chunks, and nothing read it) and gains `meta.chunks`. `ASR_CHUNK_SECONDS=0` turns chunking off, for comparing on your own files; it is the same engine and the same path with one setting changed, not a fallback in the sense of ADR-0010. A chunk is at least 2 s (or chunking is off), and the options are validated at startup.
 
 ## Alternatives considered
 
 - **Single pass (status quo).** Erratic over music and skips sentences over long speech, as measured above.
 - **Hard cuts with no overlap.** Every boundary cuts a word in half and gives both neighbours no context.
 - **Cutting at silences.** Music has no reliable ones, and decoding only the speech windows found by silence detection was already tried and removed (ADR-0007).
-- **Keeping whichever copy of a word sits farther from its chunk's edge.** Tried in tests first: one-frame words that two chunks time slightly differently survive twice. Crossing over at one shared word cannot repeat or drop a word.
-- **Keeping words only one chunk heard when the other heard nothing in the overlap.** Built, measured and removed. On the song those 80 words were the least corroborated in the transcript (20% heard by no other decode against 9%; 38% strongly corroborated against 74%), so the chunk with more audio around a stretch is believed when it hears nothing.
+- **Keeping whichever copy of a word sits farther from its chunk's edge.** Tried in tests first: one-frame words that two chunks time slightly differently survive twice. Crossing over at one shared word avoids that.
+- **Keeping words only one chunk heard when the other heard nothing in the overlap.** Built, measured and removed. On the song those 80 words were the least corroborated in the word list (20% heard by no other decode against 9%; 38% strongly corroborated against 74%), so the chunk with more audio around a stretch is believed when it hears nothing.
 - **Chunking in the Go server.** The worker owns inference (ADR-0010); keeping chunking behind its interface leaves the server and its contract untouched.
 - **Vocal isolation before decoding.** Not measured; a separate piece of work.
 
@@ -49,5 +51,6 @@ Planning and stitching live in a pure-Python `chunking` module with the decode f
 
 - Overlap costs extra decoding, about `chunk / (chunk - overlap)` times the single pass: 1.25x with the defaults (1.23x measured on the song with two decoders sharing the CPU). Memory per pass is now bounded by the chunk, not the file.
 - The server's `PARAKEET_TIMEOUT_SECONDS` (60 s by default) covers the whole file, so long videos need a larger value, about 25% more than before.
-- The transcript depends on the chunk grid, as the single pass already depended on where the audio starts; the defaults are measured, not guaranteed. Start times stay within about one model frame (80 ms) of a single pass.
+- The word list depends on the chunk grid, as the single pass already depended on where the audio starts; the defaults are measured, not guaranteed. Start times stay close to a single pass: on speech the median difference is 26-32 ms and almost all are within one model frame (80 ms).
+- Stitching is not perfect on runs of identical words said back to back ("no no no"). In randomized tests with a decoder that hears every word exactly, unique words were never repeated or lost, while a vocabulary of two repeated words lost or repeated a word in about 0.1% of files, and with a decoder that mishears words at random about 4%. In the real decodes above no word was repeated or lost.
 - Wrong and missing words over music remain. Vocal isolation and ensembling several chunkings are the next things to measure.
