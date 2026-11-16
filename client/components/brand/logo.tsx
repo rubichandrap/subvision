@@ -4,8 +4,8 @@ import { cn } from '@/lib/utils';
 
 // The Subvision mark: a viewfinder (two opposing frame corners) holding two
 // caption lines that step down the same diagonal. The upper line is the word
-// being spoken, lit; the lower is the next one, dimmed. Together the lines
-// read as an "S". Brackets and the dim line follow the text colour, so the
+// being spoken, lit; the lower is the next one, dimmed. Stepped
+// like that, the lines also hint at an "S". Brackets and the dim line follow the text colour, so the
 // mark works on any surface; the lit line is always the brand gradient.
 // Standalone files for other uses live in /public/logo.
 
