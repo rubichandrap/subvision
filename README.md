@@ -18,6 +18,9 @@ server-side in a single render pass.
 - **Subtitle reflow**: the server turns timed words into readable cues before rendering, honoring the caption word limit.
 - **VFX compositor**: Remotion and ffmpeg composite the styled captions onto the trimmed footage.
 - **Gallery**: Monitor in-flight jobs, preview finished videos on hover, and download rendered MP4 files.
+- **Transcript editing**: Correct words in the editor. The server keeps text and word timings aligned and rejects an edit that would desync them.
+- **Re-render**: Render again with the edited transcript and the stored Edit Spec, replacing the output in place.
+- **Delete**: Remove a process at any stage and attempt to clean its stored objects (ADR-0004).
 - **Stack**: Next.js client with Tailwind CSS v4 and shadcn/ui; Go backend with Gin, tusd, RabbitMQ, and RustFS; Node.js VFX service with Remotion.
 
 ---
@@ -25,7 +28,7 @@ server-side in a single render pass.
 ## Architecture
 
 - **Client:** Next.js app ([client/](client))
-- **Server:** Go backend ([server/](server))
+- **Server:** Go backend that owns the Process lifecycle ([server/](server)). Each stage change is a declared transition in [server/internal/job/stage.go](server/internal/job/stage.go); an edge missing from that table is refused at runtime (ADR-0015).
 - **ASR worker:** Python + sherpa-onnx Parakeet TDT v3 service ([asr/worker/](asr/worker))
 - **Vfx:** Node.js service that renders the subtitle overlay with Remotion and composites it onto the video with ffmpeg ([vfx/](vfx))
 - **RustFS:** S3-compatible object storage for uploads and outputs
@@ -56,6 +59,22 @@ flowchart TD
     style G fill:#e1f5fe,stroke:#0288d1
     style H fill:#e8f5e9,stroke:#388e3c
 ```
+
+---
+
+## API
+
+Uploads go through tus at `/files`. Everything else the client reads or changes goes through these routes, and every response uses jsend.
+
+| Route | What it does |
+| --- | --- |
+| `GET /jobs` | List every Process, newest first. |
+| `GET /jobs/:id` | One Process: stage, failure reason, and a download URL once done. |
+| `GET /jobs/:id/segments` | Read the persisted Transcript. |
+| `PUT /jobs/:id/segments` | Save an edited Transcript; 409 when the Process is not editable. |
+| `POST /jobs/:id/rerender` | Reopen a done Process and render again with the stored Edit Spec. |
+| `GET /jobs/:id/download` | The rendered MP4; range requests supported. |
+| `DELETE /jobs/:id` | Delete the Process and its stored objects. |
 
 ---
 
@@ -100,11 +119,13 @@ checksums, and license notes.
 Copy the example environment files and edit them as needed:
 
 ```sh
+cp .env.example .env
 cp server/.env.example server/.env
 cp client/.env.example client/.env
 cp vfx/.env.example vfx/.env
 ```
 
+- The root `.env` is read by `docker compose` for interpolation only: the model path and `ASR_VOCAL_ISOLATION`. The services do not read it.
 - Edit `server/.env` for backend configuration (see [server/.env.example](server/.env.example))
 - Edit `client/.env` for frontend configuration (see [client/.env.example](client/.env.example))
 - Edit `vfx/.env` for VFX service configuration (see [vfx/.env.example](vfx/.env.example))
@@ -117,6 +138,14 @@ docker compose up --build
 
 The `asr` worker runs internally on `http://asr:8081`; only the client and
 server ports are published.
+
+If the build stops with `additional privileges requested: pass "--allow=network.host"`,
+your buildx refuses host networking for builds. Build through bake, then start:
+
+```sh
+docker buildx bake --allow network.host -f docker-compose.yml -f docker-compose.override.yml
+docker compose up -d --no-build
+```
 
 ### 5. Access the app
 
@@ -148,6 +177,8 @@ go mod tidy
 PARAKEET_URL=http://127.0.0.1:8081/transcribe sh scripts/dev.sh
 ```
 
+Run the tests with `go test ./...` from the same directory.
+
 ### Vfx
 
 ```sh
@@ -166,6 +197,7 @@ pnpm dev
 /vfx                 # Node.js Remotion-based subtitle/effects renderer
 /asr/worker          # Parakeet TDT v3 ASR HTTP worker
 /asr/spike           # Measurement/comparison tools
+/docs                # Architecture decisions and agent notes
 /models              # Local model mounts (gitignored)
 ```
 
