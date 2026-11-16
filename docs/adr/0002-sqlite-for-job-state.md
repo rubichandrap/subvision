@@ -1,6 +1,10 @@
 # ADR-0002: SQLite for the job lifecycle state
 
-Date: 2026-09-03 · Status: accepted
+Date: 2026-09-03 · Status: accepted; amended by ADR-0015 (the lifecycle is now a declared transition table, not terminal-only guards)
+
+> Amended by ADR-0015: stages, operations, and legal edges are declared in
+> `server/internal/job/stage.go`; the store derives its atomic stage guards
+> from that table.
 
 ## Context
 

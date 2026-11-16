@@ -260,6 +260,26 @@ func TestFailedJobSurfacesItsReason(t *testing.T) {
 	}
 }
 
+// reachRendering walks the declared lifecycle up to the rendering stage.
+func reachRendering(t *testing.T, store *job.Store, id string) {
+	t.Helper()
+	if recorded, err := store.MarkTranscribing(id); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
+	}
+	if err := store.CommitIngestion(context.Background(), id, nil, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
+	}
+}
+
+// reachDone walks the declared lifecycle up to the done stage.
+func reachDone(t *testing.T, store *job.Store, id string) {
+	t.Helper()
+	reachRendering(t, store, id)
+	if recorded, err := store.MarkDone(id, "outputs/"+id); err != nil || !recorded {
+		t.Fatalf("mark done: recorded=%v err=%v", recorded, err)
+	}
+}
+
 func TestSegmentsEndpointServesStoredTranscript(t *testing.T) {
 	router, store, _, _ := newJobsRouter(t)
 
@@ -280,6 +300,9 @@ func TestSegmentsEndpointServesStoredTranscript(t *testing.T) {
 	var segs []transcript.Segment
 	if err := json.Unmarshal([]byte(stored), &segs); err != nil {
 		t.Fatalf("unmarshal: %v", err)
+	}
+	if recorded, err := store.MarkTranscribing("u1"); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
 	}
 	if err := store.CommitIngestion(context.Background(), "u1", segs, nil); err != nil {
 		t.Fatalf("commit ingestion: %v", err)
@@ -367,9 +390,7 @@ func TestDeleteRemovesRowAndCleansObjects(t *testing.T) {
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if recorded, err := store.MarkDone("u1", "outputs/u1"); err != nil || !recorded {
-		t.Fatalf("mark done: recorded=%v err=%v", recorded, err)
-	}
+	reachDone(t, store, "u1")
 
 	rec := doDelete(t, router, "/jobs/u1")
 	if rec.Code != http.StatusNoContent {
@@ -443,9 +464,7 @@ func TestDownloadSupportsRangeRequests(t *testing.T) {
 	if err := store.Create("u-range", "video.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if recorded, err := store.MarkDone("u-range", "outputs/u-range"); err != nil || !recorded {
-		t.Fatalf("mark done: %v", err)
-	}
+	reachDone(t, store, "u-range")
 
 	// 1. Full request (no Range header) advertises Accept-Ranges: bytes and inline disposition
 	full := doGet(t, router, "/jobs/u-range/download")

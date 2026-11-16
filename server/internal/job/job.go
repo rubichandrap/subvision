@@ -19,29 +19,6 @@ import (
 	"github.com/rubichandrap/subvision/server/internal/vfxjob"
 )
 
-type Stage string
-
-const (
-	StageUploaded     Stage = "uploaded"
-	StageTranscribing Stage = "transcribing"
-	StageRendering    Stage = "rendering"
-	StageDone         Stage = "done"
-	StageFailed       Stage = "failed"
-)
-
-// InFlight reports whether the stage still precedes a terminal one.
-func (s Stage) InFlight() bool {
-	return s == StageUploaded || s == StageTranscribing || s == StageRendering
-}
-
-func (s Stage) valid() bool {
-	switch s {
-	case StageUploaded, StageTranscribing, StageRendering, StageDone, StageFailed:
-		return true
-	}
-	return false
-}
-
 // ErrNotFound is returned by Get when no process carries the requested id.
 var ErrNotFound = errors.New("job not found")
 
@@ -145,31 +122,48 @@ func (s *Store) Create(id, filename string) error {
 	return nil
 }
 
-// mark moves a job into stage unless it is already terminal, optionally
-// recording the failure reason or output key in the same statement.
-func (s *Store) mark(id string, stage Stage, reason, outputKey string) (bool, error) {
-	if !stage.valid() {
-		return false, fmt.Errorf("invalid stage %q", stage)
+// mark moves a job into to for op, but only from a stage the lifecycle table
+// allows. The current stage lives in the WHERE clause, so the edge check and
+// the write are one atomic statement.
+func (s *Store) mark(id string, op Op, to Stage, reason, outputKey string) (bool, error) {
+	sources := Sources(op, to)
+	if len(sources) == 0 {
+		return false, fmt.Errorf("no %s transition into stage %q", op, to)
 	}
+	clause, fromArgs := stageFilter(sources)
+	args := append([]any{
+		string(to), reason, outputKey, time.Now().UTC().Format(time.RFC3339), id,
+	}, fromArgs...)
 	res, err := s.db.Exec(
 		`UPDATE jobs SET stage = ?, reason = ?, output_key = ?, updated_at = ?
-		 WHERE id = ? AND stage NOT IN (?, ?)`,
-		string(stage), reason, outputKey, time.Now().UTC().Format(time.RFC3339), id,
-		string(StageDone), string(StageFailed),
+		 WHERE id = ? AND stage IN (`+clause+`)`,
+		args...,
 	)
 	if err != nil {
-		return false, fmt.Errorf("failed to mark job %s as %s: %w", id, stage, err)
+		return false, fmt.Errorf("failed to mark job %s as %s: %w", id, to, err)
 	}
 	affected, err := res.RowsAffected()
 	if err != nil {
-		return false, fmt.Errorf("failed to mark job %s as %s: %w", id, stage, err)
+		return false, fmt.Errorf("failed to mark job %s as %s: %w", id, to, err)
 	}
 	return affected > 0, nil
 }
 
+// stageFilter renders a placeholder list and its arguments for the stages a
+// transition may start from.
+func stageFilter(stages []Stage) (string, []any) {
+	placeholders := make([]string, len(stages))
+	args := make([]any, len(stages))
+	for i, stage := range stages {
+		placeholders[i] = "?"
+		args[i] = string(stage)
+	}
+	return strings.Join(placeholders, ","), args
+}
+
 // MarkTranscribing records that the pipeline started working on the upload.
 func (s *Store) MarkTranscribing(uploadID string) (bool, error) {
-	return s.mark(uploadID, StageTranscribing, "", "")
+	return s.mark(uploadID, OpStartTranscription, StageTranscribing, "", "")
 }
 
 // StartTranscription records that the pipeline started working on the upload.
@@ -177,15 +171,23 @@ func (s *Store) StartTranscription(uploadID string) (bool, error) {
 	return s.MarkTranscribing(uploadID)
 }
 
-// Reopen moves a done job back to rendering for a re-render. The normal
-// mark refuses terminal stages, so this runs its own statement: only done
-// reopens, failed stays failed, unknown ids report false.
+// Reopen moves a done job back to rendering for a re-render. It is the only
+// way out of a terminal stage, and only done takes it: failed stays failed.
+// The output key is kept so a re-render does not lose the old Output until a
+// new one lands.
 func (s *Store) Reopen(uploadID string) (bool, error) {
+	sources := Sources(OpReopen, StageRendering)
+	if len(sources) == 0 {
+		return false, fmt.Errorf("no %s transition into stage %q", OpReopen, StageRendering)
+	}
+	clause, fromArgs := stageFilter(sources)
+	args := append([]any{
+		string(StageRendering), time.Now().UTC().Format(time.RFC3339), uploadID,
+	}, fromArgs...)
 	res, err := s.db.Exec(
-		`UPDATE jobs SET stage = ?, reason = ?, updated_at = ?
-		 WHERE id = ? AND stage = ?`,
-		string(StageRendering), "", time.Now().UTC().Format(time.RFC3339), uploadID,
-		string(StageDone),
+		`UPDATE jobs SET stage = ?, reason = '', updated_at = ?
+		 WHERE id = ? AND stage IN (`+clause+`)`,
+		args...,
 	)
 	if err != nil {
 		return false, fmt.Errorf("failed to reopen job %s: %w", uploadID, err)
@@ -199,12 +201,12 @@ func (s *Store) Reopen(uploadID string) (bool, error) {
 
 // MarkDone records the completed Output of a rendered job.
 func (s *Store) MarkDone(uploadID, outputKey string) (bool, error) {
-	return s.mark(uploadID, StageDone, "", outputKey)
+	return s.mark(uploadID, OpComplete, StageDone, "", outputKey)
 }
 
 // MarkFailed records why a job never produced an Output.
 func (s *Store) MarkFailed(uploadID, reason string) (bool, error) {
-	return s.mark(uploadID, StageFailed, reason, "")
+	return s.mark(uploadID, OpFail, StageFailed, reason, "")
 }
 
 // Delete removes the process row entirely, with its stored segments and
@@ -353,7 +355,7 @@ func (s *Store) CommitIngestion(ctx context.Context, id string, segments []trans
 	}
 
 	stage := Stage(currentStage)
-	if stage == StageDone || stage == StageFailed {
+	if !Allowed(stage, OpCommitIngestion, StageRendering) {
 		return &StageConflictError{
 			ID:    id,
 			Stage: stage,
@@ -396,10 +398,11 @@ func (s *Store) CommitIngestion(ctx context.Context, id string, segments []trans
 		}
 	}
 
+	clause, fromArgs := stageFilter(Sources(OpCommitIngestion, StageRendering))
 	res, err := tx.ExecContext(ctx,
 		`UPDATE jobs SET stage = ?, reason = '', output_key = '', updated_at = ?
-		 WHERE id = ? AND stage NOT IN (?, ?)`,
-		string(StageRendering), now, id, string(StageDone), string(StageFailed),
+		 WHERE id = ? AND stage IN (`+clause+`)`,
+		append([]any{string(StageRendering), now, id}, fromArgs...)...,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to transition job %s to rendering: %w", id, err)

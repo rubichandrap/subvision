@@ -76,7 +76,8 @@ RabbitMQ; the Next.js client uploads videos with tus.
 - **Process** — the client-facing lifecycle of a job (uploaded →
   transcribing → rendering → done/failed). Real server-side state, owned by
   the server's job module; the client polls its status, edits its
-  Transcription Segments, and can trigger a Re-render.
+  Transcription Segments, and can trigger a Re-render. The legal transitions
+  are declared in one table (ADR-0015); an undeclared edge is refused.
 - **Re-render** — republishing a fresh VFX Job for a completed Process using
   edited Transcription Segments and the stored original Edit Spec,
   transitioning the Process from done back to rendering. The rendered Output

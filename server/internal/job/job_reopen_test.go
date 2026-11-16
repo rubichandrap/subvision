@@ -14,13 +14,19 @@ func TestReopenMovesDoneToRendering(t *testing.T) {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() { handle.Close() })
-	store, err := NewStore(handle, nil, nil)
+	store, err := NewStore(handle, &fakePublisher{}, nil)
 	if err != nil {
 		t.Fatalf("create job store: %v", err)
 	}
 
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
+	}
+	if recorded, err := store.MarkTranscribing("u1"); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
+	}
+	if err := store.CommitIngestion(context.Background(), "u1", nil, nil); err != nil {
+		t.Fatalf("commit ingestion: %v", err)
 	}
 	if recorded, err := store.MarkDone("u1", "outputs/u1"); err != nil || !recorded {
 		t.Fatalf("mark done: recorded=%v err=%v", recorded, err)
@@ -91,6 +97,9 @@ func TestEditSpecRoundTrip(t *testing.T) {
 
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
+	}
+	if recorded, err := store.MarkTranscribing("u1"); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
 	}
 
 	const raw = `{"trim":{"start":2,"end":9},"frame":{"preset":"9:16","ratio":0.5625,"zoom":1,"panX":0,"panY":0},"animation":"karaoke"}`

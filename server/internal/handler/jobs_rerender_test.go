@@ -100,9 +100,7 @@ func TestSaveSegmentsNullClearsTranscript(t *testing.T) {
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if err := store.CommitIngestion(context.Background(), "u1", nil, nil); err != nil {
-		t.Fatalf("commit ingestion: %v", err)
-	}
+	reachRendering(t, store, "u1")
 	rec := doPut(t, router, "/jobs/u1/segments", `{"segments":null}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PUT /jobs/u1/segments (null) = %d: %s", rec.Code, rec.Body)
@@ -118,6 +116,9 @@ func TestSaveSegmentsReturns400ForTextWordCountChange(t *testing.T) {
 	router, store := newRerenderRouter(t)
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
+	}
+	if recorded, err := store.MarkTranscribing("u1"); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
 	}
 	original := []transcript.Segment{{
 		Start: 1,
@@ -148,9 +149,7 @@ func TestSaveSegmentsReturns400ForBadTiming(t *testing.T) {
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	if err := store.CommitIngestion(context.Background(), "u1", nil, nil); err != nil {
-		t.Fatalf("commit ingestion: %v", err)
-	}
+	reachRendering(t, store, "u1")
 	// negative start → ValidationError
 	const body = `{"segments":[{"start":-1,"end":2,"text":"x","words":[]}]}`
 	rec := doPut(t, router, "/jobs/u1/segments", body)

@@ -117,11 +117,14 @@ func TestCommitIngestionClearsEditSpecWhenNil(t *testing.T) {
 	id := "u-commit-clears-spec"
 	createJobWithStage(t, store, id, StageTranscribing)
 
-	initialSpec := &editspec.Spec{Animation: "karaoke"}
-	if err := store.CommitIngestion(context.Background(), id, nil, initialSpec); err != nil {
-		t.Fatalf("save initial edit spec: %v", err)
+	// Seed a stored spec directly: CommitIngestion is its only writer and a
+	// second commit on the same Process is not a legal transition.
+	if _, err := store.db.Exec(
+		`INSERT INTO job_edit_specs (job_id, spec, updated_at) VALUES (?, ?, ?)`,
+		id, `{"animation":"karaoke"}`, "2026-01-01T00:00:00Z",
+	); err != nil {
+		t.Fatalf("seed edit spec: %v", err)
 	}
-	pub.published = nil
 
 	segments := []transcript.Segment{
 		{Start: 0, End: 1, Text: "sample"},
@@ -161,11 +164,16 @@ func TestCommitIngestionRejectsTerminalJobs(t *testing.T) {
 			store := newTestStoreWithPorts(t, pub, cleaner)
 			id := "u-terminal-" + string(stage)
 			createJobWithStage(t, store, id, stage)
+			publishedBefore := len(pub.published)
+			segmentsBefore, err := store.Segments(id)
+			if err != nil {
+				t.Fatalf("read segments before commit: %v", err)
+			}
 
 			segments := []transcript.Segment{
 				{Start: 1.0, End: 2.0, Text: "should not commit"},
 			}
-			err := store.CommitIngestion(context.Background(), id, segments, nil)
+			err = store.CommitIngestion(context.Background(), id, segments, nil)
 			if err == nil {
 				t.Fatalf("expected error committing to terminal stage %s, got nil", stage)
 			}
@@ -189,18 +197,18 @@ func TestCommitIngestionRejectsTerminalJobs(t *testing.T) {
 				t.Errorf("process stage changed to %q, want %q", p.Stage, stage)
 			}
 
-			// Verify no segments were persisted
+			// Verify no segments were persisted by the refused commit
 			segs, err := store.Segments(id)
 			if err != nil {
 				t.Fatalf("read segments: %v", err)
 			}
-			if segs != "" {
-				t.Errorf("expected empty segments, got %q", segs)
+			if segs != segmentsBefore {
+				t.Errorf("segments changed to %q, want %q", segs, segmentsBefore)
 			}
 
-			// Verify publisher was not invoked
-			if len(pub.published) != 0 {
-				t.Errorf("expected 0 published jobs, got %d", len(pub.published))
+			// Verify publisher was not invoked by the refused commit
+			if len(pub.published) != publishedBefore {
+				t.Errorf("expected %d published jobs, got %d", publishedBefore, len(pub.published))
 			}
 		})
 	}

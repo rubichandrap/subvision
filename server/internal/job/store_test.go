@@ -63,20 +63,29 @@ func createJobWithStage(t *testing.T, store *Store, id string, stage Stage) {
 	case StageUploaded:
 		// already uploaded
 	case StageTranscribing:
-		if _, err := store.MarkTranscribing(id); err != nil {
-			t.Fatalf("mark transcribing: %v", err)
+		if recorded, err := store.MarkTranscribing(id); err != nil || !recorded {
+			t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
 		}
 	case StageRendering:
+		if recorded, err := store.MarkTranscribing(id); err != nil || !recorded {
+			t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
+		}
 		if err := store.CommitIngestion(context.Background(), id, nil, nil); err != nil {
 			t.Fatalf("commit ingestion: %v", err)
 		}
 	case StageDone:
-		if _, err := store.MarkDone(id, "outputs/"+id); err != nil {
-			t.Fatalf("mark done: %v", err)
+		if recorded, err := store.MarkTranscribing(id); err != nil || !recorded {
+			t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
+		}
+		if err := store.CommitIngestion(context.Background(), id, nil, nil); err != nil {
+			t.Fatalf("commit ingestion: %v", err)
+		}
+		if recorded, err := store.MarkDone(id, "outputs/"+id); err != nil || !recorded {
+			t.Fatalf("mark done: recorded=%v err=%v", recorded, err)
 		}
 	case StageFailed:
-		if _, err := store.MarkFailed(id, "pipeline error"); err != nil {
-			t.Fatalf("mark failed: %v", err)
+		if recorded, err := store.MarkFailed(id, "pipeline error"); err != nil || !recorded {
+			t.Fatalf("mark failed: recorded=%v err=%v", recorded, err)
 		}
 	}
 }
@@ -430,7 +439,7 @@ func TestRerenderRollsBackToFailedOnPublishError(t *testing.T) {
 	cleaner := &fakeCleaner{}
 	store := newTestStoreWithPorts(t, pub, cleaner)
 	id := "u-rerender-fail"
-	createJobWithStage(t, store, id, StageUploaded)
+	createJobWithStage(t, store, id, StageTranscribing)
 
 	specJSON := `{"trim":{"start":0,"end":10},"frame":{"preset":"9:16","ratio":0.5625,"zoom":1,"panX":0,"panY":0},"animation":"karaoke"}`
 	spec, err := editspec.Parse(specJSON)
@@ -566,11 +575,13 @@ func TestRerenderNilPublisherDoesNotStrandJob(t *testing.T) {
 	// Constructing a store without a publisher is a configuration error, but
 	// it must not leave the process stranded in rendering — the check must
 	// fire before Reopen so the job stays done.
-	store := newTestStoreWithPorts(t, nil, &fakeCleaner{})
+	store := newTestStoreWithPorts(t, &fakePublisher{}, &fakeCleaner{})
 	id := "u-nil-publisher"
 	createJobWithStage(t, store, id, StageDone)
 
-	_, err := store.Rerender(id)
+	// A store built without a publisher is the configuration error under test.
+	noPublisher := &Store{db: store.db}
+	_, err := noPublisher.Rerender(id)
 	if err == nil {
 		t.Fatal("expected error with nil publisher, got nil")
 	}
