@@ -75,7 +75,7 @@ export function DeleteProcessDialog({
             removed from the gallery and storage. This cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && <p className="border-2 border-border bg-destructive p-2 text-sm font-bold text-destructive-foreground">{error}</p>}
+        {error && <p className="rounded-xl bg-destructive/15 p-3 text-sm font-medium text-destructive">{error}</p>}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
           <AlertDialogAction
@@ -84,7 +84,7 @@ export function DeleteProcessDialog({
               event.preventDefault();
               void handleDelete();
             }}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive"
+            className="bg-destructive text-destructive-foreground shadow-none hover:bg-destructive hover:brightness-110"
           >
             {deleting && <Loader2 className="h-4 w-4 animate-spin" />}
             Delete forever
@@ -140,11 +140,11 @@ function GalleryCard({ process }: { process: Process }) {
   const failed = process.stage === 'failed';
 
   return (
-    <div className="group relative transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5">
+    <div className="group relative min-w-0 transition-transform duration-500 hover:-translate-y-1">
       <Link href={`/processes/${process.id}`} className="block focus-visible:outline-none">
-        <Card className="overflow-hidden rounded-lg border-2 p-0 transition-all duration-100 group-hover:shadow-brutal-lg">
-          {/* Video / Preview Stage — stays neutral black, never brutal */}
-          <div className="relative aspect-video overflow-hidden border-b-2 border-border bg-neutral-900 dark:bg-neutral-950">
+        <Card className="overflow-hidden rounded-3xl p-0 transition-shadow duration-500 group-hover:shadow-soft-lg">
+          {/* Video / Preview Stage — stays neutral black */}
+          <div className="relative aspect-video overflow-hidden border-b border-border bg-neutral-950">
             {src ? (
               <>
                 {/* Ambient blurred backdrop fills pillarbox for vertical / 9:16 videos */}
@@ -177,45 +177,52 @@ function GalleryCard({ process }: { process: Process }) {
                 />
 
                 {/* Hover Play Hint Overlay */}
-                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/25 opacity-0 backdrop-blur-[1px] transition-opacity duration-200 group-hover:opacity-100">
-                  <div className="flex h-10 w-10 items-center justify-center border-2 border-border bg-primary text-primary-foreground shadow-brutal-sm">
+                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/25 opacity-0 backdrop-blur-[2px] transition-opacity duration-300 group-hover:opacity-100">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-soft-lg">
                     <Play className="h-4 w-4 fill-current ml-0.5" />
                   </div>
                 </div>
 
-                {/* Direct Download Button */}
-                <a
-                  href={downloadSrc}
-                  download={process.filename || 'captioned-video.mp4'}
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute bottom-2.5 left-2.5 z-30 inline-flex h-7 items-center gap-1.5 border-2 border-border bg-primary px-2 text-xs font-bold text-primary-foreground opacity-0 shadow-brutal-sm transition-all duration-100 group-hover:opacity-100"
+                {/* Direct Download Button. A button, not an anchor: the card is
+                    already a link, and anchors cannot nest. */}
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const link = document.createElement('a');
+                    link.href = downloadSrc ?? '';
+                    link.download = process.filename || 'captioned-video.mp4';
+                    link.click();
+                  }}
+                  className="absolute bottom-3 left-3 z-30 inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-full bg-black/60 px-3 text-xs font-medium text-white backdrop-blur-md transition-opacity duration-200 hover:bg-black/80 focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100"
                   title="Download MP4"
                 >
                   <Download className="h-3.5 w-3.5" />
                   <span>Download</span>
-                </a>
+                </button>
               </>
             ) : failed ? (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2 border-2 border-border bg-destructive p-4 text-center">
-                <div className="flex h-9 w-9 items-center justify-center border-2 border-border bg-background text-foreground">
+              <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-destructive/15 p-4 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/20 text-destructive">
                   <AlertTriangle className="h-4 w-4" />
                 </div>
                 <div>
-                  <p className="font-mono text-xs font-bold uppercase tracking-wide text-destructive-foreground">
+                  <p className="text-sm font-medium tracking-tight text-destructive">
                     Render Interrupted
                   </p>
-                  <p className="mt-1 max-w-[240px] truncate border-2 border-border bg-background px-2 py-0.5 font-mono text-[10px] font-bold text-foreground">
+                  <p className="mt-1 max-w-[240px] truncate text-xs text-muted-foreground">
                     {process.reason || 'Process failed during execution'}
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2.5 border-2 border-border bg-primary p-4 text-center">
-                <div className="flex h-10 w-10 items-center justify-center border-2 border-border bg-background text-foreground">
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[radial-gradient(60%_80%_at_50%_0%,rgb(124_108_255/0.28),transparent)] p-4 text-center">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur">
                   <Loader2 className="h-5 w-5 animate-spin" />
                 </div>
                 <div>
-                  <p className="font-mono text-xs font-bold uppercase tracking-wide text-primary-foreground">
+                  <p className="text-sm font-medium tracking-tight text-white/90">
                     {process.stage === 'transcribing'
                       ? 'Transcribing audio…'
                       : 'Rendering captions…'}
@@ -231,7 +238,7 @@ function GalleryCard({ process }: { process: Process }) {
           </div>
 
           {/* Card Meta Content */}
-          <div className="flex items-center justify-between p-3.5 pr-11">
+          <div className="flex items-center justify-between p-4 pr-14">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold tracking-tight text-foreground">
                 {process.filename || process.id}
@@ -241,7 +248,7 @@ function GalleryCard({ process }: { process: Process }) {
                   {formatDistanceToNow(new Date(process.createdAt), { addSuffix: true })}
                 </span>
                 <span>·</span>
-                <span className="font-mono text-[10px] text-muted-foreground/80 uppercase">
+                <span className="font-mono text-[10px] text-muted-foreground/80 ">
                   MP4
                 </span>
               </div>
@@ -253,7 +260,7 @@ function GalleryCard({ process }: { process: Process }) {
       {/* Delete Process Button */}
       <DeleteProcessButton
         process={process}
-        className="absolute bottom-3 right-3 z-30 inline-flex h-8 w-8 items-center justify-center border-2 border-border bg-destructive text-destructive-foreground opacity-0 shadow-brutal-sm transition-all duration-100 hover:bg-destructive focus-visible:opacity-100 group-hover:opacity-100"
+        className="absolute bottom-3.5 right-3.5 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-foreground/[0.05] text-muted-foreground sm:h-9 sm:w-9 transition-all duration-200 hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100"
         label={`Delete ${process.filename || process.id}`}
       />
     </div>
@@ -275,11 +282,11 @@ export function ProcessGallery() {
 
   if (error && processes === null) {
     return (
-      <Card className="flex flex-col items-center justify-center border-2 py-16 text-center">
-        <div className="flex h-12 w-12 items-center justify-center border-2 border-border bg-destructive text-destructive-foreground shadow-brutal-sm">
+      <Card className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/15 text-destructive">
           <AlertTriangle className="h-6 w-6" />
         </div>
-        <h3 className="mt-4 font-display text-base font-semibold">Could not load gallery</h3>
+        <h3 className="mt-4 text-base font-semibold tracking-tight">Could not load gallery</h3>
         <p className="mt-1 max-w-sm text-xs text-muted-foreground">{error}</p>
       </Card>
     );
@@ -287,12 +294,12 @@ export function ProcessGallery() {
 
   if (processes !== null && processes.length === 0) {
     return (
-      <Card className="flex flex-col items-center justify-center border-2 border-dashed py-20 text-center">
-        <div className="flex h-14 w-14 items-center justify-center border-2 border-border bg-accent text-accent-foreground shadow-brutal-sm">
+      <Card className="flex flex-col items-center justify-center border-dashed px-6 py-20 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
           <Film className="h-7 w-7" />
         </div>
-        <h3 className="mt-4 font-display text-lg font-semibold">No captioned videos yet</h3>
-        <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
+        <h3 className="mt-5 text-2xl font-semibold tracking-[-0.03em]">No captioned videos yet</h3>
+        <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
           Drop a video on the home page to reframe it and add subtitles.
         </p>
         <Button asChild className="mt-6 gap-2">
@@ -320,8 +327,8 @@ export function ProcessGallery() {
   return (
     <div className="space-y-6">
       {/* Filter tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-border pb-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+        <div className="flex w-max items-center gap-2 sm:w-auto sm:flex-wrap">
           {[
             { id: 'all', label: 'All', count: allProcesses.length },
             { id: 'done', label: 'Completed', count: doneCount },
@@ -332,19 +339,19 @@ export function ProcessGallery() {
               key={tab.id}
               onClick={() => setFilter(tab.id as typeof filter)}
               className={cn(
-                'inline-flex items-center gap-1.5 border-2 border-border px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wide shadow-brutal-sm transition-all duration-100',
+                'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium tracking-tight transition-all duration-200',
                 filter === tab.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-card text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  ? 'border-transparent bg-foreground text-background'
+                  : 'border-border bg-foreground/[0.03] text-muted-foreground hover:border-foreground/25 hover:text-foreground'
               )}
             >
               <span>{tab.label}</span>
               <span
                 className={cn(
-                  'border border-border px-1.5 py-0.2 text-[10px]',
+                  'rounded-full px-1.5 py-px font-mono text-[10px] tabular-nums',
                   filter === tab.id
-                    ? 'bg-background text-foreground font-bold'
-                    : 'bg-muted'
+                    ? 'bg-background/20 text-background'
+                    : 'bg-foreground/10'
                 )}
               >
                 {tab.count}
@@ -359,7 +366,7 @@ export function ProcessGallery() {
           No videos match the selected &quot;{filter}&quot; filter.
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
           {filteredProcesses.map((process) => (
             <GalleryCard key={process.id} process={process} />
           ))}

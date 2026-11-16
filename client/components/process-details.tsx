@@ -58,9 +58,9 @@ export function ProcessDetails({ processId }: { processId: string }) {
 
   if (notFound || (error && !process)) {
     return (
-      <Card className="flex flex-col items-center justify-center border-border/70 bg-card/50 py-16">
+      <Card className="flex flex-col items-center justify-center px-6 py-16">
         <FileVideo2 className="mb-4 h-10 w-10 text-muted-foreground/60" />
-        <h3 className="font-display text-lg font-semibold">
+        <h3 className="text-2xl font-semibold tracking-[-0.03em]">
           {notFound ? 'Process not found' : 'Could not load this process'}
         </h3>
         <p className="mt-2 text-center text-sm text-muted-foreground">
@@ -88,7 +88,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
   const done = process.stage === 'done' && Boolean(process.downloadUrl);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 rise">
       <Link
         href="/processes"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -97,10 +97,10 @@ export function ProcessDetails({ processId }: { processId: string }) {
         Back to the gallery
       </Link>
 
-      <Card className="border-2 p-5">
+      <Card className="p-5 sm:p-7">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <div className="min-w-0 max-w-xl flex-1">
-            <h2 className="truncate font-display text-xl font-semibold">
+            <h2 className="truncate text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
               {process.filename || process.id}
             </h2>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
@@ -109,20 +109,20 @@ export function ProcessDetails({ processId }: { processId: string }) {
               <span className="inline-flex min-w-0 items-center gap-1.5">
                 <code
                   title={process.id}
-                  className="max-w-[180px] truncate rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] leading-none text-muted-foreground sm:max-w-[320px] md:max-w-[420px]"
+                  className="max-w-[180px] truncate rounded-md bg-foreground/[0.06] px-1.5 py-0.5 font-mono text-[11px] leading-none text-muted-foreground sm:max-w-[320px] md:max-w-[420px]"
                 >
                   {process.id}
                 </code>
                 <button
                   type="button"
                   aria-label="Copy process id"
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-transparent text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="inline-flex h-9 w-9 shrink-0 items-center sm:h-7 sm:w-7 justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
                   onClick={() => {
                     void handleCopyId();
                   }}
                 >
                   {copied ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                    <Check className="h-3.5 w-3.5 text-success" />
                   ) : (
                     <Copy className="h-3.5 w-3.5" />
                   )}
@@ -130,7 +130,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
               </span>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
             {done && (
               <Button onClick={handleDownload}>
                 <Download className="h-4 w-4" />
@@ -139,7 +139,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
             )}
             <Button
               variant="outline"
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+              className="border-destructive/30 text-destructive hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive"
               onClick={() => setDeleteOpen(true)}
             >
               <Trash2 className="h-4 w-4" />
@@ -158,14 +158,14 @@ export function ProcessDetails({ processId }: { processId: string }) {
               <React.Fragment key={stage}>
                 <div className="flex flex-col items-center gap-1.5">
                   <div
-                    className={`flex h-8 w-8 items-center justify-center border-2 border-border ${
+                    className={`flex h-9 w-9 items-center justify-center rounded-full border border-transparent transition-colors duration-300 ${
                       isCurrent && inFlight
-                        ? 'bg-primary text-primary-foreground shadow-brutal-sm'
+                        ? 'bg-primary text-primary-foreground shadow-[0_0_0_6px_rgb(124_108_255/0.18)]'
                         : isCurrent && process.stage === 'failed'
-                          ? 'bg-destructive text-destructive-foreground shadow-brutal-sm'
+                          ? 'bg-destructive text-destructive-foreground'
                           : reached
-                            ? 'bg-[#7df29a] text-[#141414]'
-                            : 'bg-muted text-muted-foreground'
+                            ? 'bg-success/20 text-success'
+                            : 'border-border bg-foreground/[0.04] text-muted-foreground'
                     }`}
                   >
                     {isCurrent && inFlight ? (
@@ -179,7 +179,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
                     )}
                   </div>
                   <span
-                    className={`text-[11px] font-medium ${
+                    className={`text-[11px] font-medium sm:text-xs ${
                       reached ? 'text-foreground' : 'text-muted-foreground/60'
                     }`}
                   >
@@ -188,8 +188,8 @@ export function ProcessDetails({ processId }: { processId: string }) {
                 </div>
                 {!isLast && (
                   <div
-                    className={`mx-2 mb-5 h-[3px] flex-1 ${
-                      currentStageIndex > index ? 'bg-primary border border-border' : 'bg-muted border border-border'
+                    className={`mx-1 mb-6 h-0.5 min-w-2 flex-1 sm:mx-2 rounded-full transition-colors duration-500 ${
+                      currentStageIndex > index ? 'bg-brand' : 'bg-foreground/10'
                     }`}
                   />
                 )}
@@ -199,7 +199,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
         </div>
 
         {process.stage === 'failed' && process.reason && (
-          <div className="mt-5 border-2 border-border bg-destructive p-3.5 text-sm font-bold text-destructive-foreground shadow-brutal-sm">
+          <div className="mt-5 rounded-xl bg-destructive/15 p-4 text-sm font-medium text-destructive">
             This process failed: {process.reason}
           </div>
         )}
@@ -212,9 +212,9 @@ export function ProcessDetails({ processId }: { processId: string }) {
       )}
 
       {done ? (
-        <Card className="overflow-hidden border-2 p-0">
-          <div className="flex items-center justify-between border-b-2 border-border bg-primary px-5 py-3.5">
-            <p className="font-mono text-sm font-bold uppercase tracking-wide text-primary-foreground">Your captioned video</p>
+        <Card className="overflow-hidden p-0">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+            <p className="text-sm font-medium tracking-tight">Your captioned video</p>
           </div>
           <video
             src={downloadUrl(process)}
@@ -224,9 +224,9 @@ export function ProcessDetails({ processId }: { processId: string }) {
           />
         </Card>
       ) : inFlight ? (
-        <Card className="flex flex-col items-center justify-center border-border/70 bg-card/50 py-14">
-          <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
-          <p className="mt-4 font-display font-semibold">
+        <Card className="flex flex-col items-center justify-center px-6 py-14">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="mt-4 text-lg font-semibold tracking-tight">
             {STAGE_LABEL[process.stage]}…
           </p>
           <p className="mt-1.5 text-sm text-muted-foreground">

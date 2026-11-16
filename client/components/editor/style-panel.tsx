@@ -50,16 +50,16 @@ function SwatchRow({
           disabled={disabled}
           aria-label={`${ariaLabel}: ${color}`}
           onClick={() => onChange(color)}
-          className={`h-6 w-6 border-2 border-border shadow-brutal-sm transition-all duration-100 disabled:opacity-50 disabled:shadow-none ${
+          className={`h-8 w-8 rounded-full border border-foreground/20 shadow-soft-sm transition-transform duration-150 hover:scale-110 disabled:opacity-50 ${
             value.toLowerCase() === color.toLowerCase()
-              ? 'scale-110 shadow-brutal'
-              : 'hover:scale-105 hover:shadow-brutal'
+              ? 'scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background'
+              : 'hover:scale-105 hover:shadow-soft'
           }`}
           style={{ backgroundColor: color }}
         />
       ))}
       <label
-        className="relative flex h-6 w-6 cursor-pointer items-center justify-center border-2 border-border bg-muted text-muted-foreground shadow-brutal-sm hover:shadow-brutal disabled:opacity-50"
+        className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-border bg-foreground/[0.05] text-muted-foreground transition-transform duration-150 hover:scale-110 disabled:opacity-50"
         title="Custom color"
       >
         <PipetteIcon className="h-3.5 w-3.5" />

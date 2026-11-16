@@ -1,6 +1,6 @@
 # ADR-0009: Neobrutalist chrome UI, dual light/dark modes
 
-Date: 2026-09-07 · Status: accepted
+Date: 2026-09-07 · Status: superseded by ADR-0014
 
 ## Context
 

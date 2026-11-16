@@ -2,97 +2,95 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Captions, Film, FolderOpen, Github, Plus } from 'lucide-react';
+import { ArrowUpRight, Captions, Github, Plus } from 'lucide-react';
 
+import { Ambient } from '@/components/cinematic/ambient';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-// The shell every page shares: header, nav, active states, and footer.
+const NAV = [
+  { href: '/', label: 'Studio', match: (path: string) => path === '/' || path.startsWith('/editor') },
+  { href: '/processes', label: 'Gallery', match: (path: string) => path.startsWith('/processes') },
+];
+
+// The shell every page shares: atmosphere, floating navigation, footer.
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isHome = pathname === '/';
-  const isGallery = pathname.startsWith('/processes');
 
   return (
-    <div className="flex min-h-screen flex-col bg-background selection:bg-primary selection:text-primary-foreground">
-      <header className="sticky top-0 z-40 border-b-2 border-border bg-background">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="group flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center border-2 border-border bg-primary text-primary-foreground shadow-brutal-sm transition-all duration-100 group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 group-hover:shadow-brutal">
-                <Captions className="h-4.5 w-4.5" />
-              </span>
-              <span className="font-display text-base font-semibold tracking-tight sm:text-lg">
-                Subvision
-              </span>
-            </Link>
+    <div className="relative flex min-h-screen flex-col">
+      <Ambient />
 
-            <nav className="hidden items-center gap-2 sm:flex">
-              <Link
-                href="/"
-                className={cn(
-                  'inline-flex items-center gap-1.5 border-2 px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wide transition-all duration-100',
-                  isHome
-                    ? 'border-border bg-primary text-primary-foreground shadow-brutal-sm'
-                    : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-accent-foreground'
-                )}
-              >
-                <Film className="h-3.5 w-3.5" />
-                Home
-              </Link>
-              <Link
-                href="/processes"
-                className={cn(
-                  'inline-flex items-center gap-1.5 border-2 px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wide transition-all duration-100',
-                  isGallery
-                    ? 'border-border bg-primary text-primary-foreground shadow-brutal-sm'
-                    : 'border-transparent text-muted-foreground hover:border-border hover:bg-accent hover:text-accent-foreground'
-                )}
-              >
-                <FolderOpen className="h-3.5 w-3.5" />
-                Gallery
-              </Link>
-            </nav>
-          </div>
+      <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center px-3 pt-3 sm:px-6 sm:pt-4">
+        <div className="glass pointer-events-auto flex h-14 w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-border pl-3 pr-1.5 sm:gap-3 sm:pl-4 sm:pr-2 shadow-soft">
+          <Link href="/" className="group flex items-center gap-2.5" aria-label="Subvision home">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-primary-foreground shadow-[0_6px_18px_-6px_rgb(124_108_255/0.9)] transition-transform duration-300 group-hover:rotate-[-8deg] group-hover:scale-105">
+              <Captions className="h-4 w-4" />
+            </span>
+            <span className="hidden text-[0.95rem] font-semibold tracking-tight min-[420px]:inline">Subvision</span>
+          </Link>
 
-          <div className="flex items-center gap-2">
-            {/* Mobile nav links */}
-            <nav className="flex items-center gap-1 sm:hidden">
-              <Button size="sm" asChild className="h-9 gap-1.5 border-2 px-3 text-xs sm:text-sm font-bold shadow-brutal-sm">
-                <Link href="/processes">Gallery</Link>
-              </Button>
-            </nav>
+          <nav className="flex items-center gap-1">
+            {NAV.map((item) => {
+              const active = item.match(pathname);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-sm font-medium tracking-tight transition-colors duration-200 sm:px-3.5',
+                    active
+                      ? 'bg-foreground/10 text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
 
+          <div className="flex items-center gap-1.5">
             <ThemeToggle />
-
             {!isHome && (
-              <Button size="sm" asChild className="h-9 gap-1.5 px-3 text-xs sm:text-sm font-bold">
-                <Link href="/">
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>New video</span>
+              <Button size="sm" asChild className="w-9 gap-1.5 px-0 sm:w-auto sm:px-4">
+                <Link href="/" aria-label="New video">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">New video</span>
                 </Link>
               </Button>
             )}
           </div>
         </div>
       </header>
-      <main className="flex-1">{children}</main>
-      <footer className="border-t-2 border-border bg-muted/40">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-3 px-4 py-6 text-center sm:flex-row sm:text-left sm:px-6">
-          <p className="font-mono text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Subvision
+
+      <main className="flex-1 pt-20">{children}</main>
+
+      <footer className="relative mt-24 overflow-hidden border-t border-border">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-6 px-4 pt-10 sm:flex-row sm:items-center sm:px-6">
+          <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+            Reframe, caption and render on your own server. Your footage never leaves it.
           </p>
           <Link
             href="https://github.com/rubichandrap/subvision"
             target="_blank"
             rel="noreferrer"
             aria-label="Subvision on GitHub"
-            className="inline-flex items-center gap-1.5 border-2 border-border bg-card px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-wide text-foreground shadow-brutal-sm transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-primary hover:text-primary-foreground hover:shadow-brutal"
+            className="group inline-flex items-center gap-2 rounded-full border border-border bg-foreground/[0.03] px-4 py-2 text-sm font-medium transition-colors hover:bg-foreground/[0.08]"
           >
             <Github className="h-4 w-4" />
-            GitHub
+            Source on GitHub
+            <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
           </Link>
+        </div>
+        <div
+          aria-hidden
+          className="pointer-events-none -mb-[0.16em] mt-6 select-none whitespace-nowrap text-center text-[clamp(4.5rem,21vw,19rem)] font-semibold leading-[0.85] tracking-[-0.06em] text-transparent [-webkit-text-stroke:1px_color-mix(in_oklab,var(--foreground)_16%,transparent)] [mask-image:linear-gradient(180deg,#000_30%,transparent_92%)]"
+        >
+          Subvision
         </div>
       </footer>
     </div>
