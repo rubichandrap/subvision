@@ -15,6 +15,14 @@ ADR-0009 gave the client a full neobrutalist chrome: 2px ink borders, hard offse
 - **Responsive** is structural. Navigation is a floating pill that drops its labels and collapses "New video" to an icon on phones. The editor stacks preview, trim and panel on small screens, panel height is capped only at `lg`, and "Generate subtitles" is pinned to the bottom edge below `lg`. Toasts appear top-right below `lg` so they never cover the pinned action bar. The gallery filter row scrolls horizontally, card actions that were hover-only are always visible on touch, and tap targets on touch layouts are at least 40 px (the frame preview's resize handle is footage chrome and was left as it was), and grid tracks use `minmax(0, 1fr)` so long file names truncate instead of widening the page.
 - **Tokens:** `--primary` is indigo; `bg-accent` and `bg-secondary` are now neutral surfaces, not cyan and pink. `shadow-brutal*` utilities are gone; use `shadow-soft*`. Application components reference theme tokens, not raw hex; the decorative ambient layer and the caption demo (which imitates footage) use literal colours on purpose. Status colours are `success`, `warning`, `destructive`.
 
+## Logo
+
+The mark is a viewfinder (two opposing frame corners) holding two caption lines that step down the same diagonal: the upper line is the word being spoken, lit in the brand gradient; the lower is the next word, dimmed. Together the lines read as an "S" for "sub". It shows what the product does to a video, reframes it and captions it word by word, instead of a generic caption or sparkle icon. The wordmark is lowercase Geist, "sub" in a light receding weight and "vision" in semibold, tracking -0.035em.
+
+- Brackets and the dim line follow the text colour, so one mark serves dark and light; the lit line is always `#8a7bff` to `#4c8dff`.
+- `components/brand/logo.tsx` is the in-app component. `public/logo/` holds standalone SVGs with the wordmark outlined (no font dependency) for dark and light backgrounds; `app/icon.svg` is the favicon, a heavier cut on an ink tile that stays legible at 16 px.
+- Four corners around a single pill was drawn and rejected: it is the stock "scan / fullscreen" icon.
+
 ## Alternatives considered
 
 - **Soften ADR-0009 (keep thick borders, round the corners).** Reads as the old theme. Rejected.

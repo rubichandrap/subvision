@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ArrowUpRight, Captions, Github, Plus } from 'lucide-react';
+import { ArrowUpRight, Github, Plus } from 'lucide-react';
 
+import { LogoMark, Wordmark } from '@/components/brand/logo';
 import { Ambient } from '@/components/cinematic/ambient';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
@@ -26,10 +27,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center px-3 pt-3 sm:px-6 sm:pt-4">
         <div className="glass pointer-events-auto flex h-14 w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-border pl-3 pr-1.5 sm:gap-3 sm:pl-4 sm:pr-2 shadow-soft">
           <Link href="/" className="group flex items-center gap-2.5" aria-label="Subvision home">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-primary-foreground shadow-[0_6px_18px_-6px_rgb(124_108_255/0.9)] transition-transform duration-300 group-hover:rotate-[-8deg] group-hover:scale-105">
-              <Captions className="h-4 w-4" />
-            </span>
-            <span className="hidden text-[0.95rem] font-semibold tracking-tight min-[420px]:inline">Subvision</span>
+            <LogoMark className="h-9 w-9 transition-transform duration-300 group-hover:scale-105" />
+            <Wordmark className="hidden text-[1.15rem] leading-none min-[420px]:inline" />
           </Link>
 
           <nav className="flex items-center gap-1">
@@ -90,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           aria-hidden
           className="pointer-events-none -mb-[0.16em] mt-6 select-none whitespace-nowrap text-center text-[clamp(4.5rem,21vw,19rem)] font-semibold leading-[0.85] tracking-[-0.06em] text-transparent [-webkit-text-stroke:1px_color-mix(in_oklab,var(--foreground)_16%,transparent)] [mask-image:linear-gradient(180deg,#000_30%,transparent_92%)]"
         >
-          Subvision
+          subvision
         </div>
       </footer>
     </div>
