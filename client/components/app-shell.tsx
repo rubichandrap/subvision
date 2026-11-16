@@ -44,9 +44,8 @@ export function AppShell({
 
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center px-3 pt-3 sm:px-6 sm:pt-4">
         <div
-          data-scrolled={scrolled}
           className={cn(
-            'pointer-events-auto grid h-14 w-full max-w-5xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-full border pl-3 pr-1.5 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300 ease-out sm:gap-3 sm:pl-4 sm:pr-2',
+            'pointer-events-auto grid h-14 w-full max-w-5xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-full border pl-3 pr-1.5 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300 ease-out motion-reduce:transition-none sm:gap-3 sm:pl-4 sm:pr-2',
             scrolled
               ? 'glass border-border shadow-soft backdrop-blur-xl backdrop-saturate-150'
               : 'border-transparent bg-transparent shadow-none backdrop-blur-none backdrop-saturate-100'

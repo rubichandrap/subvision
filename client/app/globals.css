@@ -146,8 +146,9 @@
 }
 
 /* Frosted panel for chrome that floats over the aurora. Surface only: pair it
-   with backdrop-blur-xl backdrop-saturate-150 (a backdrop-filter declared in
-   an @utility is dropped by the CSS minifier). */
+   with backdrop-blur-xl backdrop-saturate-150. A backdrop-filter declared in
+   this @utility was missing from the emitted CSS in the production build
+   (the rule came out empty), so the blur comes from Tailwind's own classes. */
 @utility glass {
   background: color-mix(in oklab, var(--card) 72%, transparent);
 }
