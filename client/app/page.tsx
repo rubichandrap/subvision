@@ -115,7 +115,7 @@ export default function Home() {
   const choose = () => inputRef.current?.click();
 
   return (
-    <AppShell>
+    <AppShell onNewVideo={choose}>
       <input
         ref={inputRef}
         type="file"
@@ -192,7 +192,7 @@ export default function Home() {
       </section>
 
       {/* Dropzone */}
-      <section id="start" className="mx-auto mt-24 w-full max-w-6xl scroll-mt-28 px-4 sm:px-6">
+      <section className="mx-auto mt-24 w-full max-w-6xl px-4 sm:px-6">
         <Reveal>
           <Spotlight className="group relative overflow-hidden rounded-[2rem] border border-border bg-card/60 p-1.5 shadow-soft backdrop-blur-sm">
             <div
