@@ -45,7 +45,7 @@ Planning and stitching live in a pure-Python `chunking` module with the decode f
 - **Keeping whichever copy of a word sits farther from its chunk's edge.** Tried in tests first: one-frame words that two chunks time slightly differently survive twice. Crossing over at one shared word avoids that.
 - **Keeping words only one chunk heard when the other heard nothing in the overlap.** Built, measured and removed. On the song those 80 words were the least corroborated in the word list (20% heard by no other decode against 9%; 38% strongly corroborated against 74%), so the chunk with more audio around a stretch is believed when it hears nothing.
 - **Chunking in the Go server.** The worker owns inference (ADR-0010); keeping chunking behind its interface leaves the server and its contract untouched.
-- **Vocal isolation before decoding.** Not measured; a separate piece of work.
+- **Vocal isolation before decoding.** Measured afterwards and not adopted: no gain on the song, at a large cost (ADR-0013).
 
 ## Consequences
 
@@ -53,4 +53,4 @@ Planning and stitching live in a pure-Python `chunking` module with the decode f
 - The server's `PARAKEET_TIMEOUT_SECONDS` (60 s by default) covers the whole file, so long videos need a larger value, about 25% more than before.
 - The word list depends on the chunk grid, as the single pass already depended on where the audio starts; the defaults are measured, not guaranteed. Start times stay close to a single pass: on speech the median difference is 26-32 ms and almost all are within one model frame (80 ms).
 - Stitching is not perfect on runs of identical words said back to back ("no no no"). In randomized tests with a decoder that hears every word exactly, unique words were never repeated or lost, while a vocabulary of two repeated words lost or repeated a word in about 0.1% of files, and with a decoder that mishears words at random about 4%. In the real decodes above no word was repeated or lost.
-- Wrong and missing words over music remain. Vocal isolation and ensembling several chunkings are the next things to measure.
+- Wrong and missing words over music remain. Ensembling several chunkings is the next thing to measure; vocal isolation was measured and did not help (ADR-0013).
