@@ -16,7 +16,7 @@ ENV TORCH_HOME=/weights
 RUN if [ "$VOCAL_ISOLATION" = "1" ]; then \
       apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/* \
       && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.0.1 torchaudio==2.0.2 \
-      && pip install --no-cache-dir --index-url https://pypi.org/simple demucs==4.0.1 "numpy<2" \
+      && pip install --no-cache-dir --index-url https://pypi.org/simple demucs==4.0.1 numpy==1.26.4 \
       && python -c "from demucs.pretrained import get_model; get_model('htdemucs')" \
       && chmod -R a+rX /weights; \
     fi

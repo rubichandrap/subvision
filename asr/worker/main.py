@@ -101,9 +101,10 @@ class ParakeetWorker:
             samples, sample_rate = load_wav(path)
 
         started = time.monotonic()
+        isolation_note = ""
         if self._isolate is not None:
             samples = apply_isolation(samples, sample_rate, self._isolate)
-            isolated_in = time.monotonic() - started
+            isolation_note = f" (vocal isolation {time.monotonic() - started:.1f}s)"
         words = decode_chunked(
             samples,
             sample_rate,
@@ -114,7 +115,7 @@ class ParakeetWorker:
         sys.stderr.write(
             f"[asr-worker] {len(samples) / sample_rate:.1f}s of audio, {chunks} chunk(s), "
             f"{len(words)} words, {time.monotonic() - started:.1f}s"
-            + (f" (vocal isolation {isolated_in:.1f}s)" if self._isolate is not None else "")
+            + isolation_note
             + "\n"
         )
         return {

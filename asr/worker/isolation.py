@@ -63,10 +63,11 @@ def load_demucs_isolator(threads: int) -> Isolator:
         wave = torch.from_numpy(np.ascontiguousarray(samples)).float()[None]
         wave = F.resample(wave, sample_rate, DEMUCS_RATE).repeat(2, 1)  # (2, n) stereo
         ref = wave.mean(0)
-        wave = (wave - ref.mean()) / (ref.std() + 1e-8)
+        mean, scale = ref.mean(), ref.std() + 1e-8
+        wave = (wave - mean) / scale
         with torch.no_grad():
             stems = apply_model(model, wave[None], device="cpu", split=True, progress=False)[0]
-        vocals = stems[vocals_index] * (ref.std() + 1e-8) + ref.mean()
+        vocals = stems[vocals_index] * scale + mean
         mono = F.resample(vocals.mean(0, keepdim=True), DEMUCS_RATE, sample_rate)[0]
         out = mono.numpy()
         n = len(samples)

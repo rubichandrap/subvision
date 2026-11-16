@@ -125,12 +125,15 @@ videos: with `ASR_VOCAL_ISOLATION=1` the worker separates the vocals from the
   docker compose up -d --no-build asr
   ```
 
-- It is slow: about 100 s of CPU time and up to ~3 GB of RAM for a 3-minute
-  song. Raise `PARAKEET_TIMEOUT_SECONDS` in `server/.env` (e.g. `900`) or every
+- It is slow: about 100 s and up to ~3 GB of RAM for a 3-minute song, and RAM
+  grows with the length of the file. Raise `PARAKEET_TIMEOUT_SECONDS` in `server/.env` (e.g. `900`) or every
   song fails at the default 60 s.
 - A worker started with it on but an image built without it exits at startup
   with an error saying so. `meta.vocalIsolation` in the response says whether
   it was applied.
+- To turn it off, set `ASR_VOCAL_ISOLATION=0` (or remove it) and restart the
+  worker; no rebuild is needed, but rebuild without it to get the small image
+  back.
 - Not a second engine: the same decode path runs, on the vocals stem.
 
 ## Environment
