@@ -27,8 +27,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center px-3 pt-3 sm:px-6 sm:pt-4">
         <div className="glass pointer-events-auto flex h-14 w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-border pl-3 pr-1.5 sm:gap-3 sm:pl-4 sm:pr-2 shadow-soft">
           <Link href="/" className="group flex min-h-10 items-center gap-2.5" aria-label="Subvision home">
-            <LogoMark className="h-9 w-9 transition-transform duration-300 group-hover:scale-105" />
-            <Wordmark className="hidden text-[1.15rem] leading-none min-[420px]:inline" />
+            <LogoMark className="h-7 w-7 transition-transform duration-300 group-hover:scale-105" />
+            <Wordmark className="hidden text-[1.2rem] leading-none min-[420px]:inline" />
           </Link>
 
           <nav className="flex items-center gap-1">
