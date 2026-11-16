@@ -188,6 +188,7 @@ No variable falls back to silent credentials or default URLs.
 | `CLIENT_URL` | server | **yes** | — | Origin of the Next.js client, allowed by the server's CORS. |
 | `PARAKEET_URL` | server | **yes** | — | HTTP endpoint of the Parakeet ASR worker. Compose sets `http://asr:8081/transcribe`. |
 | `PARAKEET_TIMEOUT_SECONDS` | server | no | 60 | Per-request Parakeet decode ceiling; raise it for long videos. |
+| `ASR_VOCAL_ISOLATION` | compose, asr | no | `0` | Experiment ([ADR-0013](docs/adr/0013-no-vocal-isolation-before-asr.md)): `1` builds Demucs into the ASR image and separates the vocals before decoding. About 100 s and 1.7-2.9 GB RAM per 3-minute song, so also set `PARAKEET_TIMEOUT_SECONDS` in `server/.env` (e.g. `900`). Set it in the root `.env`, then rebuild the `asr` image. |
 | `PARAKEET_MODEL_DIR` | compose | no | `./models/parakeet` | Host path mounted read-only at `/models` in the ASR worker. |
 | `S3_ENDPOINT` | server, vfx | **yes** | — | Full URL of the S3-compatible store (RustFS in compose). |
 | `S3_ACCESS_KEY` | server, vfx | **yes** | — | S3 access key. |

@@ -29,6 +29,7 @@ import numpy as np
 import sherpa_onnx
 
 from chunking import ChunkOptions, decode_chunked, plan_chunks
+from isolation import Isolator, apply_isolation, enabled_from_env, load_demucs_isolator
 
 # A WAV body is 16-bit mono at 16 kHz, so 256 MiB is roughly 2.3 hours. This
 # is an internal service; keep a hard ceiling even if a caller lies.
@@ -63,6 +64,7 @@ class ParakeetWorker:
         model_dir: str,
         threads: int = 4,
         chunking: ChunkOptions | None = None,
+        isolate: Isolator | None = None,
     ) -> None:
         encoder = Path(model_dir) / "encoder.int8.onnx"
         decoder = Path(model_dir) / "decoder.int8.onnx"
@@ -87,6 +89,7 @@ class ParakeetWorker:
         )
         self._model_dir = str(Path(model_dir).resolve())
         self._lock = threading.Lock()
+        self._isolate = isolate
         self._chunking = chunking or ChunkOptions(
             DEFAULT_CHUNK_SECONDS, DEFAULT_CHUNK_OVERLAP_SECONDS
         )
@@ -98,6 +101,9 @@ class ParakeetWorker:
             samples, sample_rate = load_wav(path)
 
         started = time.monotonic()
+        if self._isolate is not None:
+            samples = apply_isolation(samples, sample_rate, self._isolate)
+            isolated_in = time.monotonic() - started
         words = decode_chunked(
             samples,
             sample_rate,
@@ -107,7 +113,9 @@ class ParakeetWorker:
         chunks = len(plan_chunks(len(samples), sample_rate, self._chunking))
         sys.stderr.write(
             f"[asr-worker] {len(samples) / sample_rate:.1f}s of audio, {chunks} chunk(s), "
-            f"{len(words)} words, {time.monotonic() - started:.1f}s\n"
+            f"{len(words)} words, {time.monotonic() - started:.1f}s"
+            + (f" (vocal isolation {isolated_in:.1f}s)" if self._isolate is not None else "")
+            + "\n"
         )
         return {
             "text": " ".join(word.text for word in words),
@@ -117,6 +125,7 @@ class ParakeetWorker:
                 "engine": "sherpa-onnx",
                 "language": "en",
                 "chunks": chunks,
+                "vocalIsolation": self._isolate is not None,
             },
         }
 
@@ -339,7 +348,17 @@ def main() -> int:
     except ValueError as error:
         raise SystemExit(f"invalid chunk settings: {error}")
 
-    worker = ParakeetWorker(args.model_dir, threads=args.threads, chunking=chunking)
+    try:
+        isolating = enabled_from_env(os.environ.get("ASR_VOCAL_ISOLATION"))
+    except ValueError as error:
+        raise SystemExit(str(error))
+    try:
+        isolate = load_demucs_isolator(args.threads) if isolating else None
+    except RuntimeError as error:
+        raise SystemExit(str(error))
+    sys.stderr.write(f"[asr-worker] vocal isolation {'on' if isolating else 'off'}\n")
+
+    worker = ParakeetWorker(args.model_dir, threads=args.threads, chunking=chunking, isolate=isolate)
     Handler.worker = worker
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     sys.stderr.write(f"[asr-worker] listening on {args.host}:{args.port}\n")
