@@ -14,7 +14,7 @@ server-side in a single render pass.
 - **Caption styling**: Configure font family, scale, text color, outline stroke, vertical position, background plate, uppercase mode, and highlight color.
 - **Caption animations**: Pick from fade, slide, karaoke swipe, or word-by-word pop, chosen manually or resolved randomly on submit.
 - **Resumable uploads**: Transfers videos over tus, attaching the edit spec directly as upload metadata (ADR-0003).
-- **Parakeet transcription**: an HTTP ASR worker transcribes 16 kHz mono audio with NVIDIA Parakeet TDT v3 (int8) and returns native token/word timings.
+- **Parakeet transcription**: an HTTP ASR worker transcribes 16 kHz mono audio with NVIDIA Parakeet TDT v3 (int8) and returns native word timings, decoding long audio in overlapping chunks.
 - **Subtitle reflow**: the server turns timed words into readable cues before rendering, honoring the caption word limit.
 - **VFX compositor**: Remotion and ffmpeg composite the styled captions onto the trimmed footage.
 - **Gallery**: Monitor in-flight jobs, preview finished videos on hover, and download rendered MP4 files.

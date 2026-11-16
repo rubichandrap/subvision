@@ -11,7 +11,8 @@ RabbitMQ; the Next.js client uploads videos with tus.
   storage under the key `uploads/<id>`, where `<id>` is the tus upload id.
 - **ASR Worker** — the internal Python service that runs NVIDIA Parakeet TDT
   v3 through sherpa-onnx. The server posts a 16 kHz mono WAV and receives
-  ordered token/word timings; it is not exposed to the browser.
+  ordered word timings for the whole file, however long; it is not exposed to
+  the browser.
 - **Transcript** — the ordered sequence of Transcription Segments representing
   the spoken audio of an Upload. Produced during transcription, persisted in the
   job store, and editable by the user before a Re-render.
