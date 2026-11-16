@@ -30,6 +30,9 @@ func TestSegmentsRoundTrip(t *testing.T) {
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
 	}
+	if recorded, err := store.MarkTranscribing("u1"); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
+	}
 
 	var segs []transcript.Segment
 	if err := json.Unmarshal([]byte(segmentsFixture), &segs); err != nil {
@@ -87,6 +90,9 @@ func TestDeleteRemovesSegments(t *testing.T) {
 	store := newSegmentsTestStore(t)
 	if err := store.Create("u1", "clip.mp4"); err != nil {
 		t.Fatalf("create: %v", err)
+	}
+	if recorded, err := store.MarkTranscribing("u1"); err != nil || !recorded {
+		t.Fatalf("mark transcribing: recorded=%v err=%v", recorded, err)
 	}
 	var segs []transcript.Segment
 	if err := json.Unmarshal([]byte(segmentsFixture), &segs); err != nil {
