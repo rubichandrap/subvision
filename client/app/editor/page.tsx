@@ -125,6 +125,27 @@ function Editor() {
     upload.start();
   };
 
+  const generateButton = (
+    <Button
+      onClick={handleGenerate}
+      disabled={uploading || duration <= 0}
+      size="lg"
+      className="w-full sm:w-auto"
+    >
+      {uploading ? (
+        <>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Uploading {Math.round(uploadProgress ?? 0)}%
+        </>
+      ) : (
+        <>
+          <Wand2 className="h-4 w-4" />
+          Generate subtitles
+        </>
+      )}
+    </Button>
+  );
+
   if (missing) {
     return (
       <AppShell>
@@ -160,7 +181,7 @@ function Editor() {
 
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-6xl px-4 pb-10 pt-6">
+      <div className="mx-auto w-full max-w-6xl px-4 pb-32 pt-4 sm:px-6 lg:pb-10 lg:pt-6">
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <Button variant="ghost" size="icon" asChild aria-label="Back to home">
             <Link href="/">
@@ -168,7 +189,7 @@ function Editor() {
             </Link>
           </Button>
           <div className="min-w-0">
-            <h1 className="truncate font-display text-lg font-semibold leading-tight">
+            <h1 className="truncate text-lg font-semibold leading-tight tracking-tight sm:text-xl">
               {video.file.name}
             </h1>
             <p className="text-xs text-muted-foreground">
@@ -180,32 +201,20 @@ function Editor() {
                 <> · trimmed to {formatTime(spec.trim.end - spec.trim.start)}</>}
             </p>
           </div>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto hidden items-center gap-4 lg:flex">
             {uploadProgress !== null && (
-              <div className="hidden w-40 sm:block">
+              <div className="w-40">
                 <Progress value={uploadProgress} />
               </div>
             )}
-            <Button onClick={handleGenerate} disabled={uploading || duration <= 0}>
-              {uploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading {Math.round(uploadProgress)}%
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-4 w-4" />
-                  Generate subtitles
-                </>
-              )}
-            </Button>
+            {generateButton}
           </div>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="flex min-h-[420px] flex-col gap-4 lg:min-h-[560px]">
             <div
-              className="flex min-h-0 flex-1 items-center justify-center border-2 border-border bg-muted/30 p-4 shadow-brutal-sm sm:p-6"
+              className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden rounded-3xl border border-border bg-foreground/[0.03] p-3 sm:p-6 [background-image:radial-gradient(color-mix(in_oklab,var(--foreground)_10%,transparent)_1px,transparent_1px)] [background-size:18px_18px]"
             >
               <FramePreview
                 src={video.previewUrl}
@@ -234,21 +243,21 @@ function Editor() {
             />
           </div>
 
-          <Card className="h-fit p-4 lg:sticky lg:top-24">
+          <Card className="h-fit p-4 sm:p-5 lg:sticky lg:top-24">
             <Tabs defaultValue="frame">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="frame">Frame</TabsTrigger>
                 <TabsTrigger value="animation">Animation</TabsTrigger>
                 <TabsTrigger value="style">Style</TabsTrigger>
               </TabsList>
-              <TabsContent value="frame" className="mt-4 max-h-[min(420px,60vh)] overflow-y-auto">
+              <TabsContent value="frame" className="mt-4 lg:max-h-[min(420px,60vh)] lg:overflow-y-auto">
                 <FramePicker
                   frame={spec.frame}
                   onChange={(frame) => patchSpec({ frame })}
                   disabled={uploading}
                 />
               </TabsContent>
-              <TabsContent value="animation" className="mt-4 max-h-[min(420px,60vh)] overflow-y-auto">
+              <TabsContent value="animation" className="mt-4 lg:max-h-[min(420px,60vh)] lg:overflow-y-auto">
                 <AnimationPicker
                   value={spec.animation}
                   wordsPerPage={spec.captions.wordsPerPage}
@@ -258,11 +267,11 @@ function Editor() {
                   }
                   disabled={uploading}
                 />
-                <p className="mt-3 border-2 border-border bg-muted/50 p-2.5 font-mono text-xs leading-relaxed text-muted-foreground">
+                <p className="mt-3 rounded-xl bg-foreground/[0.04] p-3 text-xs leading-relaxed text-muted-foreground">
                   The preview shows your caption style. Words appear once transcription finishes.
                 </p>
               </TabsContent>
-              <TabsContent value="style" className="mt-4 max-h-[min(420px,60vh)] overflow-y-auto">
+              <TabsContent value="style" className="mt-4 lg:max-h-[min(420px,60vh)] lg:overflow-y-auto">
                 <StylePanel
                   style={spec.style}
                   animation={spec.animation}
@@ -271,7 +280,7 @@ function Editor() {
                 />
               </TabsContent>
             </Tabs>
-            <div className="mt-4 flex items-center gap-2 border-t-2 border-border pt-3">
+            <div className="mt-4 flex items-center gap-2 border-t border-border pt-3">
               <Badge variant="secondary" className="font-normal">
                 <FileVideo2 className="mr-1 h-3 w-3" />
                 {spec.frame.preset === 'free'
@@ -289,6 +298,10 @@ function Editor() {
             </div>
           </Card>
         </div>
+      </div>
+      <div className="glass fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-md flex-col gap-2.5 rounded-3xl border border-border p-3 shadow-soft-lg lg:hidden">
+        {uploadProgress !== null && <Progress value={uploadProgress} />}
+        {generateButton}
       </div>
     </AppShell>
   );

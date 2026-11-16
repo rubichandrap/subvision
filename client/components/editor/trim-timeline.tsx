@@ -65,7 +65,7 @@ export function TrimTimeline({
   const selected = trim.end > trim.start;
 
   return (
-    <div className="border-2 border-border bg-card p-4 shadow-brutal-sm">
+    <div className="rounded-2xl border border-border bg-card/80 p-4 shadow-soft-sm backdrop-blur-sm">
       <div className="flex items-center gap-3">
         <Button
           size="icon"

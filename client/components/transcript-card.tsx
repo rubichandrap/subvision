@@ -41,7 +41,7 @@ function TranscriptHeader({ extra }: { extra?: React.ReactNode }) {
   if (extra) {
     return (
       <div className="flex items-baseline justify-between gap-3">
-        <p className="font-mono text-sm font-bold uppercase tracking-wide">
+        <p className="text-base font-semibold tracking-tight">
           Transcript
         </p>
         {extra}
@@ -49,7 +49,7 @@ function TranscriptHeader({ extra }: { extra?: React.ReactNode }) {
     );
   }
   return (
-    <p className="font-mono text-sm font-bold uppercase tracking-wide">
+    <p className="text-base font-semibold tracking-tight">
       Transcript
     </p>
   );
@@ -169,7 +169,7 @@ export function TranscriptCard({
 
   if (stage === 'transcribing') {
     return (
-      <Card className="border-2 p-5">
+      <Card className="p-5 sm:p-7">
         <TranscriptHeader />
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -181,7 +181,7 @@ export function TranscriptCard({
 
   if (fetchError) {
     return (
-      <Card className="border-2 p-5">
+      <Card className="p-5 sm:p-7">
         <TranscriptHeader />
         <p className="py-4 text-sm text-muted-foreground">{fetchError}</p>
       </Card>
@@ -190,7 +190,7 @@ export function TranscriptCard({
 
   if (segments === null) {
     return (
-      <Card className="border-2 p-5">
+      <Card className="p-5 sm:p-7">
         <TranscriptHeader />
         <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -320,7 +320,7 @@ export function TranscriptCard({
   };
 
   return (
-    <Card className="border-2 p-5">
+    <Card className="p-5 sm:p-7">
       <TranscriptHeader
         extra={
           <p className="text-xs text-muted-foreground">
@@ -336,10 +336,10 @@ export function TranscriptCard({
           return (
             <li
               key={row.id}
-              className={`border-2 p-3 ${invalid ? 'border-destructive/60' : 'border-border'}`}
+              className={`rounded-2xl border bg-foreground/[0.03] p-3.5 transition-colors ${invalid ? 'border-destructive/60' : 'border-border hover:border-foreground/20'}`}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className="font-mono text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                <p className="font-mono text-xs tabular-nums text-muted-foreground">
                   Segment {i + 1}
                 </p>
                 <Button
@@ -413,13 +413,13 @@ export function TranscriptCard({
         Add segment
       </Button>
       {savedNote && (
-        <p className="mt-4 border-2 border-border bg-[#7df29a] p-2 text-sm font-bold text-[#141414]">
+        <p className="mt-4 rounded-xl bg-success/15 p-3 text-sm font-medium text-success">
           {savedNote}
         </p>
       )}
       {actionError && (
         <p
-          className="mt-4 border-2 border-border bg-destructive p-2 text-sm font-bold text-destructive-foreground"
+          className="mt-4 rounded-xl bg-destructive/15 p-3 text-sm font-medium text-destructive"
           role="alert"
         >
           {actionError}

@@ -38,16 +38,10 @@ export function FramePicker({ frame, onChange, disabled }: FramePickerProps) {
                 onClick={() =>
                   onChange({ ...frame, preset: preset.name, ratio: preset.ratio })
                 }
-                className={`flex flex-col items-center gap-1.5 border-2 border-border px-1 py-2.5 text-xs font-bold shadow-brutal-sm transition-all duration-100 disabled:opacity-50 disabled:shadow-none ${
-                  active
-                    ? 'bg-primary text-primary-foreground -translate-x-0.5 -translate-y-0.5 shadow-brutal'
-                    : 'bg-card text-muted-foreground hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-brutal'
-                }`}
+                className={`rounded-xl border px-3 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 disabled:opacity-50 flex flex-col items-center gap-1.5 px-1 text-center text-xs ${active ? 'border-primary bg-primary/15 text-foreground shadow-[0_0_0_1px_var(--primary),0_8px_24px_-10px_rgb(124_108_255/0.8)]' : 'border-border bg-foreground/[0.03] text-muted-foreground hover:border-foreground/25 hover:bg-foreground/[0.07] hover:text-foreground'}`}
               >
                 <span
-                  className={`block rounded-sm border-current ${
-                    active ? 'border-2' : 'border'
-                  }`}
+                  className={`rounded-xl border px-3 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 disabled:opacity-50 flex flex-col items-center gap-1.5 px-1 text-center text-xs ${active ? 'border-primary bg-primary/15 text-foreground shadow-[0_0_0_1px_var(--primary),0_8px_24px_-10px_rgb(124_108_255/0.8)]' : 'border-border bg-foreground/[0.03] text-muted-foreground hover:border-foreground/25 hover:bg-foreground/[0.07] hover:text-foreground'}`}
                   style={{
                     width: preset.ratio >= 1 ? 22 : 22 * preset.ratio,
                     height: preset.ratio >= 1 ? 22 / preset.ratio : 22,
@@ -61,11 +55,7 @@ export function FramePicker({ frame, onChange, disabled }: FramePickerProps) {
             type="button"
             disabled={disabled}
             onClick={() => onChange({ ...frame, preset: 'free' })}
-            className={`flex flex-col items-center gap-1.5 border-2 border-border px-1 py-2.5 text-xs font-bold shadow-brutal-sm transition-all duration-100 disabled:opacity-50 disabled:shadow-none ${
-              frame.preset === 'free'
-                ? 'bg-primary text-primary-foreground -translate-x-0.5 -translate-y-0.5 shadow-brutal'
-                : 'bg-card text-muted-foreground hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-brutal'
-            }`}
+            className={`rounded-xl border px-3 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 disabled:opacity-50 flex flex-col items-center gap-1.5 px-1 text-center text-xs ${frame.preset === 'free' ? 'border-primary bg-primary/15 text-foreground shadow-[0_0_0_1px_var(--primary),0_8px_24px_-10px_rgb(124_108_255/0.8)]' : 'border-border bg-foreground/[0.03] text-muted-foreground hover:border-foreground/25 hover:bg-foreground/[0.07] hover:text-foreground'}`}
           >
             <svg viewBox="0 0 22 22" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.6">
               <path d="M4 8V4h4M18 8V4h-4M4 14v4h4M18 14v4h-4" strokeLinecap="round" strokeLinejoin="round" />

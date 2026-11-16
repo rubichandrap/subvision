@@ -46,11 +46,7 @@ export function AnimationPicker({
               type="button"
               disabled={disabled}
               onClick={() => onChange(option.value)}
-              className={`border-2 border-border px-3 py-2.5 text-left text-sm font-bold shadow-brutal-sm transition-all duration-100 disabled:opacity-50 disabled:shadow-none ${
-                active
-                  ? 'bg-primary text-primary-foreground -translate-x-0.5 -translate-y-0.5 shadow-brutal'
-                  : 'bg-card text-muted-foreground hover:-translate-x-0.5 hover:-translate-y-0.5 hover:bg-accent hover:text-accent-foreground hover:shadow-brutal'
-              }`}
+              className={`rounded-xl border px-3 py-2.5 text-sm font-medium tracking-tight transition-all duration-200 disabled:opacity-50 text-left ${active ? 'border-primary bg-primary/15 text-foreground shadow-[0_0_0_1px_var(--primary),0_8px_24px_-10px_rgb(124_108_255/0.8)]' : 'border-border bg-foreground/[0.03] text-muted-foreground hover:border-foreground/25 hover:bg-foreground/[0.07] hover:text-foreground'}`}
             >
               {option.value === 'random' ? 'Random' : option.label}
             </button>
