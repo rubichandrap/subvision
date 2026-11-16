@@ -32,6 +32,10 @@ The long-speech video and the committed fixture were not re-measured: those chec
 
 Do not add vocal isolation to the ASR path, on the evidence of this one song. The worker keeps decoding the extracted mix, chunked as in ADR-0012. No setting is added.
 
+## Amendment: opt-in switch
+
+After this was recorded the user asked to be able to try isolation from the app, so it exists as an off-by-default switch (`ASR_VOCAL_ISOLATION` in the root `.env`; it builds Demucs into the ASR image and applies it in the worker). It is one path with one setting, as ADR-0010 allows, not a second engine. The decision above stands: the measurements do not support turning it on, and the 16 kHz mono input the app gives the worker is weaker than the 44.1 kHz stereo measured here (one run on the song gave 108 words, 69% corroborated by the mix decodes, and 1 wrong word in 22 on the clean-speech fixture, against 0 without isolation).
+
 ## Alternatives considered
 
 - **A stronger separator (`htdemucs_ft`, about 4x the compute of `htdemucs`).** Not measured. Cleaner stems would have to turn "no gain" into a clear gain to justify a cost already far past the timeout and the memory budget.

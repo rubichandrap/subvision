@@ -107,6 +107,35 @@ audio around it and a word is not heard twice.
   single-pass compute, 1.25x with the defaults. Long videos may need a larger
   `PARAKEET_TIMEOUT_SECONDS` on the server.
 
+## Vocal isolation (optional experiment)
+
+[ADR-0013](../../docs/adr/0013-no-vocal-isolation-before-asr.md) measured
+Demucs (`htdemucs`) vocal isolation before Parakeet and found no gain on one
+song, so it is **off by default**. It exists so you can try it on your own
+videos: with `ASR_VOCAL_ISOLATION=1` the worker separates the vocals from the
+16 kHz mono audio it receives and decodes that stem instead.
+
+- Set `ASR_VOCAL_ISOLATION=1` in the root `.env` (see `.env.example`). Compose
+  passes it to the image build as `VOCAL_ISOLATION` (which installs CPU PyTorch,
+  Demucs and bakes the 84 MB weights in, about 2 GB more) and to the worker at
+  run time. Rebuild the image after changing it:
+
+  ```sh
+  docker build --network host --build-arg VOCAL_ISOLATION=1 -t subvision-asr asr/worker
+  docker compose up -d --no-build asr
+  ```
+
+- It is slow: about 100 s and up to ~3 GB of RAM for a 3-minute song, and RAM
+  grows with the length of the file. Raise `PARAKEET_TIMEOUT_SECONDS` in `server/.env` (e.g. `900`) or every
+  song fails at the default 60 s.
+- A worker started with it on but an image built without it exits at startup
+  with an error saying so. `meta.vocalIsolation` in the response says whether
+  it was applied.
+- To turn it off, set `ASR_VOCAL_ISOLATION=0` (or remove it) and restart the
+  worker; no rebuild is needed, but rebuild without it to get the small image
+  back.
+- Not a second engine: the same decode path runs, on the vocals stem.
+
 ## Environment
 
 | Variable | Description |
@@ -116,6 +145,7 @@ audio around it and a word is not heard twice.
 | `ASR_MAX_BODY_BYTES` | Request body cap; default 256 MiB. |
 | `ASR_HOST` / `ASR_PORT` | Bind address and port; defaults `0.0.0.0:8081`. |
 | `ASR_THREADS` | ONNX runtime thread count. |
+| `ASR_VOCAL_ISOLATION` | `1` separates the vocals with Demucs before decoding; default `0`. Needs an image built with `VOCAL_ISOLATION=1`. |
 | `ASR_CHUNK_SECONDS` | Longest audio decoded in one pass; longer files are chunked. Default `20`; `0` turns chunking off, otherwise at least `2`. |
 | `ASR_CHUNK_OVERLAP_SECONDS` | Audio shared by neighbouring chunks, under half a chunk. Default `4`. |
 

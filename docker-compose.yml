@@ -28,9 +28,14 @@ services:
   asr:
     build:
       context: ./asr/worker
+      args:
+        # One switch in the root .env builds Demucs in and turns it on (ADR-0013).
+        VOCAL_ISOLATION: ${ASR_VOCAL_ISOLATION:-0}
     container_name: subvision-asr
     environment:
       PARAKEET_MODEL_DIR: /models
+      # Experiment (ADR-0013): 0 (default) or 1; set it in the root .env.
+      ASR_VOCAL_ISOLATION: ${ASR_VOCAL_ISOLATION:-0}
     volumes:
       - ${PARAKEET_MODEL_DIR:-./models/parakeet}:/models:ro
     # Internal only: the browser never talks to the worker.

@@ -26,6 +26,21 @@ pinned files and retain this attribution.
 - **Source:** https://github.com/k2-fsa/sherpa-onnx
 - **License:** Apache License 2.0
 
+## Demucs and PyTorch (optional, vocal isolation)
+
+Only installed when the ASR image is built with `VOCAL_ISOLATION=1`
+(ADR-0013); the default image contains none of this.
+
+- **Demucs 4.0.1** (https://github.com/facebookresearch/demucs): MIT License,
+  Copyright (c) Meta Platforms, Inc. and affiliates.
+- **`htdemucs` pretrained weights:** downloaded from the Demucs project at image
+  build time and baked into the image, never at response time, and never
+  committed. The Demucs repository states it is released under the MIT license;
+  no separate weights licence was found, and it has not been confirmed
+  independently. Verify it before distributing an image that contains them.
+- **PyTorch / torchaudio** (CPU wheels): BSD-3-Clause style licences. The image
+  build also installs `ffmpeg` (LGPL/GPL, from Debian).
+
 ## Python worker dependencies
 
 The ASR worker in `asr/worker` installs pinned versions of `numpy`,
