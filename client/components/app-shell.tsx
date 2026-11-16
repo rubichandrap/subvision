@@ -16,17 +16,24 @@ const NAV = [
 ];
 
 // The shell every page shares: atmosphere, floating navigation, footer.
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  onNewVideo,
+}: {
+  children: React.ReactNode;
+  // When the page can take a video itself (Home), the header button opens the
+  // file picker instead of navigating.
+  onNewVideo?: () => void;
+}) {
   const pathname = usePathname();
-  const isHome = pathname === '/';
 
   return (
     <div className="relative flex min-h-screen flex-col">
       <Ambient />
 
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center px-3 pt-3 sm:px-6 sm:pt-4">
-        <div className="glass pointer-events-auto flex h-14 w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-border pl-3 pr-1.5 sm:gap-3 sm:pl-4 sm:pr-2 shadow-soft">
-          <Link href="/" className="group flex min-h-10 min-w-10 items-center justify-center gap-2.5" aria-label="Subvision home">
+        <div className="glass pointer-events-auto grid h-14 w-full max-w-5xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-full border border-border pl-3 pr-1.5 sm:gap-3 sm:pl-4 sm:pr-2 shadow-soft">
+          <Link href="/" className="group flex min-h-10 min-w-10 items-center justify-self-start gap-2.5" aria-label="Subvision home">
             <LogoMark className="h-7 w-7 transition-transform duration-300 group-hover:scale-105" />
             <Wordmark className="hidden text-[1.2rem] leading-none min-[420px]:inline" />
           </Link>
@@ -52,10 +59,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 justify-self-end">
             <ThemeToggle />
-            {!isHome && (
-              <Button size="sm" asChild className="w-9 gap-1.5 px-0 sm:w-auto sm:px-4">
+            {/* Present on every page so the header never changes shape. */}
+            {onNewVideo ? (
+              <Button
+                size="sm"
+                onClick={onNewVideo}
+                aria-label="New video"
+                className="h-10 w-10 gap-1.5 px-0 sm:w-auto sm:px-4"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">New video</span>
+              </Button>
+            ) : (
+              <Button size="sm" asChild className="h-10 w-10 gap-1.5 px-0 sm:w-auto sm:px-4">
                 <Link href="/" aria-label="New video">
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">New video</span>

@@ -115,7 +115,7 @@ export default function Home() {
   const choose = () => inputRef.current?.click();
 
   return (
-    <AppShell>
+    <AppShell onNewVideo={choose}>
       <input
         ref={inputRef}
         type="file"
