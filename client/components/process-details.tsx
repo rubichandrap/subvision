@@ -116,7 +116,7 @@ export function ProcessDetails({ processId }: { processId: string }) {
                 <button
                   type="button"
                   aria-label="Copy process id"
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+                  className="inline-flex h-9 w-9 shrink-0 items-center sm:h-7 sm:w-7 justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
                   onClick={() => {
                     void handleCopyId();
                   }}

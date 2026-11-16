@@ -151,7 +151,7 @@ function Editor() {
       <AppShell>
         <div className="mx-auto flex w-full max-w-lg flex-col items-center px-4 py-24 text-center">
           <Clapperboard className="h-10 w-10 text-muted-foreground" />
-          <h1 className="mt-4 font-display text-2xl font-semibold">
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight">
             That video is no longer in this session
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">

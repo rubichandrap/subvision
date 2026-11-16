@@ -25,17 +25,43 @@ function timecode(ms: number) {
 }
 
 export function CaptionStage({ className }: { className?: string }) {
+  const rootRef = React.useRef<HTMLDivElement>(null);
   const [phrase, setPhrase] = React.useState(0);
   const [word, setWord] = React.useState(-1);
   const [clock, setClock] = React.useState(0);
+  const [onScreen, setOnScreen] = React.useState(true);
+  const [reduceMotion, setReduceMotion] = React.useState(false);
 
+  // Pause the demo when it is off screen, and stay still for people who ask
+  // the system for reduced motion (the first phrase is then shown in full).
   React.useEffect(() => {
-    const start = performance.now();
-    const tick = window.setInterval(() => setClock(performance.now() - start), 83);
-    return () => window.clearInterval(tick);
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const sync = () => setReduceMotion(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    const node = rootRef.current;
+    const observer = node
+      ? new IntersectionObserver(([entry]) => setOnScreen(entry.isIntersecting))
+      : null;
+    if (node && observer) observer.observe(node);
+    return () => {
+      media.removeEventListener('change', sync);
+      observer?.disconnect();
+    };
   }, []);
 
+  const running = onScreen && !reduceMotion;
+
   React.useEffect(() => {
+    if (!running) return;
+    const start = performance.now() - clock;
+    const tick = window.setInterval(() => setClock(performance.now() - start), 100);
+    return () => window.clearInterval(tick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
+
+  React.useEffect(() => {
+    if (!running) return;
     const words = PHRASES[phrase];
     const timer = window.setTimeout(
       () => {
@@ -49,13 +75,16 @@ export function CaptionStage({ className }: { className?: string }) {
       word === words.length - 1 ? HOLD_MS : word === -1 ? 380 : WORD_MS
     );
     return () => window.clearTimeout(timer);
-  }, [phrase, word]);
+  }, [phrase, word, running]);
 
   const words = PHRASES[phrase];
-  const progress = Math.min(1, (word + 1) / words.length);
+  const shown = reduceMotion ? words.length - 1 : word;
+  const progress = Math.min(1, (shown + 1) / words.length);
 
   return (
     <div
+      ref={rootRef}
+      aria-hidden
       className={cn(
         'relative isolate aspect-[4/5] w-full overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#07060d] shadow-soft-lg sm:aspect-[16/9] lg:aspect-[2.1/1]',
         className
@@ -94,8 +123,8 @@ export function CaptionStage({ className }: { className?: string }) {
       {/* Captions */}
       <div className="absolute inset-x-[8%] bottom-[22%] flex flex-wrap items-center justify-center gap-x-[0.35em] gap-y-1 text-center text-[clamp(1.6rem,4.6vw,3.6rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-white [text-shadow:0_2px_24px_rgb(0_0_0/0.55)]">
         {words.map((text, index) => {
-          const active = index === word;
-          const past = index < word;
+          const active = !reduceMotion && index === word;
+          const past = index < shown;
           return (
             <span
               key={`${phrase}-${index}`}
@@ -121,7 +150,7 @@ export function CaptionStage({ className }: { className?: string }) {
           />
         </div>
         <span className="font-mono text-[10px] tracking-widest text-white/70 sm:text-xs">
-          {String(Math.max(word, 0) + 1).padStart(2, '0')}/{String(words.length).padStart(2, '0')}
+          {String(Math.max(shown, 0) + 1).padStart(2, '0')}/{String(words.length).padStart(2, '0')}
         </span>
       </div>
     </div>

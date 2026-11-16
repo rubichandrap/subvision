@@ -13,7 +13,8 @@ export const STAGE_LABEL: Record<ProcessStage, string> = {
 const STAGE_STYLE: Record<ProcessStage, string> = {
   uploaded: 'bg-foreground/[0.06] text-muted-foreground',
   transcribing: 'bg-primary/15 text-primary',
-  rendering: 'bg-[#22d3ee]/15 text-[#0891b2] dark:text-[#67e8f9]',
+  rendering:
+    'bg-chart-2/15 text-[color-mix(in_oklab,var(--chart-2)_60%,var(--foreground))]',
   done: 'bg-success/15 text-success',
   failed: 'bg-destructive/15 text-destructive',
 };

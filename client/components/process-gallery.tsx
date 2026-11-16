@@ -195,7 +195,7 @@ function GalleryCard({ process }: { process: Process }) {
                     link.download = process.filename || 'captioned-video.mp4';
                     link.click();
                   }}
-                  className="absolute bottom-3 left-3 z-30 inline-flex h-8 items-center gap-1.5 rounded-full bg-black/60 px-3 text-xs font-medium text-white backdrop-blur-md transition-opacity duration-200 hover:bg-black/80 focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100"
+                  className="absolute bottom-3 left-3 z-30 inline-flex h-10 items-center sm:h-8 gap-1.5 rounded-full bg-black/60 px-3 text-xs font-medium text-white backdrop-blur-md transition-opacity duration-200 hover:bg-black/80 focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100"
                   title="Download MP4"
                 >
                   <Download className="h-3.5 w-3.5" />
@@ -260,7 +260,7 @@ function GalleryCard({ process }: { process: Process }) {
       {/* Delete Process Button */}
       <DeleteProcessButton
         process={process}
-        className="absolute bottom-3.5 right-3.5 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-foreground/[0.05] text-muted-foreground transition-all duration-200 hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100"
+        className="absolute bottom-3.5 right-3.5 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-foreground/[0.05] text-muted-foreground sm:h-9 sm:w-9 transition-all duration-200 hover:border-destructive/40 hover:bg-destructive/15 hover:text-destructive focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 group-hover:opacity-100"
         label={`Delete ${process.filename || process.id}`}
       />
     </div>

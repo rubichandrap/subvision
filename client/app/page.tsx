@@ -71,6 +71,10 @@ export default function Home() {
     [router, toast]
   );
 
+  // Keep the drag listeners stable: they call the latest handler through a ref.
+  const handleFileRef = useRef(handleFile);
+  handleFileRef.current = handleFile;
+
   // Dropping a file anywhere on the page starts the edit.
   useEffect(() => {
     let depth = 0;
@@ -94,7 +98,7 @@ export default function Home() {
       event.preventDefault();
       depth = 0;
       setDragging(false);
-      handleFile(event.dataTransfer?.files?.[0]);
+      handleFileRef.current(event.dataTransfer?.files?.[0]);
     };
     window.addEventListener('dragenter', enter);
     window.addEventListener('dragleave', leave);
@@ -106,7 +110,7 @@ export default function Home() {
       window.removeEventListener('dragover', over);
       window.removeEventListener('drop', drop);
     };
-  }, [handleFile]);
+  }, []);
 
   const choose = () => inputRef.current?.click();
 
