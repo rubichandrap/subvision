@@ -299,7 +299,7 @@ function Editor() {
           </Card>
         </div>
       </div>
-      <div className="glass fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-md flex-col gap-2.5 rounded-3xl border border-border p-3 shadow-soft-lg lg:hidden">
+      <div className="glass fixed inset-x-3 bottom-3 backdrop-blur-xl backdrop-saturate-150 z-30 mx-auto flex max-w-md flex-col gap-2.5 rounded-3xl border border-border p-3 shadow-soft-lg lg:hidden">
         {uploadProgress !== null && <Progress value={uploadProgress} />}
         {generateButton}
       </div>

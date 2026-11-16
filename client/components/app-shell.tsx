@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowUpRight, Github, Plus } from 'lucide-react';
@@ -26,13 +27,31 @@ export function AppShell({
   onNewVideo?: () => void;
 }) {
   const pathname = usePathname();
+  const [scrolled, setScrolled] = React.useState(false);
+
+  // The header has no surface at the top of a page; it frosts once the page
+  // moves under it.
+  React.useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 8);
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  }, []);
 
   return (
     <div className="relative flex min-h-screen flex-col">
       <Ambient />
 
       <header className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center px-3 pt-3 sm:px-6 sm:pt-4">
-        <div className="glass pointer-events-auto grid h-14 w-full max-w-5xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-full border border-border pl-3 pr-1.5 sm:gap-3 sm:pl-4 sm:pr-2 shadow-soft">
+        <div
+          data-scrolled={scrolled}
+          className={cn(
+            'pointer-events-auto grid h-14 w-full max-w-5xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-full border pl-3 pr-1.5 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300 ease-out sm:gap-3 sm:pl-4 sm:pr-2',
+            scrolled
+              ? 'glass border-border shadow-soft backdrop-blur-xl backdrop-saturate-150'
+              : 'border-transparent bg-transparent shadow-none backdrop-blur-none backdrop-saturate-100'
+          )}
+        >
           <Link href="/" className="group flex min-h-10 min-w-10 items-center justify-self-start gap-2.5" aria-label="Subvision home">
             <LogoMark className="h-7 w-7 transition-transform duration-300 group-hover:scale-105" />
             <Wordmark className="hidden text-[1.2rem] leading-none min-[420px]:inline" />
